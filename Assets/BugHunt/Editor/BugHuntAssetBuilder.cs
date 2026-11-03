@@ -47,14 +47,16 @@ namespace BugHunt.Editor
         }
 
         // ---------------------------------------------------------------- 소리
-        static void BuildAudio()
+        // 소리만 다시 만들기: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildAudio
+        // 파일마다 음 높이를 달리해 소리끼리 구분된다. 길이는 판정에 쓰인다(랩 14: 0.2초 뒤, 랩 15: 1초 뒤 재생 중이어야 함).
+        public static void BuildAudio()
         {
-            WriteTone("lab12_blaster", 0.3f, 880f, 660f);
-            WriteTone("lab13_footsteps", 0.4f, 120f, 90f);
-            WriteTone("lab13_boss", 3f, 160f, 140f);
-            WriteTone("lab14_explosion", 1.5f, 70f, 40f);
-            WriteTone("lab15_briefing", 3f, 440f, 440f);
-            WriteTone("lab15_grunt", 0.3f, 300f, 200f);
+            WriteTone("lab12_blaster", 0.3f, 880f);
+            WriteTone("lab13_footsteps", 0.4f, 220f);
+            WriteTone("lab13_boss", 3f, 330f);
+            WriteTone("lab14_explosion", 1.5f, 110f);
+            WriteTone("lab15_briefing", 3f, 440f);
+            WriteTone("lab15_grunt", 0.3f, 660f);
             AssetDatabase.Refresh();
 
             // 랩 12 의 버그: 메모리를 아끼려고 미리 로드를 껐다.
@@ -67,8 +69,8 @@ namespace BugHunt.Editor
             importer.SaveAndReimport();
         }
 
-        // 16비트 모노 WAV. 주파수가 from → to 로 미끄러지고 끝으로 갈수록 작아지는 소리.
-        static void WriteTone(string name, float seconds, float fromHz, float toHz)
+        // 16비트 모노 WAV. 고정 주파수 하나의 단일음, 일정한 볼륨. 클릭 소리가 나지 않게 앞뒤 10ms 만 페이드.
+        static void WriteTone(string name, float seconds, float hz)
         {
             const int SampleRate = 44100;
             int samples = Mathf.RoundToInt(seconds * SampleRate);
@@ -86,14 +88,13 @@ namespace BugHunt.Editor
             writer.Write((short)16);
             writer.Write(new[] { 'd', 'a', 't', 'a' });
             writer.Write(samples * 2);
-            double phase = 0;
+            const float Volume = 0.3f;
+            const int FadeSamples = SampleRate / 100;   // 10ms
             for (int i = 0; i < samples; ++i)
             {
-                float t = (float)i / samples;
-                float hz = Mathf.Lerp(fromHz, toHz, t);
-                phase += 2 * Mathf.PI * hz / SampleRate;
-                float envelope = Mathf.Min(1f, i / 200f) * (1f - t);
-                writer.Write((short)(Mathf.Sin((float)phase) * envelope * 0.5f * short.MaxValue));
+                float envelope = Mathf.Min(1f, Mathf.Min(i, samples - 1 - i) / (float)FadeSamples);
+                double phase = 2 * System.Math.PI * hz * i / SampleRate;
+                writer.Write((short)(System.Math.Sin(phase) * envelope * Volume * short.MaxValue));
             }
         }
 
