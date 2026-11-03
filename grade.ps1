@@ -1,5 +1,5 @@
 ﻿# BugHunt Unity 채점 (명령줄). grade.bat 이 이 스크립트를 부른다. 사용법은 README 의 "채점" 을 보세요.
-# BugHunt Unity 採点 (コマンドライン)。grade.bat がこのスクリプトを呼びます。使い方は README.ja.md の「採点」を見てください。
+# BugHunt Unity 採点 (コマンドライン)。grade.bat がこのスクリプトを呼びます。使い方は README.md (日本語) の「採点」を見てください。
 #   grade.bat                        모든 랩 채점 / 全ラボを採点
 #   grade.bat -NoGraphics            그래픽 장치 없이 (랩 39 는 SKIP) / グラフィックスデバイスなしで (ラボ 39 は SKIP)
 #   grade.bat -Labs 23,24,50         이 랩만 / このラボだけ
