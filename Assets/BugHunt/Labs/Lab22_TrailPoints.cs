@@ -1,10 +1,10 @@
 // 랩 22: 발자국
 // 플레이어가 지나간 자리를 NativeList 에 쌓아 두고, 잡(Job)에 넘기기 쉽게 AsArray() 로 만든 NativeArray 를 캐시해 둔다.
-// 출발점(첫 발자국)으로 돌아가는 기능이 있다. 처음 몇 걸음 동안은 괜찮은데, 걸음이 쌓이면 출발점을 읽는 줄에서 ObjectDisposedException 이 난다.
+// 출발점(첫 발자국)으로 돌아가는 기능이 있다. 걷기 전에는 괜찮은데, 한 걸음이라도 걸은 뒤 출발점을 읽는 줄에서 ObjectDisposedException 이 난다.
 // 기대: 몇 걸음을 걸어도 출발점을 읽을 수 있고, 다 쓰면 메모리를 돌려준다.
 // ラボ 22: 足跡
 // プレイヤーが通った場所を NativeList にためておき、ジョブ (Job) に渡しやすいように AsArray() で作った NativeArray をキャッシュしておく。
-// 出発点 (最初の足跡) に戻る機能がある。最初の数歩は大丈夫だが、歩数がたまると出発点を読む行で ObjectDisposedException が出る。
+// 出発点 (最初の足跡) に戻る機能がある。歩く前は大丈夫だが、1 歩でも歩いた後に出発点を読む行で ObjectDisposedException が出る。
 // 期待: 何歩歩いても出発点を読むことができ、使い終わったらメモリを返す。
 using System.Collections;
 using Unity.Collections;
@@ -43,7 +43,7 @@ namespace BugHunt.Labs.Lab22
         }
     }
 
-    [Lab(22, "발자국", Symptom = "걸음이 쌓이면 출발점을 읽는 줄에서 \"has been deallocated\"")]
+    [Lab(22, "발자국", Symptom = "한 걸음만 걸어도 출발점을 읽는 줄에서 \"has been deallocated\"")]
     public class Lab22_TrailPoints : Lab
     {
         public override IEnumerator Run()
@@ -86,30 +86,34 @@ namespace BugHunt.Labs.Lab22
 // ============================================================================
 
 #region 힌트 1 / ヒント 1 (먼저 직접 추적해 보고 펼치세요 / まず自分で追跡してから開いてください)
-// Step 에 중단점을 걸고 매번 조사식에 Points.Capacity 와 Points.Length 를 보세요. 예외는 Length 가 Capacity 를 넘는 첫 Add 다음에 납니다.
+// Step 에 중단점을 걸고 조사식에 view[0] 을 넣어 두세요. 처음 멈췄을 때는 읽히는데, Step 을 한 번 지나간 뒤에는 어떻게 되나요?
 // 예외 메시지는 "The Unity.Collections.NativeList ... has been deallocated" 입니다. NativeList 는 멀쩡한데 무엇이 해제되었다는 걸까요?
 //
-// Step にブレークポイントを置き、毎回ウォッチ式で Points.Capacity と Points.Length を見てください。例外は Length が Capacity を超える最初の Add の後に出ます。
+// Step にブレークポイントを置き、ウォッチ式に view[0] を入れておいてください。最初に止まったときは読めますが、Step を 1 回通った後はどうなりますか?
 // 例外メッセージは "The Unity.Collections.NativeList ... has been deallocated" です。NativeList は無事なのに、何が解放されたというのでしょう?
 #endregion
 
 #region 힌트 2 / ヒント 2
-// NativeList 는 Capacity 가 모자라면 더 큰 메모리를 새로 잡아 복사하고 옛 메모리를 해제합니다(List<T> 와 같음).
-// AsArray() 는 복사가 아니라 "지금 이 순간의 메모리" 를 가리키는 모습(view)입니다. 크기가 바뀌면 그 view 는 해제된 옛 메모리를 가리킵니다.
-// 안전 검사(Safety System)가 켜져 있으니 예외로 알려 주지만, 빌드(안전 검사 꺼짐)에서는 쓰레기 값을 읽거나 크래시합니다. 4부 랩 23~24와 같은 종류입니다.
+// AsArray() 는 복사가 아니라 "지금 이 순간의 메모리" 를 가리키는 모습(view)입니다.
+// NativeList 는 Capacity 가 모자라면 더 큰 메모리를 새로 잡아 복사하고 옛 메모리를 해제합니다(List<T> 와 같음). 그때 view 는 해제된 옛 메모리를 가리킵니다.
+// 그래서 안전 검사(Safety System)는 메모리가 실제로 옮겨지기를 기다리지 않습니다. Add 처럼 길이를 바꾸는 쓰기는 매번 리스트의 "보조 버전"을 올리고,
+// 그 전에 만든 view 는 그 순간 무효가 됩니다(Capacity 안에서 쓰는 AddNoResize 만 예외). 그래서 첫 Add 한 번에 예외가 납니다.
+// 빌드(안전 검사 꺼짐)에서는 예외 없이, 메모리가 옮겨진 뒤 쓰레기 값을 읽거나 크래시합니다. 4부 랩 23~24와 같은 종류입니다.
 // view 의 길이도 만든 순간의 길이로 굳어 있습니다. 메모리가 그대로여도 그 뒤에 늘어난 원소는 view 로 볼 수 없습니다.
 //
-// NativeList は Capacity が足りなくなると、より大きなメモリを新しく確保してコピーし、古いメモリを解放します (List<T> と同じ)。
-// AsArray() はコピーではなく、「今この瞬間のメモリ」を指すビュー (view) です。サイズが変わると、その view は解放された古いメモリを指します。
-// 安全チェック (Safety System) がオンなので例外で知らせてくれますが、ビルド (安全チェックはオフ) ではゴミの値を読むかクラッシュします。第4部のラボ 23〜24 と同じ種類です。
+// AsArray() はコピーではなく、「今この瞬間のメモリ」を指すビュー (view) です。
+// NativeList は Capacity が足りなくなると、より大きなメモリを新しく確保してコピーし、古いメモリを解放します (List<T> と同じ)。そのとき view は解放された古いメモリを指します。
+// そのため安全チェック (Safety System) はメモリが実際に移されるのを待ちません。Add のように長さを変える書き込みは毎回リストの「セカンダリバージョン」を上げ、
+// それより前に作った view はその瞬間に無効になります (Capacity の範囲内で書く AddNoResize だけは例外)。だから最初の Add 1 回で例外が出ます。
+// ビルド (安全チェックはオフ) では例外は出ず、メモリが移された後にゴミの値を読むかクラッシュします。第4部のラボ 23〜24 と同じ種類です。
 // view の長さも作った瞬間の長さで固定されています。メモリがそのままでも、その後に増えた要素は view からは見えません。
 #endregion
 
 #region 힌트 3 / ヒント 3
 // view 를 필드에 캐시하지 말고 쓸 때마다 만듭니다. 잡에 넘길 때도 스케줄 직전에 Points.AsArray() (또는 AsDeferredJobArray()).
 //   public Vector3 StartPoint() { return Points[0]; }
-// 크기가 정해져 있다면 처음부터 Capacity 를 넉넉히 잡을 수도 있지만, 그것은 버그를 숨길 뿐이니 view 를 오래 들고 있지 않는 쪽이 정답입니다.
+// Capacity 를 넉넉히 잡아도 소용없습니다. Add 마다 view 가 무효가 되니, view 는 길이를 바꾸는 쓰기를 건너서 들고 있지 않는 것이 규칙입니다.
 //
 // view をフィールドにキャッシュせず、使うたびに作ります。ジョブに渡すときも、スケジュールの直前に Points.AsArray() (または AsDeferredJobArray())。
-// サイズが決まっているなら最初から Capacity を十分に確保することもできますが、それはバグを隠すだけなので、view を長く持ち続けない方が正解です。
+// Capacity を十分に確保しても無駄です。Add のたびに view が無効になるので、長さを変える書き込みをまたいで view を持ち続けないのがルールです。
 #endregion

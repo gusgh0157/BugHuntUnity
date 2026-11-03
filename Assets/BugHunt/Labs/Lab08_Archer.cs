@@ -111,11 +111,11 @@ namespace BugHunt.Labs.Lab08
 #region 힌트 3 / ヒント 3
 // ?. ?? ??= is null 은 Unity 의 == 를 거치지 않고 C# 참조만 봅니다. 그래서 파괴된 오브젝트를 "살아 있다"고 판단합니다.
 // UnityEngine.Object 에는 if (Target == null) Target = FindNearest(); 처럼 == 를 쓰세요.
-// (VS/Rider 의 Unity 분석기가 이 줄에 UNT0007 / UNT0023 제안을 띄웁니다. 물결 밑줄이 보이나요?)
+// (VS/Rider 의 Unity 분석기가 문제의 두 줄(??=, ?.)에 UNT0023 / UNT0008 제안을 띄웁니다. 물결 밑줄이 보이나요?)
 // 참고: Destroy 는 프레임 끝에 일어납니다. 같은 프레임 안에서는 == null 도 아직 false 입니다.
 //
 // ?. ?? ??= is null は Unity の == を通らず、C# の参照だけを見ます。そのため破棄されたオブジェクトを「生きている」と判断します。
 // UnityEngine.Object には if (Target == null) Target = FindNearest(); のように == を使ってください。
-// (VS/Rider の Unity アナライザーがこの行に UNT0007 / UNT0023 の提案を出します。波線の下線が見えますか?)
+// (VS/Rider の Unity アナライザーが問題の 2 行 (??=、?.) に UNT0023 / UNT0008 の提案を出します。波線の下線が見えますか?)
 // 参考: Destroy はフレームの終わりに行われます。同じフレーム内では == null もまだ false です。
 #endregion

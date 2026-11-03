@@ -6,7 +6,7 @@ namespace BugHunt
         static readonly (string Ko, string Ja)[] Lab25 =
         {
             ("출현 계획표", "出現計画表"),
-            ("첫 줄만 나오고 다음 프레임부터 \"has been deallocated\"", "1 行目だけ出て、次のフレームから \"has been deallocated\""),
+            ("웨이브를 시작한 다음 프레임, 첫 줄부터 \"has been deallocated\"", "ウェーブを始めた次のフレーム、1 行目から \"has been deallocated\""),
             ("Temp 할당 수명", "Temp 割り当ての寿命"),
             ("이 빌드는 컬렉션 안전 검사가 꺼져 있습니다. 에디터에서 실행하세요", "このビルドはコレクションの安全チェックがオフです。エディターで実行してください"),
             ("계획표를 끝까지 읽음", "計画表を最後まで読んだ"),

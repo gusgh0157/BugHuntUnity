@@ -297,7 +297,7 @@
 | 도구 | 하는 법 | 언제 |
 |---|---|---|
 | **예외 설정: throw 될 때 중단** | VS: 디버그 → 창 → 예외 설정 → Common Language Runtime Exceptions 에서 `System.IndexOutOfRangeException`, `System.InvalidOperationException` 체크. Rider: Run → View Breakpoints → Exception Breakpoints | 예외가 잡히는 곳이 아니라 **던지는 곳**에서 멈추기 (랩 16, 17) |
-| 조사식에 **인덱스와 크기를 나란히** | `i`, `Slots.Length`, `Labels.Count`, `Points.Capacity` | 범위 밖 인덱스 (랩 16), 크기가 바뀐 순간 (랩 22) |
+| 조사식에 **인덱스와 크기를 나란히** | `i`, `Slots.Length`, `Labels.Count`, `view[0]` | 범위 밖 인덱스 (랩 16), 길이를 바꾼 쓰기 직후 (랩 22) |
 | 조사식 **참조 비교** | `alphaRoster == bravoRoster`, `(object)key == null` 과 `key == null` 을 나란히 | 같은 컨테이너를 두 변수가 가리키나 (랩 20), fake null 키 (랩 21) |
 | **Inspector 의 Debug 모드** | Inspector 오른쪽 위 ⋮ → Debug. private 직렬화 필드까지 보인다 | 이 필드가 직렬화되는가. 인스펙터에 안 보이면 Instantiate·저장에서도 빠진다 (랩 18) |
 | `JsonUtility.ToJson(component)` 출력 | Console 에 찍어 보기 | 직렬화되는 필드만 나온다. 빠진 필드 = 복제·저장에서 사라지는 필드 (랩 18) |
@@ -313,7 +313,7 @@
 | 19 | 순찰 순서 | 경비병이 Order 번호와 상관없는 순서로 돈다. 맵마다, 실행 환경마다 맞기도 하고 틀리기도 한다 | **`FindObjectsByType` / `GetComponents` 의 순서는 약속이 아니다**, 직접 정렬, 인스펙터 배열 | ★ |
 | 20 | 부대 편성 | 두 부대의 명단이 똑같다 | **결과를 채워 주는 API 가 넘긴 List 를 비운다**(`GetComponentsInChildren(List)`), 돌려쓰는 버퍼의 주인 | ★★ |
 | 21 | 위협 목록 | 위협 1위가 죽자 보스가 MissingReferenceException, 목록 수도 그대로 | **파괴된 오브젝트가 Dictionary 키로 남음**(fake null 키), 죽은 키 치우기, `OnDestroy` 알림 | ★★ |
-| 22 | 발자국 | 걸음이 쌓이면 출발점을 읽는 줄에서 "has been deallocated" | **`NativeList.AsArray()` 는 복사가 아니라 모습**, 크기가 바뀌면 옛 메모리, 캐시하지 않기 | ★★ |
+| 22 | 발자국 | 한 걸음만 걸어도 출발점을 읽는 줄에서 "has been deallocated" | **`NativeList.AsArray()` 는 복사가 아니라 모습**, 길이를 바꾸는 쓰기마다 무효, 캐시하지 않기 | ★★ |
 
 > 랩 22 의 예외는 에디터의 컬렉션 안전 검사 덕분입니다(4부와 같음). 릴리스 빌드에서는 해제된 메모리를 읽어 엉뚱한 값이나 크래시가 납니다. `NativeArray` 의 `Dispose` 누락은 4부 랩 23 에서 다룹니다.
 
@@ -342,7 +342,7 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 |---|---|---|---|---|
 | 23 | 경로 캐시 | 예외는 없는데 오래 하면 메모리가 늘고, 멈추면 `Leak Detected` | **NativeArray 는 GC 가 치우지 않는다**, `Dispose` / `OnDestroy`, Leak Detection Level, 구조체 복사본과 안전 핸들 | ★ |
 | 24 | 망루의 시야 | 잡을 붙이자마자 InvalidOperationException ("분명히 Complete 했는데?") | **JobHandle 의존 사슬**, 끝 핸들을 Complete, 안전 시스템 메시지 읽기, Profiler Timeline 의 Worker | ★★ |
-| 25 | 출현 계획표 | 첫 줄만 나오고 다음 프레임부터 "has been deallocated" | **Allocator 수명**(Temp / TempJob / Persistent), 프레임 끝에 되감기는 Temp | ★★ |
+| 25 | 출현 계획표 | 웨이브를 시작한 다음 프레임, 첫 줄부터 "has been deallocated" | **Allocator 수명**(Temp / TempJob / Persistent), 프레임 끝에 되감기는 Temp | ★★ |
 | 26 | 두 번째 판 | Play 를 두 번째 누르면 웨이브가 이어지고 레이더가 지난 판의 적을 가리킨다 | **Domain Reload 를 끈 Enter Play Mode**, 정적 상태 되돌리기 `[RuntimeInitializeOnLoadMethod(SubsystemRegistration)]` | ★★ |
 
 > 랩 23·25 는 에디터의 컬렉션 안전 검사(`ENABLE_UNITY_COLLECTIONS_CHECKS`)로 판정합니다. 에디터와 개발 빌드에서는 켜져 있습니다. 릴리스 빌드에서는 같은 버그가 예외 없이 **엉뚱한 값이나 크래시**로 나타납니다(그래서 에디터에서 잡아야 합니다).

@@ -379,7 +379,8 @@ public class Shop : MonoBehaviour, ISerializationCallbackReceiver
 
 ## ラボ 19 — FindObjectsByType の順序をゲームの順序として使う
 ```
-間違った結果:     3 つのマップのうち 1〜2 個は 0,1,2 で合い、残りは 2,1,0 や 1,3,0,2 のように間違う。同じコードなのに採点ツールとテストランナーで合うマップが違う
+間違った結果:     3 つのマップすべてで間違う (2,1,0 や 1,3,0,2 のように。間違い方は実行環境ごとに違う)。ラボは置く順をどの単調な順序とも合わないように選んである。
+                  実際のゲームでは「あるマップでは合う」という形で現れるバグだ
 ツール:           LearnRoute の後にウォッチ式 Route → 各要素の Order と name (置いた順 A, B, C)
 本当の原因:       FindObjectsSortMode.None は順序を保証しない。エンジン内部の順序がそのまま出てきて、その順序は置いた順とも実行環境とも無関係に変わる。たまに合うのが一番危険だ
 ```
@@ -422,17 +423,18 @@ public void AttackTop() { Prune(); ... }
 
 **教訓:** `UnityEngine.Object` を入れたコンテナ (`Dictionary` のキー、`HashSet`、`List`) は `Destroy` を知りません。取り出すときに `== null` (Unity の再定義) で除外して片付けるか、死ぬときに通知して削除します。片付けていない項目は C# オブジェクトを掴んだままなので、小さなリークにもなります。第1部のラボ 1・8 の fake null がコンテナの中に隠れた形です。
 
-## ラボ 22 — サイズが変わった NativeList の AsArray をキャッシュしておく
+## ラボ 22 — 長さが変わった NativeList の AsArray をキャッシュしておく
 ```
 症状:             出発点を読む行で ObjectDisposedException: NativeList ... has been deallocated
-ツール:           Step にブレークポイント → Points.Capacity 4、Length が 5 になる Add 以降 view が死ぬ
-本当の原因:       Capacity を超える Add はより大きなメモリに移って古いメモリを解放する。Awake で作った view は古いメモリを指している (長さも 1 のまま固まっている)
+ツール:           Step にブレークポイント、ウォッチ式 view[0] → 最初の Step (最初の Add) を通った直後から読めない。Capacity 4 を超える前なのに
+本当の原因:       Awake で作った view はその瞬間のメモリを指している (長さも 1 のまま固まっている)。メモリが実際に移されるのは Capacity を超える Add のときだが、
+                  安全チェックは長さを変えるすべての書き込み (Add のたび) でリストのセカンダリバージョンを上げ、それより前に作った view を無効にする。AddNoResize だけは例外
 ```
 **修正:**
 ```csharp
 public Vector3 StartPoint() { return Points[0]; }   // view をキャッシュしない。必要なら使うたびに Points.AsArray()
 ```
-**教訓:** `NativeList.AsArray()`、`List<T>` から得た `Span`、`NativeArray.GetSubArray` はコピーではなく **今のメモリの姿** です。サイズが変わると古くなります。ジョブに渡すときはスケジュールの直前に作るか、`AsDeferredJobArray()` を使います。エディターの安全チェックが例外で知らせてくれますが、リリースビルドでは解放されたメモリを黙って読みます。
+**教訓:** `NativeList.AsArray()`、`List<T>` から得た `Span`、`NativeArray.GetSubArray` はコピーではなく **今のメモリの姿** です。長さを変える書き込みをまたいで持ち続けません (Capacity を十分に確保しても無駄です)。ジョブに渡すときはスケジュールの直前に作るか、`AsDeferredJobArray()` を使います。エディターの安全チェックが例外で知らせてくれますが、リリースビルドでは解放されたメモリを黙って読みます。
 
 ---
 
@@ -621,7 +623,8 @@ void FixedUpdate()
 間違った結果:     戻した位置で拾ったもの null (期待値 Crate)、元の位置で拾ったもの Crate (期待値 null)
 ツール:           ResetCrates の後のウォッチ式: transform.position == (0,0,4)、GetComponent<Collider>().bounds.center == (8,0,4)
 本当の原因:       transform の変更は次の物理ステップの直前に物理シーンへ反映される。その間の Raycast は古い位置のコライダーを見る
-                 (以前は Physics.autoSyncTransforms でクエリごとに同期できたが、Unity 6 では使わない)
+                 (Physics.autoSyncTransforms をオンにするとクエリごとに同期するが、2018.3 から既定でオフ。クエリごとのコストが大きいので推奨されず、
+                  必要な所で Physics.SyncTransforms() を 1 回呼ぶのが定石)
 ```
 **修正:**
 ```csharp

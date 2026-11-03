@@ -102,7 +102,10 @@ namespace BugHunt.Labs.Lab01
                 tower.Enemies.Add(Spawn<Enemy>($"Enemy_{i}", new Vector3(0, 0, 5 + i * 3)));
             }
 
-            yield return new WaitForSeconds(0.15f);
+            // 감시탑이 표적을 잡고 한두 발 쏠 때까지. 시간이 아니라 프레임으로 기다려야 첫 프레임이 늦어도 Enemy_0 이 살아 있다.
+            // タワーが標的を決めて 1〜2 発撃つまで。時間ではなくフレームで待つので、最初のフレームが遅れても Enemy_0 は生きている。
+            yield return null;
+            yield return null;
             Report.Note("쾅! 폭탄이 가장 가까운 적 근처에서 터진다.");
             var bomb = Spawn<Bomb>("Bomb", new Vector3(0, 0, 5));
             bomb.Explode(tower.Enemies, 1.5f);

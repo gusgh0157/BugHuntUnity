@@ -114,10 +114,12 @@ namespace BugHunt.Labs.Lab55
 //   if (count == buffer.Length) { Debug.LogWarning("치유 오라 버퍼가 가득 참"); }   // 넘쳤을 수 있다
 //   for (int i = 0; i < count; ++i) { if (buffer[i].TryGetComponent(out Ally ally)) { ... } }
 // 레이어 마스크를 함께 넘기면(랩 29) 아군 레이어만 받아 버퍼를 아낄 수 있습니다.
+// 버퍼 크기를 지금 아군 수(24명)에 딱 맞추지 마세요. 채점기의 숨은 케이스는 아군 수가 다르고(30명), 넘친 아군은 경고 없이 치유에서 빠집니다.
 //
 //   readonly Collider[] buffer = new Collider[32];
 //   int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, buffer);
 //   if (count == buffer.Length) { Debug.LogWarning("回復オーラのバッファーがいっぱい"); }   // あふれたかもしれない
 //   for (int i = 0; i < count; ++i) { if (buffer[i].TryGetComponent(out Ally ally)) { ... } }
 // レイヤーマスクも一緒に渡せば (ラボ 29)、味方のレイヤーだけを受け取ってバッファーを節約できます。
+// バッファーの大きさを今の味方の数 (24 人) にぴったり合わせないでください。採点ツールの隠しケースでは味方の数が違い (30 人)、あふれた味方は警告なしに回復から外れます。
 #endregion

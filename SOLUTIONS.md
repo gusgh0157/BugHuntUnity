@@ -379,7 +379,8 @@ public class Shop : MonoBehaviour, ISerializationCallbackReceiver
 
 ## Lab 19 — FindObjectsByType 의 순서를 게임 순서로 씀
 ```
-틀린 결과:     맵 세 개 중 한두 개는 0,1,2 로 맞고 나머지는 2,1,0, 1,3,0,2 처럼 틀린다. 같은 코드인데 채점기와 Test Runner 에서 맞는 맵이 다르다
+틀린 결과:     세 맵 모두 틀린다(2,1,0, 1,3,0,2 처럼. 틀린 순서는 실행 환경마다 다르다). 랩은 놓는 순서를 어떤 단조 순서와도 안 맞게 골라 두었다.
+               실제 게임에서는 "어떤 맵은 맞다"로 나타나는 버그다
 도구:          LearnRoute 뒤 조사식 Route → 각 원소의 Order 와 name(놓은 순서 A, B, C)
 진짜 원인:     FindObjectsSortMode.None 은 순서를 보장하지 않는다. 엔진 내부 순서가 그대로 나오고, 그 순서는 놓은 순서와도, 실행 환경과도 무관하게 바뀐다. 가끔 맞는 것이 가장 위험하다
 ```
@@ -422,17 +423,18 @@ public void AttackTop() { Prune(); ... }
 
 **교훈:** `UnityEngine.Object` 를 담은 컨테이너(`Dictionary` 키, `HashSet`, `List`)는 `Destroy` 를 모른다. 꺼낼 때 `== null`(Unity 재정의)로 걸러 치우거나, 죽을 때 알려서 지운다. 치우지 않은 항목은 C# 객체를 붙잡아 작은 누수도 된다. 1부 랩 1·8 의 fake null 이 컨테이너 안에 숨은 모양이다.
 
-## Lab 22 — 크기가 바뀐 NativeList 의 AsArray 를 캐시해 둠
+## Lab 22 — 길이가 바뀐 NativeList 의 AsArray 를 캐시해 둠
 ```
 증상:          출발점을 읽는 줄에서 ObjectDisposedException: NativeList ... has been deallocated
-도구:          Step 에 중단점 → Points.Capacity 4, Length 가 5 가 되는 Add 다음부터 view 가 죽는다
-진짜 원인:     Capacity 를 넘는 Add 는 더 큰 메모리로 옮기고 옛 메모리를 해제한다. Awake 에서 만든 view 는 옛 메모리를 가리킨다(길이도 1 로 굳어 있다)
+도구:          Step 에 중단점, 조사식 view[0] → 첫 Step(첫 Add) 을 지나자마자 읽을 수 없다. Capacity 4 를 넘기 전인데도
+진짜 원인:     Awake 에서 만든 view 는 그 순간의 메모리를 가리킨다(길이도 1 로 굳어 있다). 메모리가 실제로 옮겨지는 것은 Capacity 를 넘는 Add 때지만,
+               안전 검사는 길이를 바꾸는 모든 쓰기(Add 마다)에서 리스트의 보조(secondary) 버전을 올려 그 전에 만든 view 를 무효로 만든다. AddNoResize 만 예외
 ```
 **수정:**
 ```csharp
 public Vector3 StartPoint() { return Points[0]; }   // view 를 캐시하지 않는다. 필요하면 쓸 때마다 Points.AsArray()
 ```
-**교훈:** `NativeList.AsArray()`, `List<T>` 에서 얻은 `Span`, `NativeArray.GetSubArray` 는 복사가 아니라 **지금 메모리의 모습**이다. 크기가 바뀌면 낡는다. 잡에 넘길 때는 스케줄 직전에 만들거나 `AsDeferredJobArray()` 를 쓴다. 에디터의 안전 검사가 예외로 알려 주지만 릴리스 빌드에서는 해제된 메모리를 조용히 읽는다.
+**교훈:** `NativeList.AsArray()`, `List<T>` 에서 얻은 `Span`, `NativeArray.GetSubArray` 는 복사가 아니라 **지금 메모리의 모습**이다. 길이를 바꾸는 쓰기를 건너서 들고 있지 않는다(Capacity 를 넉넉히 잡아도 소용없다). 잡에 넘길 때는 스케줄 직전에 만들거나 `AsDeferredJobArray()` 를 쓴다. 에디터의 안전 검사가 예외로 알려 주지만 릴리스 빌드에서는 해제된 메모리를 조용히 읽는다.
 
 ---
 
@@ -621,7 +623,8 @@ void FixedUpdate()
 틀린 결과:     돌아간 자리에서 집은 것 null(기대 Crate), 옛 자리에서 집은 것 Crate(기대 null)
 도구:          ResetCrates 뒤 조사식: transform.position == (0,0,4), GetComponent<Collider>().bounds.center == (8,0,4)
 진짜 원인:     transform 변경은 다음 물리 스텝 직전에 물리 장면으로 옮겨진다. 그 사이의 Raycast 는 옛 자리의 콜라이더를 본다
-              (예전에는 Physics.autoSyncTransforms 로 쿼리마다 동기화할 수 있었지만 Unity 6 에서는 쓰지 않는다)
+              (Physics.autoSyncTransforms 를 켜면 쿼리마다 동기화하지만 2018.3 부터 기본 꺼짐. 쿼리마다 비용이 커서 권장하지 않고,
+               필요한 곳에서 Physics.SyncTransforms() 를 한 번 부르는 것이 정석이다)
 ```
 **수정:**
 ```csharp

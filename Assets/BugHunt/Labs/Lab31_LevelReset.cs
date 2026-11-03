@@ -75,11 +75,11 @@ namespace BugHunt.Labs.Lab31
 #region 힌트 2 / ヒント 2
 // 물리 엔진은 Unity 의 transform 과 따로 자기 장면(PhysX scene)을 갖고 있습니다. transform 을 바꾸면 그 변경은 모아 두었다가
 // 다음 물리 스텝 직전(또는 SyncTransforms 를 부를 때)에 한꺼번에 물리 장면으로 옮겨집니다.
-// 그 사이에 하는 Raycast, OverlapSphere 같은 쿼리는 옛 자리의 콜라이더를 봅니다. 예전의 Physics.autoSyncTransforms 는 쿼리마다 동기화했지만 느려서 꺼졌고, Unity 6 에서는 더 이상 쓰지 않습니다.
+// 그 사이에 하는 Raycast, OverlapSphere 같은 쿼리는 옛 자리의 콜라이더를 봅니다. Physics.autoSyncTransforms 를 켜면 쿼리마다 동기화하지만, 2018.3 부터 기본값이 꺼져 있고 쿼리마다 비용이 커서 권장하지 않습니다.
 //
 // 物理エンジンは Unity の transform とは別に、自分のシーン (PhysX scene) を持っています。transform を変えると、その変更はためておかれ、
 // 次の物理ステップの直前 (または SyncTransforms を呼んだとき) にまとめて物理シーンへ反映されます。
-// その間に行う Raycast や OverlapSphere のようなクエリは、元の位置のコライダーを見ます。以前の Physics.autoSyncTransforms はクエリのたびに同期していましたが、遅いのでオフになり、Unity 6 ではもう使われません。
+// その間に行う Raycast や OverlapSphere のようなクエリは、元の位置のコライダーを見ます。Physics.autoSyncTransforms をオンにするとクエリのたびに同期しますが、2018.3 から既定値はオフで、クエリごとのコストが大きいので推奨されません。
 #endregion
 
 #region 힌트 3 / ヒント 3

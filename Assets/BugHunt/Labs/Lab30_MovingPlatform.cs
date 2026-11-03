@@ -52,7 +52,7 @@ namespace BugHunt.Labs.Lab30
             yield return new WaitForSeconds(seconds);
 
             Report.ExpectNear("발판이 간 거리(m)", expectedX, platformGo.transform.position.x, 0.2f);
-            Report.ExpectNear("상자가 실려 간 거리(m)", expectedX, box.transform.position.x, 0.3f);
+            Report.ExpectNear("상자가 실려 간 거리(m)", expectedX, box.transform.position.x, 0.5f);   // 마찰로 따라붙는 지연(약 v²/2a) 만큼 여유 / 摩擦で追いつくまでの遅れ (約 v²/2a) の分の余裕
             Report.ExpectTrue(Loc.F("상자가 발판 위에 있음 (y = {0:0.00})", box.transform.position.y), box.transform.position.y > 0.6f);
         }
 

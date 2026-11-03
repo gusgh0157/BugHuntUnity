@@ -122,11 +122,13 @@ namespace BugHunt.Labs.Lab52
 //   public class Enemy : MonoBehaviour { public static readonly List<Enemy> All = new List<Enemy>(); void OnEnable() { All.Add(this); } void OnDisable() { All.Remove(this); } }
 //   void Start() { Player = GameObject.Find("Player").transform; }   // 또는 인스펙터로 연결
 //   for (int i = 0; i < Enemy.All.Count; ++i) { ... }               // foreach 도 List 를 직접 돌면 할당 없음
-// 표적 찾기를 매 프레임 할 필요가 없다면 0.2초마다로 줄이는 것도 방법입니다.
+// 등록부로 바꾼 뒤라면 표적 찾기를 몇 프레임마다로 줄이는 것도 실제 게임에서는 방법이지만, 이 랩은 새 적에 2프레임 안에 반응하기를 요구합니다.
+// FindObjectsByType 을 둔 채 주기만 늘리는 것은 답이 아닙니다(할당은 그대로입니다).
 //
 // 変わらないものは 1 回だけ探し (Awake/Start)、変わる集合は「登録簿」で管理します。
 //   public class Enemy : MonoBehaviour { public static readonly List<Enemy> All = new List<Enemy>(); void OnEnable() { All.Add(this); } void OnDisable() { All.Remove(this); } }
 //   void Start() { Player = GameObject.Find("Player").transform; }   // またはインスペクターでつなぐ
 //   for (int i = 0; i < Enemy.All.Count; ++i) { ... }               // foreach も List を直接回せばアロケーションなし
-// 標的探しを毎フレーム行う必要がなければ、0.2 秒ごとに減らすのも手です。
+// 登録簿に変えた後なら、標的探しを数フレームごとに減らすのも実際のゲームでは手ですが、このラボは新しい敵に 2 フレーム以内に反応することを求めます。
+// FindObjectsByType を残したまま周期だけ延ばすのは答えではありません (アロケーションはそのままです)。
 #endregion

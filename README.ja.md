@@ -297,7 +297,7 @@
 | ツール | やり方 | いつ |
 |---|---|---|
 | **例外設定: スローされたときに中断** | VS: デバッグ → ウィンドウ → 例外設定 → Common Language Runtime Exceptions で `System.IndexOutOfRangeException`、`System.InvalidOperationException` にチェック。Rider: Run → View Breakpoints → Exception Breakpoints | 例外がキャッチされる場所ではなく**スローする場所**で止める (ラボ 16, 17) |
-| ウォッチ式に**インデックスとサイズを並べる** | `i`、`Slots.Length`、`Labels.Count`、`Points.Capacity` | 範囲外のインデックス (ラボ 16)、サイズが変わった瞬間 (ラボ 22) |
+| ウォッチ式に**インデックスとサイズを並べる** | `i`、`Slots.Length`、`Labels.Count`、`view[0]` | 範囲外のインデックス (ラボ 16)、長さを変える書き込みの直後 (ラボ 22) |
 | ウォッチ式で**参照を比較** | `alphaRoster == bravoRoster`、`(object)key == null` と `key == null` を並べる | 同じコンテナを 2 つの変数が指しているか (ラボ 20)、fake null のキー (ラボ 21) |
 | **インスペクターのデバッグモード** | インスペクター右上の ⋮ → デバッグ。private のシリアライズフィールドまで見える | このフィールドはシリアライズされるか。インスペクターに出ないものは Instantiate・保存でも抜け落ちる (ラボ 18) |
 | `JsonUtility.ToJson(component)` の出力 | コンソールに出力してみる | シリアライズされるフィールドだけが出る。出ないフィールド = 複製・保存で消えるフィールド (ラボ 18) |
@@ -313,7 +313,7 @@
 | 19 | 巡回順序 | 警備兵が Order 番号と関係ない順番で回る。マップごと、実行環境ごとに合ったり合わなかったりする | **`FindObjectsByType` / `GetComponents` の順序は約束ではない**、自分でソート、インスペクターの配列 | ★ |
 | 20 | 部隊編成 | 2 つの部隊の名簿がまったく同じ | **結果を詰めてくれる API は渡した List を空にする**(`GetComponentsInChildren(List)`)、使い回すバッファの持ち主 | ★★ |
 | 21 | ヘイトリスト | 脅威 1 位が死んだらボスが MissingReferenceException、リストの数もそのまま | **破棄されたオブジェクトが Dictionary のキーに残る**(fake null のキー)、死んだキーの片付け、`OnDestroy` での通知 | ★★ |
-| 22 | 足跡 | 歩数が増えると、出発点を読む行で "has been deallocated" | **`NativeList.AsArray()` はコピーではなくビュー**、サイズが変わると古いメモリ、キャッシュしない | ★★ |
+| 22 | 足跡 | 1 歩歩いただけで出発点を読む行で "has been deallocated" | **`NativeList.AsArray()` はコピーではなくビュー**、長さを変える書き込みのたびに無効、キャッシュしない | ★★ |
 
 > ラボ 22 の例外は、エディターのコレクション安全チェックのおかげで出ます(第4部と同じ)。リリースビルドでは解放されたメモリを読んで、おかしな値やクラッシュになります。`NativeArray` の `Dispose` 漏れは第4部のラボ 23 で扱います。
 
@@ -342,7 +342,7 @@ C# では GC がメモリを片付けてくれますが、Unity には **GC が�
 |---|---|---|---|---|
 | 23 | 経路キャッシュ | 例外は出ないのに、長く遊ぶとメモリが増え、止めると `Leak Detected` | **NativeArray は GC が片付けない**、`Dispose` / `OnDestroy`、Leak Detection Level、構造体のコピーと安全ハンドル | ★ |
 | 24 | 見張り塔の視界 | ジョブを追加したとたん InvalidOperationException (「確かに Complete したのに?」) | **JobHandle の依存チェーン**、最後のハンドルを Complete、安全システムのメッセージを読む、プロファイラーのタイムラインの Worker | ★★ |
-| 25 | 出現計画表 | 最初の行だけ出て、次のフレームから "has been deallocated" | **Allocator の寿命**(Temp / TempJob / Persistent)、フレームの終わりに巻き戻される Temp | ★★ |
+| 25 | 出現計画表 | ウェーブを始めた次のフレーム、1 行目から "has been deallocated" | **Allocator の寿命**(Temp / TempJob / Persistent)、フレームの終わりに巻き戻される Temp | ★★ |
 | 26 | 2 回目のプレイ | 2 回目に Play を押すとウェーブが続きから始まり、レーダーが前回の敵を指す | **Domain Reload を切った Enter Play Mode**、静的状態を元に戻す `[RuntimeInitializeOnLoadMethod(SubsystemRegistration)]` | ★★ |
 
 > ラボ 23・25 は、エディターのコレクション安全チェック(`ENABLE_UNITY_COLLECTIONS_CHECKS`)で判定します。エディターと開発ビルドでは有効になっています。リリースビルドでは、同じバグが例外なしで**おかしな値やクラッシュ**として現れます(だからエディターで捕まえる必要があります)。
