@@ -43,12 +43,13 @@ namespace BugHunt.Labs.Lab22
             var swordsman = go.AddComponent<Swordsman>();
             yield return null;
 
-            for (int i = 0; i < 3; ++i)
+            int swings = Case(3, 4);
+            for (int i = 0; i < swings; ++i)
             {
                 swordsman.Swing();
                 yield return new WaitForSeconds(1.3f);
             }
-            Report.Expect("들어간 검격", 3, swordsman.HitsLanded);
+            Report.Expect("들어간 검격", swings, swordsman.HitsLanded);
         }
     }
 }

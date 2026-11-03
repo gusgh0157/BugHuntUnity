@@ -44,13 +44,14 @@ namespace BugHunt.Labs.Lab11
             player2.Equip(rifleData);
             yield return null;
 
-            for (int i = 0; i < 3; ++i)
+            int shots = Case(3, 5);
+            for (int i = 0; i < shots; ++i)
             {
                 player1.Fire();
                 yield return null;
             }
 
-            Report.Expect("플레이어 1 탄약", rifleData.MaxAmmo - 3, player1.AmmoLeft);
+            Report.Expect("플레이어 1 탄약", rifleData.MaxAmmo - shots, player1.AmmoLeft);
             Report.Expect("플레이어 2 탄약", rifleData.MaxAmmo, player2.AmmoLeft);
             Report.Expect("이번 실행 동안 에셋의 Ammo 변화량", 0, rifleData.Ammo - assetAmmoBefore);
         }

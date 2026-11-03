@@ -49,6 +49,7 @@ namespace BugHunt.Labs.Lab05
         public override IEnumerator Run()
         {
             var knight = Spawn<Fighter>("Knight");
+            int[] hits = Case(new[] { 10, 5, 7, 3 }, new[] { 6, 9, 4, 2 });
 
             GameObject panelObject = Spawn("CombatLogPanel");
             panelObject.SetActive(false);
@@ -56,26 +57,26 @@ namespace BugHunt.Labs.Lab05
             panel.Target = knight;
 
             panelObject.SetActive(true);
-            knight.TakeHit(10);
+            knight.TakeHit(hits[0]);
             panelObject.SetActive(false);
 
-            knight.TakeHit(5);      // 창이 닫혀 있을 때 맞은 피해는 기록하지 않는다.
+            knight.TakeHit(hits[1]);      // 창이 닫혀 있을 때 맞은 피해는 기록하지 않는다.
 
             panelObject.SetActive(true);
-            knight.TakeHit(7);
+            knight.TakeHit(hits[2]);
 
             foreach (string line in panel.Lines)
             {
                 Report.Note($"전투 기록: {line}");
             }
             Report.Expect("다시 연 창의 기록 줄 수", 1, panel.Lines.Count);
-            Report.Expect("띄운 알림 총합 (10, 7)", 2, panel.NotificationsShown);
+            Report.Expect($"띄운 알림 총합 ({hits[0]}, {hits[2]})", 2, panel.NotificationsShown);
 
             Destroy(panelObject);   // 전투 종료: 창을 버린다
             yield return null;
-            knight.TakeHit(3);
+            knight.TakeHit(hits[3]);
             Report.Expect("창을 파괴한 뒤에도 알림 총합", 2, panel.NotificationsShown);
-            Report.Expect("기사 HP", 75, knight.Health);
+            Report.Expect("기사 HP", 100 - hits[0] - hits[1] - hits[2] - hits[3], knight.Health);
         }
     }
 }

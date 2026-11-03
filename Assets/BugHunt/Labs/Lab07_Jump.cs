@@ -56,16 +56,18 @@ namespace BugHunt.Labs.Lab07
             var jumper = Spawn<Jumper>("Jumper");
             yield return null;
 
-            for (int i = 0; i < 10; ++i)
+            int presses = Case(10, 13);
+            int gapFrames = Case(7, 5);
+            for (int i = 0; i < presses; ++i)
             {
                 GameInput.PressJumpNextFrame();
-                for (int f = 0; f < 7; ++f)
+                for (int f = 0; f < gapFrames; ++f)
                 {
                     yield return null;
                 }
             }
 
-            Report.Expect("점프 횟수", 10, jumper.Jumps);
+            Report.Expect("점프 횟수", presses, jumper.Jumps);
         }
 
         void OnDestroy()

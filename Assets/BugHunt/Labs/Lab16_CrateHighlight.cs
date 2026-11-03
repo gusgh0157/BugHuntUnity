@@ -43,18 +43,20 @@ namespace BugHunt.Labs.Lab16
             }
             yield return null;
 
-            crates[0].OnHoverEnter();
+            int pick = Case(0, 2);
+            int other = 1;
+            crates[pick].OnHoverEnter();
             yield return null;
 
-            Color hovered = LabUtil.ShownColor(crates[0].GetComponent<Renderer>());
-            Color neighbor = LabUtil.ShownColor(crates[1].GetComponent<Renderer>());
+            Color hovered = LabUtil.ShownColor(crates[pick].GetComponent<Renderer>());
+            Color neighbor = LabUtil.ShownColor(crates[other].GetComponent<Renderer>());
             Report.ExpectTrue($"강조한 상자는 빨강 (실제 {hovered})", LabUtil.SameColor(hovered, Color.red));
             Report.ExpectTrue($"옆 상자는 흰색 (실제 {neighbor})", LabUtil.SameColor(neighbor, Color.white));
             Report.ExpectTrue($"Crate.mat 에셋은 흰색 (실제 {crateMaterial.color})", LabUtil.SameColor(crateMaterial.color, Color.white));
 
-            crates[0].OnHoverExit();
+            crates[pick].OnHoverExit();
             yield return null;
-            Color restored = LabUtil.ShownColor(crates[0].GetComponent<Renderer>());
+            Color restored = LabUtil.ShownColor(crates[pick].GetComponent<Renderer>());
             Report.ExpectTrue($"마우스를 떼면 흰색으로 (실제 {restored})", LabUtil.SameColor(restored, Color.white));
         }
     }

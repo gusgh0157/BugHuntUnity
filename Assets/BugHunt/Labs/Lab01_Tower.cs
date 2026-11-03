@@ -91,7 +91,8 @@ namespace BugHunt.Labs.Lab01
         public override IEnumerator Run()
         {
             var tower = Spawn<Tower>("Tower", Vector3.zero);
-            for (int i = 0; i < 3; ++i)
+            int enemyCount = Case(3, 4);
+            for (int i = 0; i < enemyCount; ++i)
             {
                 tower.Enemies.Add(Spawn<Enemy>($"Enemy_{i}", new Vector3(0, 0, 5 + i * 3)));
             }
@@ -104,7 +105,7 @@ namespace BugHunt.Labs.Lab01
             yield return new WaitForSeconds(1.5f);
             int alive = tower.Enemies.Count(e => e != null);
             Report.Expect("남은 적", 0, alive);
-            Report.Expect("감시탑이 처치한 적", 2, tower.Kills);
+            Report.Expect("감시탑이 처치한 적", enemyCount - 1, tower.Kills);
         }
     }
 }

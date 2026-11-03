@@ -34,6 +34,10 @@ namespace BugHunt.Editor
         void OnGUI()
         {
             EditorGUILayout.HelpBox("번호를 누르면 BugHunt 씬에서 Play 하고 그 랩을 실행합니다. 결과는 Console 창(검색: [BugHunt])과 Game 창에 나옵니다.\n같은 랩 다시 실행: Ctrl+Alt+R", MessageType.Info);
+            if (GUILayout.Button("모든 랩 채점 (Ctrl+Alt+G)", GUILayout.Height(22)))
+            {
+                EditorApplication.ExecuteMenuItem("BugHunt/채점 (모든 랩)");
+            }
             scroll = EditorGUILayout.BeginScrollView(scroll);
             string currentPart = null;
             foreach (LabRunner.LabEntry entry in LabRunner.Labs)

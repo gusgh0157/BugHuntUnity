@@ -47,18 +47,20 @@ namespace BugHunt.Labs.Lab09
     {
         public override IEnumerator Run()
         {
-            var patrol = Spawn<Patrol>("Patrol", Vector3.zero);
-            patrol.Waypoints.Add(new Vector3(5, 2.5f, 0));
-            patrol.Waypoints.Add(new Vector3(5, 2.5f, 5));
-            patrol.Waypoints.Add(new Vector3(0, 2.5f, 5));
-            patrol.GroundHeight = 0f;
+            float ground = Case(0f, 0.5f);
+            float air = Case(2.5f, 4f);
+            var patrol = Spawn<Patrol>("Patrol", new Vector3(0, ground, 0));
+            patrol.Waypoints.Add(Case(new Vector3(5, air, 0), new Vector3(4, air, -3)));
+            patrol.Waypoints.Add(Case(new Vector3(5, air, 5), new Vector3(4, air, 4)));
+            patrol.Waypoints.Add(Case(new Vector3(0, air, 5), new Vector3(-2, air, 4)));
+            patrol.GroundHeight = ground;
             patrol.SnapWaypointsToGround();
             Report.Note($"맞춘 뒤 첫 웨이포인트: {patrol.Waypoints[0]}");
 
             yield return new WaitForSeconds(2.5f);
 
             Report.Expect("지난 웨이포인트", 3, patrol.Reached);
-            Report.ExpectNear("순찰병의 최고 높이", 0f, patrol.MaxHeight, 0.01f);
+            Report.ExpectNear("순찰병의 최고 높이", ground, patrol.MaxHeight, 0.01f);
         }
     }
 }

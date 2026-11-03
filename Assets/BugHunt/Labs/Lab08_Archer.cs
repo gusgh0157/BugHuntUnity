@@ -60,12 +60,13 @@ namespace BugHunt.Labs.Lab08
         public override IEnumerator Run()
         {
             var archer = Spawn<Archer>("Archer");
-            for (int i = 0; i < 3; ++i)
+            int dummies = Case(3, 4);
+            for (int i = 0; i < dummies; ++i)
             {
                 archer.Field.Add(Spawn<Dummy>($"Dummy_{i}", new Vector3(i * 2, 0, 10)));
             }
 
-            for (int arrow = 1; arrow <= 6; ++arrow)
+            for (int arrow = 1; arrow <= dummies * 2; ++arrow)
             {
                 archer.ShootArrow();
                 yield return null;   // 화살은 한 프레임에 한 발
@@ -73,7 +74,7 @@ namespace BugHunt.Labs.Lab08
 
             int standing = archer.Field.Count(d => d != null);
             Report.Expect("서 있는 허수아비", 0, standing);
-            Report.Expect("점수", 300, archer.Score);
+            Report.Expect("점수", dummies * 100, archer.Score);
         }
     }
 }

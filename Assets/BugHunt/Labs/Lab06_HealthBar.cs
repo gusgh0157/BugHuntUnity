@@ -69,6 +69,7 @@ namespace BugHunt.Labs.Lab06
         public override IEnumerator Run()
         {
             var hero = Spawn<BleedingHero>("Hero");
+            hero.Health = Case(30, 45);
             var bar = Spawn<HealthBar>("HealthBar");
             bar.Hero = hero;
             var probe = Spawn<FrameProbe>("FrameProbe");

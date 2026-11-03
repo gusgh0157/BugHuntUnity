@@ -53,19 +53,21 @@ namespace BugHunt.Labs.Lab18
             var loader = new IconLoader();
 
             // 물약 아이콘은 상점 화면에서 이미 한 번 읽었다.
-            bool potionReady = false;
-            loader.Request("potion", _ => potionReady = true);
-            while (!potionReady)
+            string cached = Case("potion", "shield");
+            string slow = Case("sword", "potion");
+            bool cachedReady = false;
+            loader.Request(cached, _ => cachedReady = true);
+            while (!cachedReady)
             {
                 yield return null;
             }
 
             var slot = Spawn<InventorySlot>("Slot_0");
             slot.Loader = loader;
-            slot.Show("sword");
-            Report.Note($"프레임 {Time.frameCount}: 칸에 검 표시 요청");
-            slot.Show("potion");   // 같은 프레임에 스크롤되어 칸이 물약으로 재사용됨
-            Report.Note($"프레임 {Time.frameCount}: 칸에 물약 표시 요청 (아이콘 {(slot.Icon ? slot.Icon.name : "없음")})");
+            slot.Show(slow);
+            Report.Note($"프레임 {Time.frameCount}: 칸에 {slow} 표시 요청");
+            slot.Show(cached);   // 같은 프레임에 스크롤되어 칸이 물약으로 재사용됨
+            Report.Note($"프레임 {Time.frameCount}: 칸에 {cached} 표시 요청 (아이콘 {(slot.Icon ? slot.Icon.name : "없음")})");
 
             for (int i = 0; i < 10; ++i)
             {
@@ -73,7 +75,7 @@ namespace BugHunt.Labs.Lab18
             }
 
             string iconName = slot.Icon ? slot.Icon.name : "없음";
-            Report.Expect("칸의 아이템", "potion", slot.ItemId);
+            Report.Expect("칸의 아이템", cached, slot.ItemId);
             Report.Expect("칸에 그려진 아이콘", $"icon_{slot.ItemId}", iconName);
         }
     }

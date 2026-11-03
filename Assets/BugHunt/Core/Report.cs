@@ -16,6 +16,10 @@ namespace BugHunt
         public static int Failed { get; private set; }
         public static int Skipped { get; private set; }
 
+        // 이번 랩에서 처음 나온 [FAIL] / [SKIP] 줄. 채점 결과의 detail 에 쓴다.
+        public static string FirstFailure { get; private set; }
+        public static string FirstSkip { get; private set; }
+
         // LabRunner 가 화면에 그리려고 구독한다.
         public static event Action<string, Color> Printed;
 
@@ -24,6 +28,8 @@ namespace BugHunt
             Passed = 0;
             Failed = 0;
             Skipped = 0;
+            FirstFailure = null;
+            FirstSkip = null;
         }
 
         public static bool Expect<T>(string what, T expected, T actual)
@@ -76,12 +82,14 @@ namespace BugHunt
         public static void Fail(string message)
         {
             ++Failed;
+            FirstFailure ??= message;
             Print($"[FAIL] {message}", new Color(1f, 0.4f, 0.4f));
         }
 
         public static void Skip(string what, string reason)
         {
             ++Skipped;
+            FirstSkip ??= $"{what} ({reason})";
             Print($"[SKIP] {what} ({reason})", Color.yellow);
         }
 

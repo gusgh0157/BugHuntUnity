@@ -52,7 +52,8 @@ namespace BugHunt.Labs.Lab19
             flag.transform.localScale = Vector3.one * 4f;
             bannerMaterial = new Material(Shader.Find("Unlit/Color"));
             flag.GetComponent<Renderer>().sharedMaterial = bannerMaterial;
-            flag.AddComponent<TeamBanner>().ApplyTeamColor("#FF8040");
+            string hex = Case("#FF8040", "#40A0FF");
+            flag.AddComponent<TeamBanner>().ApplyTeamColor(hex);
             yield return null;
 
             cam.Render();
@@ -65,9 +66,11 @@ namespace BugHunt.Labs.Lab19
 
             Color32 pixel = readback.GetPixel(4, 4);
             Report.Note($"깃발 픽셀: ({pixel.r}, {pixel.g}, {pixel.b})");
-            Report.ExpectNear("빨강", 255, pixel.r, 3);
-            Report.ExpectNear("초록", 128, pixel.g, 3);
-            Report.ExpectNear("파랑", 64, pixel.b, 3);
+            ColorUtility.TryParseHtmlString(hex, out Color wanted);
+            Color32 expected = wanted;
+            Report.ExpectNear("빨강", expected.r, pixel.r, 3);
+            Report.ExpectNear("초록", expected.g, pixel.g, 3);
+            Report.ExpectNear("파랑", expected.b, pixel.b, 3);
         }
 
         void OnDestroy()

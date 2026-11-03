@@ -27,9 +27,9 @@ namespace BugHunt.Labs.Lab17
             yield return null;
             int materialsBefore = Resources.FindObjectsOfTypeAll<Material>().Length;
 
-            var random = new System.Random(17);
+            var random = new System.Random(Case(17, 71));
             int wrongColors = 0;
-            for (int wave = 1; wave <= 2; ++wave)
+            for (int wave = 1; wave <= Case(2, 3); ++wave)
             {
                 var crates = new List<SupplyCrate>();
                 for (int i = 0; i < 100; ++i)

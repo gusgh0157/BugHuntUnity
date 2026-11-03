@@ -51,6 +51,7 @@ namespace BugHunt.Labs.Lab02
             head.AddComponent<SphereCollider>().radius = 0.3f;
 
             var rifle = Spawn<Rifle>("Rifle", Vector3.zero);
+            rifle.Damage = Case(20, 15);
             Physics.SyncTransforms();   // 방금 만든 콜라이더를 레이캐스트가 보게 한다
             yield return null;
 
@@ -63,7 +64,7 @@ namespace BugHunt.Labs.Lab02
             yield return null;
 
             Report.Expect("명중 수", 3, rifle.Hits);
-            Report.Expect("허수아비 HP", 20, health.Current);
+            Report.Expect("허수아비 HP", 100 - 4 * rifle.Damage, health.Current);
         }
     }
 }

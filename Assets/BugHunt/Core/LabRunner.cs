@@ -16,6 +16,11 @@ namespace BugHunt
         public bool Crashed;
         public bool TimedOut;
         public bool Hung;   // HangGuard 가 "응답 없음" 을 선언했다 (TimedOut 도 true)
+        public bool HiddenCase;
+        public bool UsedCase;
+        public string FirstFailure;
+        public string FirstSkip;
+        public string FirstException;   // 크래시였다면 처음 난 예외의 메시지 한 줄
         public int ErrorLogs;
     }
 
@@ -51,6 +56,7 @@ namespace BugHunt
         bool crashed;
         bool labDone;
         int errorLogs;
+        string firstException;
         Vector2 listScroll;
         Vector2 logScroll;
 
@@ -131,9 +137,15 @@ namespace BugHunt
             crashed = false;
             labDone = false;
             errorLogs = 0;
+            firstException = null;
             HangGuard.Reset();
+            Lab.UsedCase = false;
 
             Report.Print($"==== 랩 {number}: {entry.Title} ====", Color.cyan);
+            if (Lab.HiddenCase)
+            {
+                Report.Note("(채점: 숨은 테스트 케이스로 실행)");
+            }
             Application.logMessageReceived += OnLog;
 
             var root = new GameObject($"Lab{number:00}");
@@ -180,6 +192,11 @@ namespace BugHunt
                 Crashed = crashed,
                 TimedOut = timedOut,
                 Hung = hung,
+                HiddenCase = Lab.HiddenCase,
+                UsedCase = Lab.UsedCase,
+                FirstFailure = Report.FirstFailure,
+                FirstSkip = Report.FirstSkip,
+                FirstException = firstException,
                 ErrorLogs = errorLogs,
             };
             IsRunning = false;
@@ -198,6 +215,7 @@ namespace BugHunt
             if (type == LogType.Exception && !HangGuard.Tripped)
             {
                 crashed = true;
+                firstException ??= condition;
             }
             else if (type == LogType.Error || type == LogType.Assert)
             {

@@ -67,10 +67,11 @@ namespace BugHunt.Labs.Lab03
             var board = Spawn<ScoreboardUI>("ScoreboardUI");
             yield return null;
 
-            manager.AddScore(10);
+            int points = Case(10, 35);
+            manager.AddScore(points);
             yield return null;
 
-            Report.Expect("점수판에 보이는 점수", 10, board.Shown);
+            Report.Expect("점수판에 보이는 점수", points, board.Shown);
         }
     }
 }

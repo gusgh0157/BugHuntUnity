@@ -37,7 +37,7 @@ namespace BugHunt.Labs.Lab04
         public override IEnumerator Run()
         {
             var player = Spawn<Player>("Player", new Vector3(3, 0, 7));
-            player.SpawnPoint = Vector3.zero;
+            player.SpawnPoint = Case(Vector3.zero, new Vector3(-2, 0, 4));
             player.Model = SpawnPrimitive(PrimitiveType.Capsule, "Model");
             player.Model.transform.SetParent(player.transform, false);
             yield return null;
@@ -49,7 +49,7 @@ namespace BugHunt.Labs.Lab04
             Report.Expect("부활 횟수", 1, player.Respawns);
             Report.ExpectTrue("살아 있음", player.Alive);
             Report.ExpectTrue("몸이 보임", player.isActiveAndEnabled && player.Model.activeInHierarchy);
-            Report.Expect("위치", Vector3.zero, player.transform.position);
+            Report.Expect("위치", player.SpawnPoint, player.transform.position);
         }
     }
 }
