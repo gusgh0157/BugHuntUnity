@@ -10,6 +10,7 @@
 - **5부: 애니메이션 (랩 20~23)**: 공격 모션이 안 나오고, 화면 밖 발소리가 안 나고, 검격 판정이 빠지고, 손에 든 무기가 한 박자 늦는 버그.
 - **6부: 잘못된 참조와 네이티브 메모리 (랩 24~27)**: 예외 없이 새는 `NativeArray`, "분명히 Complete 했는데" 터지는 잡, 다음 프레임에 사라지는 `Allocator.Temp`, Domain Reload 를 끈 Play 에서 지난 판의 오브젝트를 붙잡는 정적 필드.
 - **7부: 멈춤 (랩 28~31)**: 크래시 없이 에디터가 굳는 무한루프와 데드락. 모두 중단, 스레드 창, 메인 스레드의 호출 스택으로 갇힌 곳을 찾습니다. 연습 중에 정말로 굳지 않도록 `HangGuard` 가 2초 뒤 "응답 없음" 을 알리고 빠져나옵니다.
+- **8부: 컨테이너 (랩 32~38)**: 인스펙터에서 줄인 배열, 반복 도중 다른 스크립트가 고친 목록, 복제하면 사라지는 `Dictionary`, 순서를 약속하지 않는 `FindObjectsByType`, 넘긴 List 를 비우는 API, 파괴된 키, 크기가 바뀐 `NativeList` 의 낡은 `AsArray`.
 
 > 콘솔판·언리얼판과 같은 규칙입니다. **코드를 눈으로 훑어 정답을 찾지 마세요.** 1부는 **예외가 난 곳에서부터**, 2부부터는 **직접 멈춘 곳에서부터 값을 확인하며** 추적하세요.
 > 콘솔판 1·3부를 먼저 끝냈다면 좋습니다. 호출 스택 창, 지역 창, 조건부 중단점, 추적점 사용법은 거기서 설명한 그대로 씁니다.
@@ -23,7 +24,33 @@
 | C++ 콘솔 | 호출 스택, 메모리 오류, 크래시 없는 흐름 추적 (랩 28개) | [BugHunt](https://github.com/gusgh0157/BugHunt) |
 | C# 콘솔 | 예외와 스택 트레이스, 흐름 추적, 비동기/동시성, 리소스와 메모리 (랩 28개) | [BugHuntCS](https://github.com/gusgh0157/BugHuntCS) |
 | 언리얼 엔진 | 크래시, 흐름 추적, 멀티플레이, 사운드, 이미지, 애니메이션 (랩 21개) | [BugHuntUE](https://github.com/gusgh0157/BugHuntUE) |
-| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤 (랩 31개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
+| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너 (랩 38개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
+
+## 버그 범주 커버리지
+
+이 판이 다루는 범주와 랩입니다. **미포함** 은 Unity 에서 흔한 대표 사례인데 아직 랩이 없다는 뜻입니다.
+
+| 범주 | 랩 | 다루는 사례 | 미포함 (대표 사례) |
+|---|---|---|---|
+| 참조·수명·fake null | 1, 2, 4, 8, 14, 37 | 파괴된 오브젝트 접근, `GetComponent` 범위, 꺼진 오브젝트의 코루틴, `?.`·`??` 와 fake null, 오브젝트와 함께 사라지는 소리, Dictionary 의 파괴된 키 | `DontDestroyOnLoad` 싱글턴 중복, 씬 전환 뒤 끊긴 참조 |
+| 흐름·순서 | 3, 5, 6, 7, 23 | Awake/OnEnable/Start 순서, 이벤트 구독 해제, Update 끼리 순서, Update/FixedUpdate 횟수, 애니메이션 평가 뒤 LateUpdate | `LoadSceneAsync` 의 활성화 순서, `OnDisable`/`OnDestroy` 순서 |
+| C# 값과 참조 | 9, 36 | 구조체 복사(`List<Vector3>[i]`), 돌려쓰는 버퍼를 두 곳이 공유 | 클로저가 반복 변수를 캡처 |
+| 직렬화·에셋 | 10, 11, 16, 34 | 직렬화 값이 초기값을 덮어씀, 공유되는 ScriptableObject, `sharedMaterial`, 직렬화되지 않는 컨테이너 | `[SerializeReference]` 다형성, 프리팹 오버라이드, 필드 이름 변경(`FormerlySerializedAs`) |
+| 컨테이너 | 32, 33, 34, 35, 36, 37, 38 | 인스펙터에서 줄인 배열, 반복 중 수정, 직렬화 손실, `Find`/`GetComponents` 순서, 결과 재사용 API, 파괴된 키, 크기가 바뀐 `NativeList` 의 `AsArray` | 키로 쓴 객체의 해시가 바뀜, `List.Sort` 의 불안정 정렬 |
+| 사운드 | 12, 13, 14, 15 | 로드 지연, 가상 음성, 오브젝트 수명, `Play`/`PlayOneShot` | AudioMixer 그룹·스냅샷, 3D 감쇠 거리 |
+| 이미지·렌더링 | 16, 17, 18, 19 | 공유 머티리얼, 머티리얼 복제 누수, 늦게 도착한 비동기 로드, Linear/Gamma | 빌드에서 빠진 셰이더 변형(분홍), 투명 정렬, `RenderTexture` 해제 |
+| 애니메이션 | 20, 21, 22, 23 | 파라미터 오타, Culling Mode, 트랜지션과 이벤트, 평가 순서 | Root Motion 과 스크립트 이동 충돌, Write Defaults |
+| 네이티브 메모리·잡 | 24, 25, 26, 38 | `Dispose` 누락, 잡 의존 사슬, `Allocator.Temp` 수명, 낡은 `AsArray` | Burst 에서만 다른 결과 |
+| 정적 상태·Domain Reload | 27 | Domain Reload 를 끈 Play 의 정적 필드 | 정적 이벤트 구독 누적 |
+| 멈춤 | 28, 29, 30, 31 | yield 없는 while, 방문 체크 없는 BFS, `.Result` 데드락, float 누적 종료 조건 | `lock` 순서가 엇갈린 데드락 |
+| 물리 | 미포함 | | 빠른 탄환 터널링, Rigidbody 없는 트리거, 레이어 번호와 마스크, `transform.position` 으로 Rigidbody 이동, `SyncTransforms` |
+| 프레임레이트 의존 | 7 (일부) | Update 에서 받은 한 프레임 입력을 FixedUpdate 가 놓침 | `Time.deltaTime` 누락, 매 프레임 `Lerp(a, b, 0.1f)`, `fixedDeltaTime` 혼동, `timeScale = 0` 에서 멈추는 UI |
+| 성능·GC | 17 (일부) | 머티리얼 복제 누수 | 매 프레임 GC 할당, `Find`/`Camera.main` 반복, Instantiate/Destroy 반복, `SendMessage`, 배열을 돌려주는 API |
+| 데이터 레이스·스레드 | 30 (일부) | 메인 스레드에서 Task 를 막고 기다림 | 동기화 없는 공유 상태, 워커 스레드의 Unity API, `await` 뒤 실행 스레드 |
+| UI | 미포함 | | 레이캐스트를 가로막는 투명 이미지, Canvas 재빌드, 해상도별 앵커 |
+| 입력 | 미포함 | | Input System 액션 맵 비활성, 포커스를 잃었을 때 눌린 채 남는 키 |
+| 빌드 전용 | 미포함 | | IL2CPP 코드 스트리핑, 플랫폼별 경로·대소문자 |
+| 멀티플레이 | 미포함 | | [부록 A](#부록-a-멀티플레이netcode-for-gameobjects는) 참고 |
 
 ## 준비
 
@@ -345,6 +372,37 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ---
 
+# 8부: 컨테이너
+
+배열, `List`, `Dictionary`, `NativeList` 는 C# 에서도 흔한 버그 원인이지만, Unity 에서는 **엔진이 컨테이너를 만지는 곳**이 더 있습니다. 인스펙터는 배열 크기를 언제든 바꾸고, 직렬화는 모르는 컨테이너를 조용히 버리고, `Destroy` 는 컨테이너에 든 오브젝트를 fake null 로 바꾸고, `Find`/`GetComponents` 는 순서를 약속하지 않고, 할당을 줄이는 API 는 넘긴 컨테이너를 비우고 다시 채웁니다.
+
+## 8부에서 쓰는 도구
+
+| 도구 | 하는 법 | 언제 |
+|---|---|---|
+| **예외 설정: throw 될 때 중단** | VS: 디버그 → 창 → 예외 설정 → Common Language Runtime Exceptions 에서 `System.IndexOutOfRangeException`, `System.InvalidOperationException` 체크. Rider: Run → View Breakpoints → Exception Breakpoints | 예외가 잡히는 곳이 아니라 **던지는 곳**에서 멈추기 (랩 32, 33) |
+| 조사식에 **인덱스와 크기를 나란히** | `i`, `Slots.Length`, `Labels.Count`, `Points.Capacity` | 범위 밖 인덱스 (랩 32), 크기가 바뀐 순간 (랩 38) |
+| 조사식 **참조 비교** | `alphaRoster == bravoRoster`, `(object)key == null` 과 `key == null` 을 나란히 | 같은 컨테이너를 두 변수가 가리키나 (랩 36), fake null 키 (랩 37) |
+| **Inspector 의 Debug 모드** | Inspector 오른쪽 위 ⋮ → Debug. private 직렬화 필드까지 보인다 | 이 필드가 직렬화되는가. 인스펙터에 안 보이면 Instantiate·저장에서도 빠진다 (랩 34) |
+| `JsonUtility.ToJson(component)` 출력 | Console 에 찍어 보기 | 직렬화되는 필드만 나온다. 빠진 필드 = 복제·저장에서 사라지는 필드 (랩 34) |
+| 컨테이너에 **중단점 + 호출 스택** | `List.Remove` 를 부르는 줄에 중단점 → 호출 스택에 바깥 `foreach` 가 보이나 | 반복 도중에 누가 목록을 고쳤나 (랩 33) |
+
+## 8부 랩 목록
+
+| # | 이름 | 증상 | 새로 배우는 것 | 난이도 |
+|---|---|---|---|---|
+| 32 | 단축키 칸 | 디자이너가 칸 배열을 3칸으로 줄이자 IndexOutOfRangeException, 빈 단축키에서 ArgumentOutOfRangeException | **상수 길이와 데이터 길이**, 인스펙터는 배열 크기를 바꾼다, 바깥 번호의 범위 확인, `OnValidate` | ★ |
+| 33 | 공습 | 공습에 적이 쓰러지면 InvalidOperationException, 뒤쪽 적은 멀쩡 | **반복 도중 다른 스크립트가 목록을 고침**, 복사본·역순 반복, `RemoveAll` | ★ |
+| 34 | 상점 가격표 | 복제하거나 저장했다 불러온 상점의 가격표와 진열대가 텅 빈다(경고 없음) | **Unity 직렬화가 버리는 컨테이너**(`Dictionary`, `List<List<T>>`, `T[,]`), `ISerializationCallbackReceiver`, `[Serializable]` 래퍼 | ★★ |
+| 35 | 순찰 순서 | 경비병이 Order 번호와 상관없는 순서로 돈다. 맵마다, 실행 환경마다 맞기도 하고 틀리기도 한다 | **`FindObjectsByType` / `GetComponents` 의 순서는 약속이 아니다**, 직접 정렬, 인스펙터 배열 | ★ |
+| 36 | 부대 편성 | 두 부대의 명단이 똑같다 | **결과를 채워 주는 API 가 넘긴 List 를 비운다**(`GetComponentsInChildren(List)`), 돌려쓰는 버퍼의 주인 | ★★ |
+| 37 | 위협 목록 | 위협 1위가 죽자 보스가 MissingReferenceException, 목록 수도 그대로 | **파괴된 오브젝트가 Dictionary 키로 남음**(fake null 키), 죽은 키 치우기, `OnDestroy` 알림 | ★★ |
+| 38 | 발자국 | 걸음이 쌓이면 출발점을 읽는 줄에서 "has been deallocated" | **`NativeList.AsArray()` 는 복사가 아니라 모습**, 크기가 바뀌면 옛 메모리, 캐시하지 않기 | ★★ |
+
+> 랩 38 의 예외는 에디터의 컬렉션 안전 검사 덕분입니다(6부와 같음). 릴리스 빌드에서는 해제된 메모리를 읽어 엉뚱한 값이나 크래시가 납니다. `NativeArray` 의 `Dispose` 누락은 6부 랩 24 에서 다룹니다.
+
+---
+
 # 채점
 
 모든 랩을 한 번에 돌려 랩마다 결과를 매기고 총점을 냅니다. 버그를 다 고쳤다고 생각되면 돌려 보세요. **버그가 있는 처음 상태에서는 0점이 정상**입니다.
@@ -361,7 +419,7 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ### 실행하는 두 가지 방법
 
-1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 31개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
+1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 38개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
 2. **명령줄:** **에디터를 닫고** 프로젝트 폴더에서
    ```bash
    grade.bat
@@ -389,8 +447,8 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 {
     "edition": "unity",
     "version": 1,
-    "total": 31,
-    "passed": 29,
+    "total": 38,
+    "passed": 36,
     "labs": [
         { "id": 1, "title": "감시탑", "part": 1, "result": "PASS", "ms": 3294, "detail": "" },
         { "id": 28, "title": "엘리베이터", "part": 7, "result": "TIMEOUT", "ms": 2003, "detail": "응답 없음: Passenger.RideTo: 엘리베이터가 오기를 기다림 (...)" }
@@ -430,16 +488,16 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 
 | 상태 | `-batchmode` | `-batchmode -nographics` |
 |---|---|---|
-| 버그 그대로 | 31개 모두 실패 | 30개 실패, 19 Skipped |
-| SOLUTIONS.md 의 수정 적용 | 31개 모두 통과 | 30개 통과, 19 Skipped |
-| 수정을 되돌림 | 31개 모두 실패 | (같은 코드라 생략) |
+| 버그 그대로 | 38개 모두 실패 | 37개 실패, 19 Skipped |
+| SOLUTIONS.md 의 수정 적용 | 38개 모두 통과 | 37개 통과, 19 Skipped |
+| 수정을 되돌림 | 38개 모두 실패 | (같은 코드라 생략) |
 
 채점기(`grade.bat`)도 같은 PC 에서 이렇게 확인했습니다.
 
 | 상태 | `grade.bat` | `grade.bat -NoGraphics` |
 |---|---|---|
-| 버그 그대로 | 0 / 31 (CRASH 6, FAIL 21, TIMEOUT 4), 종료 코드 1 | 0 / 30 (SKIP 1: 랩 19), 종료 코드 1 |
-| SOLUTIONS.md 의 수정 적용 | 31 / 31, 종료 코드 0 | 30 / 30 (SKIP 1: 랩 19), 종료 코드 0 |
+| 버그 그대로 | 0 / 38 (CRASH 10, FAIL 24, TIMEOUT 4), 종료 코드 1 | 0 / 37 (SKIP 1: 랩 19), 종료 코드 1 |
+| SOLUTIONS.md 의 수정 적용 | 38 / 38, 종료 코드 0 | 37 / 37 (SKIP 1: 랩 19), 종료 코드 0 |
 
 - 보통 입력의 기대값만 코드에 박아 넣은 가짜 수정(랩 2, 31)은 `[숨은 케이스]` FAIL 로 걸러졌습니다.
 - 랩 28 의 `HangGuard.Tick` 을 지워 에디터를 정말로 굳힌 상태에서 `grade.bat -TimeoutMinutes 1` 은 1분 뒤 Unity 를 끄고, 결과 파일에 랩 28 을 TIMEOUT, 그 뒤 랩을 FAIL 로 남겼습니다.

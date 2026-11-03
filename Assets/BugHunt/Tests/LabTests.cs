@@ -60,5 +60,12 @@ namespace BugHunt.Tests
         [UnityTest] public IEnumerator Lab29_Pathfinding() => Run(29);
         [UnityTest] public IEnumerator Lab30_ShopGold() => Run(30);
         [UnityTest] public IEnumerator Lab31_ReplayFastForward() => Run(31);
+        [UnityTest] public IEnumerator Lab32_Hotbar() => Run(32);
+        [UnityTest] public IEnumerator Lab33_Airstrike() => Run(33);
+        [UnityTest] public IEnumerator Lab34_ShopPrices() => Run(34);
+        [UnityTest] public IEnumerator Lab35_PatrolOrder() => Run(35);
+        [UnityTest] public IEnumerator Lab36_SquadRoster() => Run(36);
+        [UnityTest] public IEnumerator Lab37_ThreatTable() => Run(37);
+        [UnityTest] public IEnumerator Lab38_TrailPoints() => Run(38);
     }
 }

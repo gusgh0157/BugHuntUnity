@@ -1,7 +1,7 @@
 {
     "name": "BugHunt",
     "rootNamespace": "BugHunt",
-    "references": [],
+    "references": [ "Unity.Collections" ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

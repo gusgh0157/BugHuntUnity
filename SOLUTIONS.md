@@ -681,3 +681,131 @@ public void FastForward(float seconds)
 }
 ```
 **교훈:** 반복문의 종료 조건을 **float 누적 결과**에 걸지 말자. 큰 값에 작은 값을 더하면 그대로일 수 있고(멈춤), 작은 값끼리 더해도 `0.1f` 열 번이 `1f` 가 아니다(`!=` 로 끝내면 멈춤). Unity 의 `Time.time` 도 float 이라 며칠 켜 둔 서버·키오스크·스트리밍 빌드에서 같은 일이 생긴다(`Time.timeAsDouble`, `Time.frameCount` 를 쓴다). 개발 중에는 절대 재현되지 않는 "오래 켜 두면" 류 버그의 대표다.
+
+# 8부: 컨테이너
+
+## Lab 32 — 상수 길이로 배열을 돌고, 바깥 번호를 확인하지 않음
+```
+증상:          단축 바를 만드는 순간 IndexOutOfRangeException (Hotbar.Build)
+도구:          예외 설정에서 IndexOutOfRangeException 을 throw 될 때 중단 → 조사식 i == 3, Slots.Length == 3
+처음 어긋난 곳: 반복 횟수는 SlotCount(4), 데이터는 인스펙터에서 3칸으로 줄어든 Slots
+진짜 원인:     ① 반복을 데이터 길이가 아니라 상수로 돌았다 ② Select(key) 는 바깥에서 온 key 를 확인 없이 인덱스로 썼다(빈 단축키 4 → ArgumentOutOfRangeException)
+```
+**수정:**
+```csharp
+for (int i = 0; i < Slots.Length; ++i) { ... }
+
+public string Select(int key)
+{
+    int index = key - 1;
+    return index >= 0 && index < Labels.Count ? Labels[index] : null;
+}
+```
+**교훈:** 인스펙터에 보이는 배열의 크기는 코드가 정하지 않는다. 반복은 `Length`/`Count` 로, 입력·네트워크·세이브 파일에서 온 번호는 범위를 확인한 뒤 쓴다. 크기가 규칙이라면 `OnValidate` 에서 강제한다. 배열은 `IndexOutOfRangeException`, `List` 는 `ArgumentOutOfRangeException` 이라 메시지만 보고도 어느 쪽인지 안다.
+
+## Lab 33 — foreach 도중 다른 스크립트가 목록에서 자신을 지움
+```
+증상:          공습에 HP 10 인 적이 쓰러지는 순간 InvalidOperationException: Collection was modified
+도구:          Enemy.Die 의 Members.Remove 에 중단점 → 호출 스택: Die ← TakeDamage ← Squad.Airstrike(foreach)
+진짜 원인:     Squad 는 Members 를 foreach 로 돌고, 그 안에서 불린 Enemy.Die 가 같은 Members 를 고쳤다. 다음 MoveNext 가 버전이 바뀐 것을 보고 던진다
+```
+**수정 (택1):**
+```csharp
+foreach (Enemy enemy in Members.ToArray()) { enemy.TakeDamage(damage); }        // 복사본을 돈다
+for (int i = Members.Count - 1; i >= 0; --i) { Members[i].TakeDamage(damage); }  // 뒤에서부터 돈다
+```
+**교훈:** 반복하는 동안 불리는 코드(이벤트, 콜백, 다른 컴포넌트의 함수)가 같은 목록을 고칠 수 있으면 복사본이나 역순으로 돈다. 앞에서부터 인덱스로 돌면서 지우면 예외 없이 **하나씩 건너뛰는** 더 조용한 버그가 된다. `Destroy` 가 부르는 `OnDestroy` 는 프레임 끝이라 이 예외 대신 랩 37 같은 "파괴된 원소가 남는" 문제가 된다.
+
+## Lab 34 — Unity 직렬화가 Dictionary 와 List<List<T>> 를 버림
+```
+틀린 결과:     복제본과 불러온 상점의 potion 가격 -1, 진열대 0개. 이름과 금화는 정상
+도구:          랩 출력 "저장된 JSON: {"ShopName":"대장간","Gold":500}" — Prices, Shelves 가 없다
+              Inspector 에도 두 필드가 보이지 않는다
+진짜 원인:     Instantiate 와 JsonUtility 는 Unity 직렬화로 값을 옮긴다. Dictionary 와 중첩 List 는 직렬화 대상이 아니라서 경고 없이 빠진다
+```
+**수정:**
+```csharp
+[System.Serializable]
+public class Shelf { public List<string> Items = new List<string>(); }
+
+public class Shop : MonoBehaviour, ISerializationCallbackReceiver
+{
+    public Dictionary<string, int> Prices = new Dictionary<string, int>();
+    public List<Shelf> Shelves = new List<Shelf>();
+    [SerializeField] List<string> priceKeys = new List<string>();
+    [SerializeField] List<int> priceValues = new List<int>();
+
+    public void OnBeforeSerialize()
+    {
+        priceKeys.Clear(); priceValues.Clear();
+        foreach (var kv in Prices) { priceKeys.Add(kv.Key); priceValues.Add(kv.Value); }
+    }
+
+    public void OnAfterDeserialize()
+    {
+        Prices = new Dictionary<string, int>();
+        for (int i = 0; i < priceKeys.Count; ++i) { Prices[priceKeys[i]] = priceValues[i]; }
+    }
+
+    public void AddShelf(params string[] items) { Shelves.Add(new Shelf { Items = new List<string>(items) }); }
+    public string ItemAt(int shelf, int slot) { return Shelves[shelf].Items[slot]; }
+}
+```
+**교훈:** 인스펙터에 안 보이는 필드는 프리팹, 씬 저장, Instantiate, Undo, `JsonUtility` 에서도 빠진다. `Dictionary`, `T[,]`, `T[][]`, `List<List<T>>` 는 `[Serializable]` 래퍼나 `ISerializationCallbackReceiver` 로 직렬화 가능한 모양으로 바꾼다. 콜백은 직렬화 스레드에서 불릴 수 있으니 그 안에서 Unity API 를 부르지 않는다.
+
+## Lab 35 — FindObjectsByType 의 순서를 게임 순서로 씀
+```
+틀린 결과:     맵 세 개 중 한두 개는 0,1,2 로 맞고 나머지는 2,1,0, 1,3,0,2 처럼 틀린다. 같은 코드인데 채점기와 Test Runner 에서 맞는 맵이 다르다
+도구:          LearnRoute 뒤 조사식 Route → 각 원소의 Order 와 name(놓은 순서 A, B, C)
+진짜 원인:     FindObjectsSortMode.None 은 순서를 보장하지 않는다. 엔진 내부 순서가 그대로 나오고, 그 순서는 놓은 순서와도, 실행 환경과도 무관하게 바뀐다. 가끔 맞는 것이 가장 위험하다
+```
+**수정:**
+```csharp
+Route = FindObjectsByType<RoutePoint>(FindObjectsSortMode.None).OrderBy(p => p.Order).ToList();
+```
+**교훈:** `FindObjectsByType`, `GetComponents`, `GetComponentsInChildren`, `Dictionary` 열거, 이벤트 호출 순서는 게임 규칙의 순서가 아니다. 의미 있는 순서는 데이터(번호)로 갖고 직접 정렬하거나, 인스펙터 배열에 순서대로 넣어 씬 파일에 저장한다. 이 버그는 "에디터에선 되는데 빌드에선 순서가 다름" 으로 나타나기 쉽다.
+
+## Lab 36 — 돌려쓰는 결과 버퍼를 그대로 반환
+```
+틀린 결과:     Alpha 명단 2명(기대 3), Alpha 명단에 Bravo 병사. alphaRoster == bravoRoster 가 true
+도구:          조사식 참조 비교. alphaRoster 줄 뒤 Count 3 → bravoRoster 줄 뒤 Count 2 로 바뀐다
+진짜 원인:     GetComponentsInChildren(List) 는 넘긴 List 를 비우고 채운다. SoldiersOf 는 static 버퍼 자체를 돌려주므로 두 호출이 같은 List 를 받는다
+```
+**수정:**
+```csharp
+unit.GetComponentsInChildren(results);
+return new List<Soldier>(results);
+// 또는: public static void SoldiersOf(GameObject unit, List<Soldier> into) { unit.GetComponentsInChildren(into); }
+```
+**교훈:** 할당을 줄이는 API(`GetComponents(List)`, `GetComponentsInChildren(List)`, `Physics.RaycastNonAlloc`, `OverlapSphereNonAlloc`)의 버퍼는 **다음 호출이 덮어쓴다**. 버퍼는 함수 안에서만 쓰고 밖으로 내보낼 때는 복사하거나, 호출하는 쪽이 버퍼를 갖게 한다.
+
+## Lab 37 — 파괴된 오브젝트가 Dictionary 키로 남음
+```
+틀린 결과:     위협 목록 3명(기대 2). AttackTop 에서 MissingReferenceException
+도구:          AttackTop 에 중단점 → 조사식 top == null 은 true, (object)top == null 은 false
+진짜 원인:     Destroy 는 네이티브 오브젝트만 지운다. Dictionary 는 C# 객체를 키로 붙잡고 있어 항목과 점수가 그대로 남고, 점수 1위라 계속 골라진다
+```
+**수정:**
+```csharp
+void Prune()
+{
+    foreach (Enemy dead in Threat.Keys.Where(e => e == null).ToList()) { Threat.Remove(dead); }
+}
+public int ThreatCount { get { Prune(); return Threat.Count; } }
+public void AttackTop() { Prune(); ... }
+```
+(또는 `Enemy.OnDestroy` 에서 이벤트를 쏘고 `Boss` 가 받아 `Threat.Remove(enemy)`)
+
+**교훈:** `UnityEngine.Object` 를 담은 컨테이너(`Dictionary` 키, `HashSet`, `List`)는 `Destroy` 를 모른다. 꺼낼 때 `== null`(Unity 재정의)로 걸러 치우거나, 죽을 때 알려서 지운다. 치우지 않은 항목은 C# 객체를 붙잡아 작은 누수도 된다. 1부 랩 1·8 의 fake null 이 컨테이너 안에 숨은 모양이다.
+
+## Lab 38 — 크기가 바뀐 NativeList 의 AsArray 를 캐시해 둠
+```
+증상:          출발점을 읽는 줄에서 ObjectDisposedException: NativeList ... has been deallocated
+도구:          Step 에 중단점 → Points.Capacity 4, Length 가 5 가 되는 Add 다음부터 view 가 죽는다
+진짜 원인:     Capacity 를 넘는 Add 는 더 큰 메모리로 옮기고 옛 메모리를 해제한다. Awake 에서 만든 view 는 옛 메모리를 가리킨다(길이도 1 로 굳어 있다)
+```
+**수정:**
+```csharp
+public Vector3 StartPoint() { return Points[0]; }   // view 를 캐시하지 않는다. 필요하면 쓸 때마다 Points.AsArray()
+```
+**교훈:** `NativeList.AsArray()`, `List<T>` 에서 얻은 `Span`, `NativeArray.GetSubArray` 는 복사가 아니라 **지금 메모리의 모습**이다. 크기가 바뀌면 낡는다. 잡에 넘길 때는 스케줄 직전에 만들거나 `AsDeferredJobArray()` 를 쓴다. 에디터의 안전 검사가 예외로 알려 주지만 릴리스 빌드에서는 해제된 메모리를 조용히 읽는다.
