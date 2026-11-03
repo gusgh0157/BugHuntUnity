@@ -1,0 +1,10 @@
+{
+    "name": "BugHunt.Editor",
+    "rootNamespace": "BugHunt.Editor",
+    "references": [ "BugHunt" ],
+    "includePlatforms": [ "Editor" ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "autoReferenced": true,
+    "noEngineReferences": false
+}
