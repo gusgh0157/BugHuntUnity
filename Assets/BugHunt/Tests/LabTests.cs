@@ -51,5 +51,9 @@ namespace BugHunt.Tests
         [UnityTest] public IEnumerator Lab21_Footsteps() => Run(21);
         [UnityTest] public IEnumerator Lab22_SwordHit() => Run(22);
         [UnityTest] public IEnumerator Lab23_WeaponAttach() => Run(23);
+        [UnityTest] public IEnumerator Lab24_PathCache() => Run(24);
+        [UnityTest] public IEnumerator Lab25_Watchtower() => Run(25);
+        [UnityTest] public IEnumerator Lab26_SpawnPlan() => Run(26);
+        [UnityTest] public IEnumerator Lab27_SecondRound() => Run(27);
     }
 }

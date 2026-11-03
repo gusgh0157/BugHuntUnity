@@ -8,6 +8,7 @@
 - **3부: 사운드 (랩 12~15)**: 소리가 늦게 나고, 안 들리고, 끊기는 버그. 로드 상태·가상 음성·재생 위치를 재서 판정합니다.
 - **4부: 이미지 / 렌더링 (랩 16~19)**: 엉뚱한 상자까지 빨개지고, 메모리가 새고, 아이콘이 바뀌고, 색이 물 빠지는 버그. 머티리얼 값, Material 객체 수, 텍스처 이름, 화면 픽셀로 판정합니다.
 - **5부: 애니메이션 (랩 20~23)**: 공격 모션이 안 나오고, 화면 밖 발소리가 안 나고, 검격 판정이 빠지고, 손에 든 무기가 한 박자 늦는 버그.
+- **6부: 잘못된 참조와 네이티브 메모리 (랩 24~27)**: 예외 없이 새는 `NativeArray`, "분명히 Complete 했는데" 터지는 잡, 다음 프레임에 사라지는 `Allocator.Temp`, Domain Reload 를 끈 Play 에서 지난 판의 오브젝트를 붙잡는 정적 필드.
 
 > 콘솔판·언리얼판과 같은 규칙입니다. **코드를 눈으로 훑어 정답을 찾지 마세요.** 1부는 **예외가 난 곳에서부터**, 2부부터는 **직접 멈춘 곳에서부터 값을 확인하며** 추적하세요.
 > 콘솔판 1·3부를 먼저 끝냈다면 좋습니다. 호출 스택 창, 지역 창, 조건부 중단점, 추적점 사용법은 거기서 설명한 그대로 씁니다.
@@ -21,7 +22,7 @@
 | C++ 콘솔 | 호출 스택, 메모리 오류, 크래시 없는 흐름 추적 (랩 28개) | [BugHunt](https://github.com/gusgh0157/BugHunt) |
 | C# 콘솔 | 예외와 스택 트레이스, 흐름 추적, 비동기/동시성, 리소스와 메모리 (랩 28개) | [BugHuntCS](https://github.com/gusgh0157/BugHuntCS) |
 | 언리얼 엔진 | 크래시, 흐름 추적, 멀티플레이, 사운드, 이미지, 애니메이션 (랩 21개) | [BugHuntUE](https://github.com/gusgh0157/BugHuntUE) |
-| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션 (랩 23개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
+| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리 (랩 27개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
 
 ## 준비
 
@@ -270,6 +271,38 @@
 | 23 | 손에 든 무기 | 횃불이 손을 한 박자 늦게 따라온다 | **애니메이션은 Update 뒤에 평가**, LateUpdate, Profiler Timeline | ★★ |
 
 > 랩 22 를 고치려면 `Assets/BugHunt/Resources/BugHunt/Animation/Swordsman.controller` 를 Animator 창에서 수정합니다. C# 을 고치는 랩이 아닙니다.
+
+---
+
+# 6부: 잘못된 참조와 네이티브 메모리
+
+C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메모리**가 있습니다. `NativeArray` 같은 네이티브 컨테이너는 Unity 의 네이티브 힙에 있고 C# 변수는 그 주소를 든 작은 struct 일 뿐이라서, 누가 언제 해제하는지(`Allocator`, `Dispose`)와 누가 지금 쓰고 있는지(잡)를 직접 관리해야 합니다. 대신 에디터에는 **안전 시스템(AtomicSafetyHandle)** 이 있어서 해제된 버퍼나 잡이 쓰는 중인 버퍼에 손대면 바로 예외를 던져 줍니다. 그리고 정적(static) 필드는 Domain Reload 를 끄면 **지난 Play 의 오브젝트**를 붙잡습니다.
+
+1부의 MissingReferenceException, 2부의 fake null·구조체 복사, 4부의 sharedMaterial 과는 다른 종류입니다. 여기서는 "수명을 누가 정하나" 를 봅니다.
+
+## 6부에서 쓰는 도구
+
+| 도구 | 하는 법 | 언제 |
+|---|---|---|
+| **Leak Detection Level** | Edit → Preferences → **Jobs** → Leak Detection Level → *Enabled With Stack Trace* (코드로는 `NativeLeakDetection.Mode`) | 플레이를 멈추거나 다시 컴파일할 때 뜨는 `Leak Detected` 에 **할당한 곳의 스택**이 붙는다 (랩 24) |
+| **안전 시스템 예외 읽기** | 예외 메시지에 **잡 이름과 버퍼(필드) 이름**이 나온다: `The previously scheduled job X writes to ... X.Count` | 잡과 메인 스레드가 같은 버퍼를 건드릴 때 (랩 25), 해제된 버퍼 (랩 26) |
+| Profiler → CPU → **Timeline** | Worker 스레드 줄에서 잡이 언제 도는지, 메인 스레드가 `JobHandle.Complete` 에서 얼마나 기다리는지 | 잡 의존 관계 (랩 25) |
+| **Memory Profiler** | 스냅샷 두 장 → Compare → Native / Unity Subsystems | 늘어나기만 하는 네이티브 메모리 (랩 24) |
+| 조사식 `NativeArray` 펼치기 | `IsCreated`, `Length`. 해제된 버퍼를 펼치면 안전 시스템 예외 메시지가 값 대신 보인다 | 이 변수가 아직 살아 있나 |
+| **Enter Play Mode Settings** | Edit → Project Settings → Editor → When entering Play Mode (*Reload Domain and Scene* / *Reload Scene only* / *Do not reload Domain or Scene*) | 정적 필드가 Play 사이에 살아남는가 (랩 27) |
+
+## 6부 랩 목록
+
+| # | 이름 | 증상 | 새로 배우는 것 | 난이도 |
+|---|---|---|---|---|
+| 24 | 경로 캐시 | 예외는 없는데 오래 하면 메모리가 늘고, 멈추면 `Leak Detected` | **NativeArray 는 GC 가 치우지 않는다**, `Dispose` / `OnDestroy`, Leak Detection Level, 구조체 복사본과 안전 핸들 | ★ |
+| 25 | 망루의 시야 | 잡을 붙이자마자 InvalidOperationException ("분명히 Complete 했는데?") | **JobHandle 의존 사슬**, 끝 핸들을 Complete, 안전 시스템 메시지 읽기, Profiler Timeline 의 Worker | ★★ |
+| 26 | 출현 계획표 | 첫 줄만 나오고 다음 프레임부터 "has been deallocated" | **Allocator 수명**(Temp / TempJob / Persistent), 프레임 끝에 되감기는 Temp | ★★ |
+| 27 | 두 번째 판 | Play 를 두 번째 누르면 웨이브가 이어지고 레이더가 지난 판의 적을 가리킨다 | **Domain Reload 를 끈 Enter Play Mode**, 정적 상태 되돌리기 `[RuntimeInitializeOnLoadMethod(SubsystemRegistration)]` | ★★ |
+
+> 랩 24·26 은 에디터의 컬렉션 안전 검사(`ENABLE_UNITY_COLLECTIONS_CHECKS`)로 판정합니다. 에디터와 개발 빌드에서는 켜져 있습니다. 릴리스 빌드에서는 같은 버그가 예외 없이 **엉뚱한 값이나 크래시**로 나타납니다(그래서 에디터에서 잡아야 합니다).
+>
+> 랩 27 은 Play 를 다시 누른 것을 랩 안에서 흉내 냅니다(지난 판 오브젝트를 지우고 `[RuntimeInitializeOnLoadMethod]` 들을 부름). 이 프로젝트의 실제 설정(랩 출력 첫 줄)은 *Reload Domain and Scene* 이라서, 진짜 Play/Stop 을 반복해도 재현되지 않습니다. 직접 겪어 보려면 설정을 *Reload Scene only* 로 바꾸고 Play → Stop → Play 를 해 보세요(실험이 끝나면 되돌리기).
 
 ---
 

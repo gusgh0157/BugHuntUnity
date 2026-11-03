@@ -23,6 +23,19 @@ namespace BugHunt
     {
         public virtual float TimeoutSeconds => 15f;
 
+        // 채점기가 켜는 "숨은 테스트 케이스". 켜져 있으면 Case(보통, 숨은) 가 두 번째 값을 준다.
+        // 정답을 상수로 박아 넣은(하드코딩) 코드를 걸러 내려고, 같은 버그를 다른 입력으로 한 번 더 돌린다.
+        public static bool HiddenCase { get; set; }
+
+        // 이번 실행에서 Case 를 한 번이라도 불렀나. 안 불렀다면 숨은 케이스로 돌려도 똑같으므로 채점기가 건너뛴다.
+        public static bool UsedCase { get; internal set; }
+
+        protected static T Case<T>(T normal, T hidden)
+        {
+            UsedCase = true;
+            return HiddenCase ? hidden : normal;
+        }
+
         public abstract IEnumerator Run();
 
         protected GameObject Spawn(string objectName, Vector3 position = default)

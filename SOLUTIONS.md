@@ -467,3 +467,120 @@ void LateUpdate()
 ```
 (가장 간단하게는 횃불을 손의 자식으로: `transform.SetParent(Hand, false)`.)
 **교훈:** 애니메이션이 움직인 뼈를 따라가는 모든 것(무기 붙이기, 카메라, 조준선, IK 보정, 이펙트 위치)은 LateUpdate. 한 프레임 늦음은 화면에서 "흔들림/떨림"으로 보이고, 판정에 쓰이면 진짜 버그가 된다.
+
+# 6부: 잘못된 참조와 네이티브 메모리
+
+## Lab 24 — NativeArray 를 Dispose 하지 않음
+```
+틀린 결과:     목표를 5번 바꾼 뒤 살아 있는 버퍼 5개(기대 1), 순찰병을 없앤 뒤에도 5개(기대 0). 예외는 없다
+도구:          플레이를 멈추면 Console: "Leak Detected : Persistent allocates 5 individual allocations"
+              Preferences → Jobs → Leak Detection Level → Enabled With Stack Trace 로 다시 돌리면 할당한 곳이 PathCache.Rebuild 로 찍힌다
+처음 어긋난 곳: 두 번째 Rebuild. Points = new ... 가 첫 버퍼의 주소를 덮어써서 아무도 그 버퍼를 해제할 수 없게 됐다
+진짜 원인:     NativeArray 는 GC 가 치우지 않는다. 덮어쓰기 전에도, 컴포넌트가 사라질 때도 Dispose 가 없다
+```
+**수정:**
+```csharp
+public void Rebuild(Vector3 from, Vector3 to, int segments)
+{
+    if (Points.IsCreated)
+    {
+        Points.Dispose();
+    }
+    Points = new NativeArray<Vector3>(segments + 1, Allocator.Persistent);
+    ...
+}
+
+void OnDestroy()
+{
+    if (Points.IsCreated)
+    {
+        Points.Dispose();
+    }
+}
+```
+**교훈:** `new NativeArray(..., Allocator.Persistent)` 는 `new` 보다 `malloc` 에 가깝다. 만든 곳과 짝이 되는 `Dispose` 를 같이 적는다(필드라면 `OnDestroy`/`OnDisable`). 누수는 예외 없이 메모리만 늘기 때문에 Leak Detection 메시지와 Memory Profiler 로 찾는다. `IsCreated` 는 "이 변수가" 버퍼를 들고 있는지일 뿐이다. 구조체 복사본은 원본이 Dispose 된 뒤에도 `IsCreated == true` 이고, 접근하면 안전 시스템이 `ObjectDisposedException` 을 던진다(랩은 이것으로 살아 있는 버퍼를 센다).
+
+## Lab 25 — 앞 잡만 Complete 하고 뒤 잡의 출력을 읽음
+```
+멈춘 곳:        Watchtower.Scan 의 count[0]
+예외:          InvalidOperationException: The previously scheduled job CountInRangeJob writes to the NativeArray CountInRangeJob.Count.
+              You must call JobHandle.Complete() on the job CountInRangeJob, before you can read from the NativeArray safely.
+이상한 값:      measured.Complete() 는 불렀다. 그런데 메시지의 잡은 MeasureDistanceJob 이 아니라 CountInRangeJob
+진짜 원인:     tally 는 measured 에 의존한다(measured 가 끝나야 tally 가 시작). 반대 방향은 아니다. measured 를 기다려도 tally 는 아직 예약 상태일 수 있다
+```
+**수정:**
+```csharp
+running = tally.Schedule(measured);
+running.Complete();   // 사슬의 끝을 기다린다 (앞 잡도 함께 끝나 있다)
+EnemiesInRange = count[0];
+```
+**교훈:** 메인 스레드가 버퍼를 읽거나 쓰거나 Dispose 하려면, 그 버퍼를 쓰는 **모든** 잡의 핸들이 Complete 되어 있어야 한다. 실제로 잡이 끝났는지와 상관없이 안전 시스템이 막는다(그래서 타이밍에 따라 가끔 터지는 버그가 아니라 항상 터지는 버그가 된다. 고마운 일이다). 의존 사슬은 끝 핸들 하나를 Complete 하면 되고, 여러 갈래는 `JobHandle.CombineDependencies` 로 묶는다. 메시지는 **잡 이름.필드 이름**까지 알려 주니 끝까지 읽자.
+
+## Lab 26 — Allocator.Temp 버퍼를 다음 프레임에 읽음
+```
+멈춘 곳:        SpawnDirector.Update 의 plan[next] (StartWave 다음 프레임, next == 0)
+예외:          ObjectDisposedException: The NativeArray has been deallocated, it is not allowed to access it
+이상한 값:      Dispose 를 부른 곳이 없는데 "deallocated"
+진짜 원인:     Allocator.Temp 는 그 프레임 안에서만 유효하다. 프레임이 끝나면 Unity 가 Temp 메모리를 통째로 되감는다. 필드에 넣어 다음 프레임에 읽으면 이미 없다
+```
+**수정:**
+```csharp
+public void StartWave(int[] perFrame)
+{
+    if (plan.IsCreated)
+    {
+        plan.Dispose();
+    }
+    plan = new NativeArray<int>(perFrame.Length, Allocator.Persistent);
+    plan.CopyFrom(perFrame);
+    ...
+}
+
+void OnDestroy()
+{
+    if (plan.IsCreated)
+    {
+        plan.Dispose();
+    }
+}
+```
+(잡에 넘기지 않는 데이터라면 그냥 `int[]` 로 바꾸는 것도 맞는 답이다.)
+**교훈:** Allocator 는 수명 약속이다. Temp = 이 프레임, 함수 안 지역 변수용. TempJob = 잡에 넘겨 4프레임 안에 Dispose. Persistent = 직접 Dispose 할 때까지. 필드에 넣는 순간 Temp 는 틀린 선택이다. 에디터에서는 안전 시스템이 바로 예외를 던져 주지만, 릴리스 빌드에서는 안전 검사가 없으니 다른 코드가 덮어쓴 메모리를 읽어 **엉뚱한 마릿수**가 나올 수 있다.
+
+## Lab 27 — Domain Reload 를 끈 Play 에서 정적 상태가 남음
+```
+틀린 결과:     2판 첫 웨이브 4 (기대 1), 레이더의 적 4 (기대 2), radar.Nearest() 에서 MissingReferenceException
+도구:          SimulateEnterPlayMode() 다음 줄에 중단점 → 조사식 Enemy.Alive: Count 4 인데 앞의 2개는 "null"(파괴된 1판의 적)
+              WaveDirector.Wave == 3: 1판의 값 그대로
+진짜 원인:     Domain Reload 를 끄면 Play 할 때 C# 을 다시 올리지 않으므로 정적 필드의 초기값(= 0, = new List)이 다시 적용되지 않는다.
+              1판이 끝날 때 살아 있던 적은 Die() 를 거치지 않고 씬과 함께 파괴되어 목록에 남았다
+```
+**수정:**
+```csharp
+public class Enemy : MonoBehaviour
+{
+    public static readonly List<Enemy> Alive = new List<Enemy>();
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics()
+    {
+        Alive.Clear();
+    }
+    ...
+}
+
+public static class WaveDirector
+{
+    public static int Wave;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics()
+    {
+        Wave = 0;
+    }
+    ...
+}
+```
+(덤으로 `void OnDestroy() { Alive.Remove(this); }` 를 두면 씬 전환으로 사라진 적도 빠진다. 하지만 그것만으로는 Wave 가 이어지는 버그가 남는다.)
+**교훈:** *Reload Scene only*(Domain Reload 끔)는 Play 를 몇 초씩 빠르게 해 주지만, 그 대가로 **정적 필드, 정적 이벤트, 싱글턴 Instance** 를 직접 되돌려야 한다. Unity 문서의 권장은 `SubsystemRegistration` 시점의 `[RuntimeInitializeOnLoadMethod]`. 정적 이벤트(`static event Action`)도 같다: 구독자가 지난 Play 의 파괴된 오브젝트라서 1부의 MissingReferenceException 이 엉뚱한 곳에서 난다. 빌드한 게임에서는 항상 새로 시작하므로 "에디터에서만 나는 버그" 로 신고되기 쉽다.
+
