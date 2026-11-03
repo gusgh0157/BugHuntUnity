@@ -940,3 +940,109 @@ Shown = Mathf.MoveTowards(Shown, target, Time.unscaledDeltaTime / SlideSeconds);
 yield return new WaitForSecondsRealtime(1f);
 ```
 **교훈:** 일시정지 중에도 움직여야 하는 것(메뉴, 카운트다운, 일시정지 화면의 애니메이션·파티클)은 진짜 시간을 쓴다: `unscaledDeltaTime`, `WaitForSecondsRealtime`, Animator 의 Update Mode = Unscaled Time, 파티클의 Use Unscaled Time. 반대로 게임 안의 것은 일부러 `deltaTime` 을 써서 함께 멈추게 한다. "멈춘 동안 무엇이 움직여야 하나" 를 먼저 정하자.
+
+# 11부: 성능 (GC 할당과 반복 탐색)
+
+## Lab 48 — 값이 그대로인데 매 프레임 문자열·LINQ·박싱
+```
+틀린 결과:     값이 그대로인 프레임의 GC 할당 프레임당 약 5600바이트, 표시줄 20개 (기대 128바이트 이하)
+도구:          Profiler → CPU → Hierarchy → GC Alloc 열 → HealthBar.Update
+              Deep Profile: String.Concat, String.Format, Enumerable.Count, List<T>.GetEnumerator(박싱) 이 그 아래에 보인다
+진짜 원인:     결과가 지난 프레임과 같은데 매 프레임 새 문자열을 만들고, LINQ 열거자와 인터페이스로 박싱된 열거자를 만든다
+```
+**수정:**
+```csharp
+Health health;
+int shownHp = -1, shownMax = -1, shownAlive = -1, shownTotal = -1;
+
+void Awake() { health = GetComponent<Health>(); }
+
+void Update()
+{
+    if (health.Current != shownHp || health.Max != shownMax)
+    {
+        shownHp = health.Current; shownMax = health.Max;
+        Text = "HP " + shownHp + " / " + shownMax;
+    }
+    int alive = 0, total = 0;
+    for (int i = 0; i < Squad.Members.Count; ++i)
+    {
+        Health member = Squad.Members[i];
+        if (member.Current > 0) { alive++; }
+        total += member.Current;
+    }
+    if (alive != shownAlive || total != shownTotal)
+    {
+        shownAlive = alive; shownTotal = total;
+        SquadText = $"생존 {alive}명, 부대 HP {total}";
+    }
+}
+```
+**교훈:** 매 프레임 도는 코드에서는 "값이 바뀔 때만 만든다". 문자열 연결·보간, LINQ, `IEnumerable<T>` 로 받은 foreach(박싱), 람다가 지역 변수를 캡처하는 클로저, `new List` 는 모두 힙 할당이다. 한 번에 수십 바이트라도 컴포넌트 수 × 매 프레임이면 GC 를 부른다. UI 텍스트는 TextMeshPro 의 `SetText(format, number)` 가 할당 없이 숫자를 넣는다.
+
+## Lab 49 — Update 에서 GameObject.Find 와 FindObjectsByType
+```
+틀린 결과:     표적 찾기의 GC 할당 프레임당 약 98KB (기대 256바이트 이하)
+도구:          Profiler → Hierarchy → Turret.Update 아래 GameObject.Find, FindObjectsByType: Calls 40, Time ms 가 오브젝트 수에 비례
+진짜 원인:     포탑 40대가 매 프레임 씬 전체를 훑는다. FindObjectsByType 은 결과를 새 배열로 돌려준다(매번 할당)
+```
+**수정:**
+```csharp
+public class Enemy : MonoBehaviour
+{
+    public static readonly List<Enemy> All = new List<Enemy>();
+    void OnEnable() { All.Add(this); }
+    void OnDisable() { All.Remove(this); }
+}
+
+void Start() { Player = GameObject.Find("Player").transform; }   // 한 번만
+void Update() { foreach (Enemy enemy in Enemy.All) { ... } }      // List 를 직접 돌면 할당 없음
+```
+**교훈:** 바뀌지 않는 참조는 한 번 찾아 두고(인스펙터 연결이 가장 좋다), 바뀌는 집합은 OnEnable/OnDisable 로 등록부를 관리한다. 등록부는 새로 나타난 적, 사라진 적을 바로 반영한다(한 번 찾고 끝내면 랩의 두 번째 판정에서 FAIL). `Camera.main` 은 2020.2 부터 내부 캐시라 예전처럼 비싸지 않다. 정적 등록부는 Domain Reload 를 끈 Play 에서 비워 줘야 한다(랩 27).
+
+## Lab 50 — 풀을 만들고 돌려주지 않음
+```
+틀린 결과:     만든 탄환 수 60(기대 ≤ 13), 풀로 돌아온 탄환 0
+도구:          BulletPool.Release 에 중단점 → 한 번도 멈추지 않는다
+              Profiler → Hierarchy 에서 Instantiate / Destroy 의 Calls 가 발사 수만큼
+진짜 원인:     Bullet 은 수명이 다하면 예전처럼 Destroy(gameObject) 한다. 풀은 늘 비어 있으므로 Get 이 매번 Instantiate 한다
+```
+**수정:**
+```csharp
+if (Life <= 0f) { Pool.Release(this); }
+```
+**교훈:** 풀은 "꺼내기" 보다 "돌려주기" 가 버그가 잘 난다. 돌려줄 때 끄고(SetActive(false)), 꺼낼 때 위치·속도·수명·트레일 같은 상태를 모두 초기화한다. `UnityEngine.Pool.ObjectPool<T>` 는 createFunc/actionOnGet/actionOnRelease 를 받아 이 짝을 강제하고, 같은 것을 두 번 돌려주면 에러를 낸다(collectionCheck).
+
+## Lab 51 — SendMessage 이름 오타와 박싱
+```
+틀린 결과:     받은 피해 0. 이름을 TakeDamage 로 고쳐도 GC 할당이 프레임당 약 500바이트(적 30마리)
+도구:          Enemy.TakeDamage 중단점이 걸리지 않는다. RequireReceiver 로 바꾸면 "SendMessage TakeDamge has no receiver!"
+              Profiler → GC Alloc: SendMessage 아래 박싱된 float
+진짜 원인:     SendMessage 는 문자열로 메서드를 찾는다. 오타는 컴파일러가 모르고, DontRequireReceiver 라 조용하다. 인자는 object 로 박싱된다
+```
+**수정:**
+```csharp
+public interface IDamageable { void TakeDamage(float amount); }
+public class Enemy : MonoBehaviour, IDamageable { ... }
+
+if (InFlame[i].TryGetComponent(out IDamageable target)) { target.TakeDamage(DamagePerSecond * Time.deltaTime); }
+```
+**교훈:** `SendMessage`/`BroadcastMessage`/`SendMessageUpwards` 는 오타가 조용하고, 매번 모든 컴포넌트를 리플렉션으로 훑으며, 인자를 박싱한다. 인터페이스(`IDamageable`), C# event, UnityEvent 는 이름을 컴파일 시간에 확인한다. 매 프레임 `TryGetComponent` 도 아끼려면 들어올 때 한 번 찾아 목록에 담는다.
+
+## Lab 52 — 매 프레임 배열을 돌려주는 OverlapSphere
+```
+틀린 결과:     치유는 맞지만 GC 할당 프레임당 1792바이트 = 사제 8명 × (아군 24명 × 8 + 배열 머리 32) (기대 128바이트 이하)
+도구:          Profiler → GC Alloc 열 → HealingAura.Update → Physics.OverlapSphere
+진짜 원인:     결과를 새 Collider[] 로 돌려주는 API 를 매 프레임 부른다
+```
+**수정:**
+```csharp
+readonly Collider[] hits = new Collider[32];
+
+void Update()
+{
+    int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, hits);
+    for (int i = 0; i < count; ++i) { ... }
+}
+```
+**교훈:** 배열을 돌려주는 API(`OverlapSphere`, `RaycastAll`, `GetComponents<T>()`, `GetComponentsInChildren<T>()`, `FindObjectsByType`, `Mesh.vertices`)에는 대개 버퍼를 채우는 짝(`NonAlloc`, `List<T>` 를 받는 오버로드, `GetVertices(List)`)이 있다. 버퍼가 작으면 넘친 결과가 **조용히 버려지므로** 돌려받은 개수가 버퍼 크기와 같을 때 경고를 남긴다(숨은 케이스는 아군 30명). 버퍼를 함수 밖으로 내보내면 랩 36 의 공유 버그가 된다.

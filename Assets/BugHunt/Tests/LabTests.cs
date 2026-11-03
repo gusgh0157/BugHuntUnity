@@ -76,5 +76,10 @@ namespace BugHunt.Tests
         [UnityTest] public IEnumerator Lab45_FollowCamera() => Run(45);
         [UnityTest] public IEnumerator Lab46_Stamina() => Run(46);
         [UnityTest] public IEnumerator Lab47_PauseMenu() => Run(47);
+        [UnityTest] public IEnumerator Lab48_HudGarbage() => Run(48);
+        [UnityTest] public IEnumerator Lab49_TurretSearch() => Run(49);
+        [UnityTest] public IEnumerator Lab50_BulletPool() => Run(50);
+        [UnityTest] public IEnumerator Lab51_FlameThrower() => Run(51);
+        [UnityTest] public IEnumerator Lab52_HealingAura() => Run(52);
     }
 }

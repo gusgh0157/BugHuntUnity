@@ -13,6 +13,7 @@
 - **8부: 컨테이너 (랩 32~38)**: 인스펙터에서 줄인 배열, 반복 도중 다른 스크립트가 고친 목록, 복제하면 사라지는 `Dictionary`, 순서를 약속하지 않는 `FindObjectsByType`, 넘긴 List 를 비우는 API, 파괴된 키, 크기가 바뀐 `NativeList` 의 낡은 `AsArray`.
 - **9부: 물리 (랩 39~43)**: 얇은 벽을 뚫는 빠른 탄환, 불리지 않는 `OnTriggerEnter`, 레이어 번호와 마스크, transform 으로 움직인 Rigidbody, 옮긴 직후 옛 자리를 보는 레이캐스트. Physics Debugger, Gizmos, `Debug.DrawRay` 로 봅니다.
 - **10부: 프레임레이트 의존 (랩 44~47)**: 30fps 와 120fps 에서 결과가 다른 버그. 빠진 `Time.deltaTime`, 매 프레임 `Lerp(a, b, 0.1f)`, Update 의 `fixedDeltaTime`, `timeScale = 0` 에서 멈추는 메뉴.
+- **11부: 성능 (랩 48~52)**: 결과는 맞는데 느린 버그. 매 프레임 쌓이는 GC 쓰레기(문자열, LINQ, 박싱), Update 의 `Find`, 돌려주지 않는 오브젝트 풀, `SendMessage`, 배열을 돌려주는 API. Profiler 의 GC Alloc 열, Deep Profile, ProfilerMarker 로 찾고 `ProfilerRecorder` 로 바이트를 재서 판정합니다.
 
 > 콘솔판·언리얼판과 같은 규칙입니다. **코드를 눈으로 훑어 정답을 찾지 마세요.** 1부는 **예외가 난 곳에서부터**, 2부부터는 **직접 멈춘 곳에서부터 값을 확인하며** 추적하세요.
 > 콘솔판 1·3부를 먼저 끝냈다면 좋습니다. 호출 스택 창, 지역 창, 조건부 중단점, 추적점 사용법은 거기서 설명한 그대로 씁니다.
@@ -26,7 +27,7 @@
 | C++ 콘솔 | 호출 스택, 메모리 오류, 크래시 없는 흐름 추적 (랩 28개) | [BugHunt](https://github.com/gusgh0157/BugHunt) |
 | C# 콘솔 | 예외와 스택 트레이스, 흐름 추적, 비동기/동시성, 리소스와 메모리 (랩 28개) | [BugHuntCS](https://github.com/gusgh0157/BugHuntCS) |
 | 언리얼 엔진 | 크래시, 흐름 추적, 멀티플레이, 사운드, 이미지, 애니메이션 (랩 21개) | [BugHuntUE](https://github.com/gusgh0157/BugHuntUE) |
-| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너, 물리, 프레임레이트 의존 (랩 47개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
+| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너, 물리, 프레임레이트 의존, 성능 (랩 52개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
 
 ## 버그 범주 커버리지
 
@@ -47,7 +48,7 @@
 | 멈춤 | 28, 29, 30, 31 | yield 없는 while, 방문 체크 없는 BFS, `.Result` 데드락, float 누적 종료 조건 | `lock` 순서가 엇갈린 데드락 |
 | 물리 | 39, 40, 41, 42, 43 | 빠른 탄환 터널링, Rigidbody 없는 트리거, 레이어 번호와 마스크, transform 으로 움직인 Rigidbody 와 보간, `SyncTransforms` | 관절(Joint) 폭주, 비균일 스케일 콜라이더, `OnCollisionStay` 비용 |
 | 프레임레이트 의존 | 7, 44, 45, 46, 47 | 한 프레임짜리 입력을 FixedUpdate 가 놓침, `Time.deltaTime` 누락, 매 프레임 `Lerp(a, b, 0.1f)`, `fixedDeltaTime` 혼동, `timeScale = 0` 에서 멈추는 UI | Update 에서 `AddForce`(물리 스텝과 어긋남), 가변 deltaTime 의 큰 스파이크(첫 프레임, 로딩 직후) |
-| 성능·GC | 17 (일부) | 머티리얼 복제 누수 | 매 프레임 GC 할당, `Find`/`Camera.main` 반복, Instantiate/Destroy 반복, `SendMessage`, 배열을 돌려주는 API |
+| 성능·GC | 17, 48, 49, 50, 51, 52 | 머티리얼 복제 누수, 매 프레임 GC 할당(문자열·LINQ·박싱), Update 의 `Find`/`FindObjectsByType`, 돌려주지 않는 풀, `SendMessage`, 배열을 돌려주는 API | 렌더링 비용(배칭 깨짐, 과도한 그림자), 큰 에셋 동기 로드로 멈춤, 매 프레임 Canvas 재빌드 |
 | 데이터 레이스·스레드 | 30 (일부) | 메인 스레드에서 Task 를 막고 기다림 | 동기화 없는 공유 상태, 워커 스레드의 Unity API, `await` 뒤 실행 스레드 |
 | UI | 미포함 | | 레이캐스트를 가로막는 투명 이미지, Canvas 재빌드, 해상도별 앵커 |
 | 입력 | 미포함 | | Input System 액션 맵 비활성, 포커스를 잃었을 때 눌린 채 남는 키 |
@@ -159,7 +160,7 @@
 1. 랩 파일을 처음 열면 **Ctrl+M, Ctrl+O**(VS) / **Ctrl+Shift+NumPad -**(Rider)로 전부 접습니다.
 2. 막힐 때 **힌트 1**만 펼칩니다. 그래도 막히면 다음 힌트를 하나씩.
 
-랩 코드는 `Assets/BugHunt/Labs/LabNN_*.cs` 입니다(랩 10·11 은 `Lab10/`, `Lab11/` 폴더에 클래스가 하나 더 있습니다). `Assets/BugHunt/Core/`(랩 실행기, 7부의 `HangGuard`)와 `Editor/`, `Tests/` 에는 버그가 없습니다.
+랩 코드는 `Assets/BugHunt/Labs/LabNN_*.cs` 입니다(랩 10·11 은 `Lab10/`, `Lab11/` 폴더에 클래스가 하나 더 있습니다). `Assets/BugHunt/Core/`(랩 실행기, 7부의 `HangGuard`, 11부의 `GcMeter`)와 `Editor/`, `Tests/` 에는 버그가 없습니다.
 다 풀면 [SOLUTIONS.md](SOLUTIONS.md)로 맞춰 보세요.
 
 ---
@@ -468,6 +469,37 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ---
 
+# 11부: 성능 (GC 할당과 반복 탐색)
+
+결과는 맞는데 **느린** 버그입니다. Unity 의 C# 은 GC(가비지 컬렉터)가 쓰레기를 모아 치우는 동안 메인 스레드를 멈추므로, **매 프레임 조금씩 쓰레기를 만드는 코드**는 몇 초마다 프레임을 툭 끊습니다. 그리고 "결과가 거의 늘 같은" 탐색(`Find`, `FindObjectsByType`)을 매 프레임 되풀이하면 오브젝트 수에 비례해 느려집니다. 이런 버그는 중단점으로는 안 보이고 **Profiler** 로 봅니다.
+
+이 부의 랩은 **프레임당 GC 할당 바이트**로 판정합니다. Profiler 의 GC Alloc 열과 같은 카운터(`GC Allocated In Frame`)를 `ProfilerRecorder` 로 읽고(`Assets/BugHunt/Core/GcMeter.cs`), 아무것도 하지 않는 프레임의 값(에디터 자체의 몫)을 뺍니다. 시간(ms)은 PC 마다 다르므로 참고로만 찍습니다.
+
+## 11부에서 쓰는 도구
+
+| 도구 | 하는 법 | 언제 |
+|---|---|---|
+| **Profiler → CPU Usage → Hierarchy** | Window → Analysis → Profiler. 아래 창을 Hierarchy 로 두고 **GC Alloc** 열로 정렬. Calls, Time ms 열도 함께 | 어느 함수가 매 프레임 쓰레기를 만드나, 몇 번 불리나 (모든 랩) |
+| **Deep Profile** | Profiler 위쪽 Deep Profile 을 켜고 다시 플레이 | 내 함수 안의 어느 호출(String.Concat, Enumerable.Count, 박싱)이 할당하나. 많이 느려지니 볼 때만 (랩 48) |
+| **ProfilerMarker** | `static readonly ProfilerMarker s_Find = new ProfilerMarker("Turret.Find");` → `using (s_Find.Auto()) { ... }` | Deep Profile 없이 의심 구간만 Profiler 에 이름을 붙여 보기 (랩 48, 49) |
+| **ProfilerRecorder** | `ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame")` → `LastValue` | 코드에서 할당량을 재서 테스트로 지키기 (이 부의 판정) |
+| Profiler → **Timeline** | GC.Collect 가 언제, 얼마나 메인 스레드를 막나 | "몇 초마다 끊긴다" 의 정체 |
+| **Profile Analyzer** (패키지) | 프레임 여러 개를 모아 함수별 평균·최대 | 고치기 전후 비교 |
+
+## 11부 랩 목록
+
+| # | 이름 | 증상 | 새로 배우는 것 | 난이도 |
+|---|---|---|---|---|
+| 48 | 체력 표시줄 | 값이 그대로인데도 매 프레임 쓰레기가 쌓여 GC 로 끊긴다 | **문자열 연결, LINQ, 인터페이스 foreach 박싱**, 매 프레임 `GetComponent`, 바뀔 때만 만들기, Deep Profile, ProfilerMarker | ★★ |
+| 49 | 포탑의 표적 찾기 | 맵에 오브젝트가 많아지자 프레임이 무너지고 GC 가 튄다 | **Update 의 `GameObject.Find` / `FindObjectsByType`**, 한 번 찾기, 등록부(OnEnable/OnDisable), `Camera.main` 은 이제 캐시됨 | ★★ |
+| 50 | 탄환 풀 | 풀을 만들었는데도 매 발 Instantiate, 풀은 늘 비어 있다 | **돌려주지 않는 오브젝트 풀**, Release 와 초기화, `UnityEngine.Pool.ObjectPool<T>` | ★ |
+| 51 | 화염 방사기 | 적이 피해를 받지 않는다(에러 없음). 이름을 고쳐도 할당이 남는다 | **`SendMessage` 의 이름 오타와 박싱·리플렉션 비용**, 인터페이스, `TryGetComponent` | ★ |
+| 52 | 치유 오라 | 기능은 맞는데 매 프레임 `OverlapSphere` 가 배열을 만든다 | **배열을 돌려주는 API 와 NonAlloc 짝**, 버퍼 크기와 돌려받은 개수 | ★ |
+
+> GC 할당 판정은 에디터와 `-batchmode` 모두에서 같은 카운터를 씁니다. 에디터에서 Inspector 나 Profiler 창이 매 프레임 다시 그려지면 그 몫도 섞이므로, 버퍼를 넉넉히(프레임당 128~256바이트) 두었습니다. 고친 코드는 0 바이트 근처가 나옵니다.
+
+---
+
 # 채점
 
 모든 랩을 한 번에 돌려 랩마다 결과를 매기고 총점을 냅니다. 버그를 다 고쳤다고 생각되면 돌려 보세요. **버그가 있는 처음 상태에서는 0점이 정상**입니다.
@@ -484,7 +516,7 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ### 실행하는 두 가지 방법
 
-1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 47개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
+1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 52개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
 2. **명령줄:** **에디터를 닫고** 프로젝트 폴더에서
    ```bash
    grade.bat
@@ -512,8 +544,8 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 {
     "edition": "unity",
     "version": 1,
-    "total": 47,
-    "passed": 45,
+    "total": 52,
+    "passed": 50,
     "labs": [
         { "id": 1, "title": "감시탑", "part": 1, "result": "PASS", "ms": 3294, "detail": "" },
         { "id": 28, "title": "엘리베이터", "part": 7, "result": "TIMEOUT", "ms": 2003, "detail": "응답 없음: Passenger.RideTo: 엘리베이터가 오기를 기다림 (...)" }
@@ -553,21 +585,21 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 
 | 상태 | `-batchmode` | `-batchmode -nographics` |
 |---|---|---|
-| 버그 그대로 | 47개 모두 실패 | 46개 실패, 19 Skipped |
-| SOLUTIONS.md 의 수정 적용 | 47개 모두 통과 | 46개 통과, 19 Skipped |
-| 수정을 되돌림 | 47개 모두 실패 | (같은 코드라 생략) |
+| 버그 그대로 | 52개 모두 실패 | 51개 실패, 19 Skipped |
+| SOLUTIONS.md 의 수정 적용 | 52개 모두 통과 | 51개 통과, 19 Skipped |
+| 수정을 되돌림 | 52개 모두 실패 | (같은 코드라 생략) |
 
 채점기(`grade.bat`)도 같은 PC 에서 이렇게 확인했습니다.
 
 | 상태 | `grade.bat` | `grade.bat -NoGraphics` |
 |---|---|---|
-| 버그 그대로 | 0 / 47 (CRASH 10, FAIL 33, TIMEOUT 4), 종료 코드 1 | 0 / 46 (SKIP 1: 랩 19), 종료 코드 1 |
-| SOLUTIONS.md 의 수정 적용 | 47 / 47, 종료 코드 0 | 46 / 46 (SKIP 1: 랩 19), 종료 코드 0 |
+| 버그 그대로 | 0 / 52 (CRASH 10, FAIL 38, TIMEOUT 4), 종료 코드 1 | 0 / 51 (SKIP 1: 랩 19), 종료 코드 1 |
+| SOLUTIONS.md 의 수정 적용 | 52 / 52, 종료 코드 0 | 51 / 51 (SKIP 1: 랩 19), 종료 코드 0 |
 
 - 보통 입력의 기대값만 코드에 박아 넣은 가짜 수정(랩 2, 31)은 `[숨은 케이스]` FAIL 로 걸러졌습니다.
 - 랩 28 의 `HangGuard.Tick` 을 지워 에디터를 정말로 굳힌 상태에서 `grade.bat -TimeoutMinutes 1` 은 1분 뒤 Unity 를 끄고, 결과 파일에 랩 28 을 TIMEOUT, 그 뒤 랩을 FAIL 로 남겼습니다.
 
-랩 7·23·40·42·44~46 은 `Time.captureDeltaTime` 으로 프레임 간격을 고정하므로 PC 성능과 상관없이 같은 결과가 나옵니다.
+랩 7·23·40·42·44~46·50~52 는 `Time.captureDeltaTime` 으로 프레임 간격을 고정하므로 PC 성능과 상관없이 같은 결과가 나옵니다.
 
 ---
 
