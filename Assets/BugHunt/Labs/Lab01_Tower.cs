@@ -1,6 +1,9 @@
 // 랩 1: 감시탑
 // 감시탑이 가장 가까운 적부터 쏜다. 도중에 폭탄이 적 하나를 날려 버리면 게임이 예외를 뿜는다.
 // 기대: 감시탑이 나머지 둘을 처치해서 적 3마리가 모두 사라진다.
+// ラボ 1: 監視塔
+// 監視塔が一番近い敵から撃つ。途中で爆弾が敵を 1 体吹き飛ばすと、ゲームが例外を吐き出す。
+// 期待: 監視塔が残りの 2 体を倒して、敵 3 体がすべて消える。
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +16,7 @@ namespace BugHunt.Labs.Lab01
         public int Health = 30;
 
         // 쓰러졌으면 true
+        // 倒れたら true
         public bool TakeDamage(int amount)
         {
             Health -= amount;
@@ -49,6 +53,7 @@ namespace BugHunt.Labs.Lab01
             cooldown = FireInterval;
 
             // 표적 쪽으로 포신을 돌리고 쏜다.
+            // 標的のほうに砲身を向けて撃つ。
             Vector3 aim = Target.transform.position - transform.position;
             transform.rotation = Quaternion.LookRotation(aim);
             if (Target.TakeDamage(10))
@@ -57,7 +62,7 @@ namespace BugHunt.Labs.Lab01
                 Target = PickTarget();
                 if (Target == null)
                 {
-                    enabled = false;   // 남은 적이 없다
+                    enabled = false;   // 남은 적이 없다 / 残りの敵がいない
                 }
             }
         }
@@ -85,7 +90,7 @@ namespace BugHunt.Labs.Lab01
         }
     }
 
-    [Lab(1, "감시탑")]
+    [Lab(1, "감시탑", Symptom = "폭탄이 적을 날리자 예외가 쏟아진다")]
     public class Lab01_Tower : Lab
     {
         public override IEnumerator Run()
@@ -112,21 +117,33 @@ namespace BugHunt.Labs.Lab01
 
 // ============================================================================
 // 힌트: 막힐 때 하나씩만 펼치세요. (VS: Ctrl+M, Ctrl+O = 전부 접기 / Rider: Ctrl+Shift+NumPad -)
+// ヒント: 行き詰まったときに 1 つずつだけ開いてください。(VS: Ctrl+M, Ctrl+O = すべて折りたたむ / Rider: Ctrl+Shift+NumPad -)
 // ============================================================================
 
-#region 힌트 1 (먼저 직접 추적해 보고 펼치세요)
+#region 힌트 1 / ヒント 1 (먼저 직접 추적해 보고 펼치세요 / まず自分で追跡してから開いてください)
 // Console 창의 빨간 줄(MissingReferenceException)을 한 번 클릭하면 아래에 스택 트레이스가 나옵니다.
 // 맨 위의 내 코드 줄(파란 링크)을 더블클릭하면 그 줄로 갑니다. 어떤 변수의 무엇에 접근하다 죽었나요?
 // 메시지를 끝까지 읽으세요. "has been destroyed but you are still trying to access it" 은 null 이 아니라 "파괴된 오브젝트" 라는 뜻입니다.
+//
+// コンソール (Console) ウィンドウの赤い行 (MissingReferenceException) を 1 回クリックすると、下にスタックトレースが出ます。
+// 一番上の自分のコードの行 (青いリンク) をダブルクリックすると、その行に移動します。どの変数の何にアクセスしようとして落ちましたか?
+// メッセージを最後まで読んでください。"has been destroyed but you are still trying to access it" は null ではなく「破棄されたオブジェクト」という意味です。
 #endregion
 
-#region 힌트 2
+#region 힌트 2 / ヒント 2
 // 그 적은 누가 파괴했을까요? Enemy.TakeDamage 의 Destroy 줄에 중단점을 걸고 다시 실행하세요.
 // 처음 멈췄을 때 호출 스택에 Tower 가 있나요, Bomb 이 있나요?
 // 디버거를 붙인 상태라면 예외가 난 줄에서 VS/Rider 가 멈춥니다. 조사식에 Target == null 을 넣어 보세요. true 인데 Target 을 펼치면 필드가 보입니다.
+//
+// その敵は誰が破棄したのでしょうか? Enemy.TakeDamage の Destroy の行にブレークポイントを置いて、もう一度実行してください。
+// 最初に止まったとき、コールスタックに Tower がありますか、Bomb がありますか?
+// デバッガーをアタッチした状態なら、例外が起きた行で VS/Rider が止まります。ウォッチ式に Target == null を入れてみてください。true なのに Target を展開するとフィールドが見えます。
 #endregion
 
-#region 힌트 3
+#region 힌트 3 / ヒント 3
 // 감시탑은 "자기가 처치했을 때만" 다음 표적을 고릅니다. 남이(폭탄, 다른 플레이어, 시간 제한) 표적을 파괴하는 경우를 생각하지 않았습니다.
 // Update 맨 앞에서 Target 이 아직 살아 있는지(Unity 의 == null) 확인하고, 아니면 다시 고르세요.
+//
+// 監視塔は「自分が倒したときだけ」次の標的を選びます。他のもの (爆弾、ほかのプレイヤー、制限時間) が標的を破棄する場合を考えていませんでした。
+// Update の先頭で Target がまだ生きているか (Unity の == null) を確認し、生きていなければ選び直してください。
 #endregion

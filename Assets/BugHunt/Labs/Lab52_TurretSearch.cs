@@ -1,6 +1,9 @@
 // 랩 52: 포탑의 표적 찾기
 // 포탑 40대가 매 프레임 가장 가까운 적을 찾는다. 적이 몇 마리 없을 때는 괜찮았는데, 맵에 오브젝트가 많아지자 프레임이 무너지고 GC 가 튄다.
 // 기대: 표적 찾기가 프레임마다 쓰레기를 만들지 않고(포탑 전체 합 프레임당 256바이트 이하), 새로 나타난 적도 바로 표적이 된다.
+// ラボ 52: タレットの標的探し
+// タレット 40 台が毎フレーム一番近い敵を探す。敵が数匹のときは問題なかったが、マップのオブジェクトが増えるとフレームレートが崩れ、GC が跳ねる。
+// 期待: 標的探しがフレームごとにゴミを作らず (タレット全体の合計でフレームあたり 256 バイト以下)、新しく現れた敵もすぐに標的になる。
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -35,7 +38,7 @@ namespace BugHunt.Labs.Lab52
         }
     }
 
-    [Lab(52, "포탑의 표적 찾기")]
+    [Lab(52, "포탑의 표적 찾기", Symptom = "맵에 오브젝트가 많아지자 프레임이 무너지고 GC 가 튄다")]
     public class Lab52_TurretSearch : Lab
     {
         public override IEnumerator Run()
@@ -45,7 +48,7 @@ namespace BugHunt.Labs.Lab52
             Spawn("Player", new Vector3(0f, 0f, -5f));
             for (int i = 0; i < 1500; ++i)
             {
-                Spawn($"Scenery_{i}");   // 나무, 돌, 장식(맵에 흔한 오브젝트)
+                Spawn($"Scenery_{i}");   // 나무, 돌, 장식(맵에 흔한 오브젝트) / 木、岩、装飾 (マップによくあるオブジェクト)
             }
             for (int i = 0; i < enemies; ++i)
             {
@@ -73,11 +76,12 @@ namespace BugHunt.Labs.Lab52
             stopwatch.Stop();
             long bytes = System.Math.Max(0, work.BytesPerFrame - baseline.BytesPerFrame);
 
-            Report.Note($"포탑 40대, 적 {enemies}마리, 장식 1500개: 프레임당 GC 할당 {bytes}바이트, 22프레임 {stopwatch.ElapsedMilliseconds}ms (참고용)");
-            Report.ExpectTrue($"표적 찾기의 GC 할당 ≤ {Budget}바이트/프레임", bytes <= Budget);
+            Report.Note(Loc.F("포탑 40대, 적 {0}마리, 장식 1500개: 프레임당 GC 할당 {1}바이트, 22프레임 {2}ms (참고용)", enemies, bytes, stopwatch.ElapsedMilliseconds));
+            Report.ExpectTrue(Loc.F("표적 찾기의 GC 할당 ≤ {0}바이트/프레임", Budget), bytes <= Budget);
             Report.ExpectTrue("포탑이 플레이어를 알고 있음", turrets[0].Player != null && turrets[0].Player.name == "Player");
 
             // 새 적이 포탑 바로 앞에 나타난다.
+            // 新しい敵がタレットのすぐ前に現れる。
             var ambusher = Spawn<Enemy>("Ambusher", new Vector3(Case(3f, 7f), 0f, 1f));
             yield return null;
             yield return null;
@@ -92,23 +96,37 @@ namespace BugHunt.Labs.Lab52
 
 // ============================================================================
 // 힌트: 막힐 때 하나씩만 펼치세요. (VS: Ctrl+M, Ctrl+O = 전부 접기)
+// ヒント: 行き詰まったときに 1 つずつだけ開いてください。(VS: Ctrl+M, Ctrl+O = すべて折りたたむ)
 // ============================================================================
 
-#region 힌트 1 (먼저 직접 추적해 보고 펼치세요)
+#region 힌트 1 / ヒント 1 (먼저 직접 추적해 보고 펼치세요 / まず自分で追跡してから開いてください)
 // Profiler → CPU Usage → Hierarchy 에서 Turret.Update 를 펼치세요. GameObject.Find 와 FindObjectsByType 의 Time ms 와 GC Alloc 은 얼마인가요? Calls 는 몇 번인가요?
 // Timeline 으로 바꾸면 한 프레임 안에서 포탑 40대의 Update 가 줄지어 있는 것이 보입니다.
+//
+// プロファイラー (Profiler) → CPU Usage → ヒエラルキー (Hierarchy) で Turret.Update を展開してください。GameObject.Find と FindObjectsByType の 時間 (ミリ秒) (Time ms) と GC アロケーション (GC Alloc) はいくつですか? 呼び出し (Calls) は何回ですか?
+// タイムライン (Timeline) に切り替えると、1 フレームの中にタレット 40 台の Update が並んでいるのが見えます。
 #endregion
 
-#region 힌트 2
+#region 힌트 2 / ヒント 2
 // GameObject.Find 는 씬의 모든 활성 오브젝트를 이름으로 훑습니다(오브젝트 수에 비례). FindObjectsByType 은 모든 오브젝트를 훑고 결과를 새 배열에 담아 돌려줍니다(매번 할당).
 // 이것을 포탑 수 × 매 프레임 합니다. 결과는 거의 늘 같은데요.
 // 참고: Camera.main 은 Unity 2020.2 부터 내부에서 캐시되어 예전만큼 비싸지 않습니다. "Camera.main 은 금지" 는 옛 규칙이고, 이런 버그의 진짜 비용은 Find 류입니다.
+//
+// GameObject.Find はシーンのすべてのアクティブなオブジェクトを名前でなめます (オブジェクト数に比例)。FindObjectsByType はすべてのオブジェクトをなめ、結果を新しい配列に入れて返します (毎回アロケーション)。
+// これをタレットの数 × 毎フレーム行います。結果はほとんどいつも同じなのに。
+// 参考: Camera.main は Unity 2020.2 から内部でキャッシュされ、昔ほど高くありません。「Camera.main は禁止」は古いルールで、この種のバグの本当のコストは Find 系です。
 #endregion
 
-#region 힌트 3
+#region 힌트 3 / ヒント 3
 // 바뀌지 않는 것은 한 번만 찾고(Awake/Start), 바뀌는 집합은 "등록부" 로 관리합니다.
 //   public class Enemy : MonoBehaviour { public static readonly List<Enemy> All = new List<Enemy>(); void OnEnable() { All.Add(this); } void OnDisable() { All.Remove(this); } }
 //   void Start() { Player = GameObject.Find("Player").transform; }   // 또는 인스펙터로 연결
 //   for (int i = 0; i < Enemy.All.Count; ++i) { ... }               // foreach 도 List 를 직접 돌면 할당 없음
 // 표적 찾기를 매 프레임 할 필요가 없다면 0.2초마다로 줄이는 것도 방법입니다.
+//
+// 変わらないものは 1 回だけ探し (Awake/Start)、変わる集合は「登録簿」で管理します。
+//   public class Enemy : MonoBehaviour { public static readonly List<Enemy> All = new List<Enemy>(); void OnEnable() { All.Add(this); } void OnDisable() { All.Remove(this); } }
+//   void Start() { Player = GameObject.Find("Player").transform; }   // またはインスペクターでつなぐ
+//   for (int i = 0; i < Enemy.All.Count; ++i) { ... }               // foreach も List を直接回せばアロケーションなし
+// 標的探しを毎フレーム行う必要がなければ、0.2 秒ごとに減らすのも手です。
 #endregion

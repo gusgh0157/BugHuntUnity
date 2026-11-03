@@ -1,6 +1,9 @@
 // 랩 55: 치유 오라
 // 사제 8명이 둘러선 아군을 매 프레임 치유한다(치유 진형). 기능은 맞는데 Profiler 의 GC Alloc 열에 Physics.OverlapSphere 가 매 프레임 찍힌다.
 // 기대: 범위 안의 아군은 모두 치유되고, 범위 밖은 치유되지 않으며, 찾는 데 GC 할당이 없다(프레임당 128바이트 이하).
+// ラボ 55: 回復オーラ
+// 司祭 8 人が、周りを囲む味方を毎フレーム回復する (回復陣形)。機能は正しいのに、プロファイラーの GC アロケーション (GC Alloc) 列に Physics.OverlapSphere が毎フレーム出る。
+// 期待: 範囲内の味方はすべて回復し、範囲外は回復せず、探すのに GC アロケーションがない (フレームあたり 128 バイト以下)。
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -30,7 +33,7 @@ namespace BugHunt.Labs.Lab55
         }
     }
 
-    [Lab(55, "치유 오라")]
+    [Lab(55, "치유 오라", Symptom = "기능은 맞는데 매 프레임 OverlapSphere 가 배열을 만든다")]
     public class Lab55_HealingAura : Lab
     {
         float savedCaptureDeltaTime;
@@ -69,10 +72,10 @@ namespace BugHunt.Labs.Lab55
             long bytes = System.Math.Max(0, work.BytesPerFrame - baseline.BytesPerFrame);
 
             int healed = allies.FindAll(a => a.Health > 11f).Count;
-            Report.Note($"범위 안 아군 {inside}명, 프레임당 GC 할당 {bytes}바이트");
+            Report.Note(Loc.F("범위 안 아군 {0}명, 프레임당 GC 할당 {1}바이트", inside, bytes));
             Report.Expect("범위 안에서 치유된 아군 수", inside, healed);
             Report.Expect("범위 밖 아군의 HP", 10f, outsider.Health);
-            Report.ExpectTrue($"찾는 데 GC 할당 ≤ {Budget}바이트/프레임", bytes <= Budget);
+            Report.ExpectTrue(Loc.F("찾는 데 GC 할당 ≤ {0}바이트/프레임", Budget), bytes <= Budget);
         }
 
         void OnDestroy()
@@ -84,23 +87,37 @@ namespace BugHunt.Labs.Lab55
 
 // ============================================================================
 // 힌트: 막힐 때 하나씩만 펼치세요. (VS: Ctrl+M, Ctrl+O = 전부 접기)
+// ヒント: 行き詰まったときに 1 つずつだけ開いてください。(VS: Ctrl+M, Ctrl+O = すべて折りたたむ)
 // ============================================================================
 
-#region 힌트 1 (먼저 직접 추적해 보고 펼치세요)
+#region 힌트 1 / ヒント 1 (먼저 직접 추적해 보고 펼치세요 / まず自分で追跡してから開いてください)
 // Profiler → CPU Usage → Hierarchy → GC Alloc 열로 정렬. HealingAura.Update 아래 무엇이 할당하나요? 한 번에 몇 바이트이고, 그 크기는 범위 안 콜라이더 수에 따라 어떻게 바뀌나요?
 // 메모리 할당을 직접 재려면 ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame") 의 LastValue 를 보세요(이 랩의 판정도 그 값입니다).
+//
+// プロファイラー (Profiler) → CPU Usage → ヒエラルキー (Hierarchy) → GC アロケーション (GC Alloc) 列で並べ替え。HealingAura.Update の下で何がアロケーションしていますか? 1 回に何バイトで、その大きさは範囲内のコライダーの数によってどう変わりますか?
+// メモリアロケーションを直接測りたいなら、ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame") の LastValue を見てください (このラボの判定もその値です)。
 #endregion
 
-#region 힌트 2
+#region 힌트 2 / ヒント 2
 // 결과를 배열로 "돌려주는" API 는 부를 때마다 새 배열을 만듭니다: Physics.OverlapSphere, RaycastAll, GetComponents<T>(), GetComponentsInChildren<T>(), FindObjectsByType, Mesh.vertices(!).
 // 대부분 결과를 "넘긴 버퍼에 채우는" 짝이 있습니다: OverlapSphereNonAlloc, RaycastNonAlloc, GetComponents(List<T>), GetComponentsInChildren(List<T>), mesh.GetVertices(List<Vector3>).
 // 채우는 API 의 버퍼가 작으면 넘치는 결과는 조용히 버려집니다(예외 없음). 버퍼 크기와 돌려받은 개수를 꼭 함께 보세요. 버퍼를 함수 밖으로 내보내면 랩 20 이 됩니다.
+//
+// 結果を配列で「返す」API は、呼ぶたびに新しい配列を作ります: Physics.OverlapSphere, RaycastAll, GetComponents<T>(), GetComponentsInChildren<T>(), FindObjectsByType, Mesh.vertices(!)。
+// ほとんどに、結果を「渡したバッファーに詰める」対があります: OverlapSphereNonAlloc, RaycastNonAlloc, GetComponents(List<T>), GetComponentsInChildren(List<T>), mesh.GetVertices(List<Vector3>)。
+// 詰める API のバッファーが小さいと、あふれた結果は黙って捨てられます (例外なし)。バッファーの大きさと返された個数を必ず一緒に見てください。バッファーを関数の外に出すとラボ 20 になります。
 #endregion
 
-#region 힌트 3
+#region 힌트 3 / ヒント 3
 //   readonly Collider[] buffer = new Collider[32];
 //   int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, buffer);
 //   if (count == buffer.Length) { Debug.LogWarning("치유 오라 버퍼가 가득 참"); }   // 넘쳤을 수 있다
 //   for (int i = 0; i < count; ++i) { if (buffer[i].TryGetComponent(out Ally ally)) { ... } }
 // 레이어 마스크를 함께 넘기면(랩 29) 아군 레이어만 받아 버퍼를 아낄 수 있습니다.
+//
+//   readonly Collider[] buffer = new Collider[32];
+//   int count = Physics.OverlapSphereNonAlloc(transform.position, Radius, buffer);
+//   if (count == buffer.Length) { Debug.LogWarning("回復オーラのバッファーがいっぱい"); }   // あふれたかもしれない
+//   for (int i = 0; i < count; ++i) { if (buffer[i].TryGetComponent(out Ally ally)) { ... } }
+// レイヤーマスクも一緒に渡せば (ラボ 29)、味方のレイヤーだけを受け取ってバッファーを節約できます。
 #endregion

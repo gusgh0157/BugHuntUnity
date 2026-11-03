@@ -1,12 +1,16 @@
 // 랩 6: HP 바
 // 출혈 중인 영웅의 HP 바가 매 프레임 한 칸씩 늦다. 영웅이 쓰러진 프레임에도 HP 바는 1 을 보여 준다.
 // 기대: 매 프레임 HP 바 숫자 == 영웅 HP.
+// ラボ 6: HP バー
+// 出血中の英雄の HP バーが毎フレーム 1 つずつ遅れる。英雄が倒れたフレームでも HP バーは 1 を表示する。
+// 期待: 毎フレーム HP バーの数字 == 英雄の HP。
 using System.Collections;
 using UnityEngine;
 
 namespace BugHunt.Labs.Lab06
 {
     // 입력 처리 스크립트들 다음에 돌도록 순서를 뒤로 미뤘다.
+    // 入力処理スクリプトの後に実行されるよう、順序を後ろにずらした。
     [DefaultExecutionOrder(100)]
     public class BleedingHero : MonoBehaviour
     {
@@ -16,7 +20,7 @@ namespace BugHunt.Labs.Lab06
         {
             if (Health > 0)
             {
-                --Health;   // 출혈: 매 프레임 1
+                --Health;   // 출혈: 매 프레임 1 / 出血: 毎フレーム 1
             }
         }
     }
@@ -33,6 +37,7 @@ namespace BugHunt.Labs.Lab06
     }
 
     // 판정용: 모든 LateUpdate 가 끝난 뒤(= 화면에 그리기 직전) HP 바와 영웅 HP 를 비교한다.
+    // 判定用: すべての LateUpdate が終わった後 (= 画面に描画する直前) に HP バーと英雄の HP を比べる。
     [DefaultExecutionOrder(10000)]
     public class FrameProbe : MonoBehaviour
     {
@@ -51,7 +56,7 @@ namespace BugHunt.Labs.Lab06
                 {
                     if (Mismatched == 0)
                     {
-                        Report.Note($"프레임 {Time.frameCount}: 영웅 HP {Hero.Health}, HP 바 {Bar.Displayed}");
+                        Report.Note(Loc.F("프레임 {0}: 영웅 HP {1}, HP 바 {2}", Time.frameCount, Hero.Health, Bar.Displayed));
                     }
                     ++Mismatched;
                 }
@@ -63,7 +68,7 @@ namespace BugHunt.Labs.Lab06
         }
     }
 
-    [Lab(6, "HP 바")]
+    [Lab(6, "HP 바", Symptom = "HP 바가 매 프레임 한 칸씩 늦다")]
     public class Lab06_HealthBar : Lab
     {
         public override IEnumerator Run()
@@ -81,7 +86,7 @@ namespace BugHunt.Labs.Lab06
                 yield return null;
             }
 
-            Report.Expect($"HP 바가 틀린 프레임 수 ({probe.Frames}프레임 중)", 0, probe.Mismatched);
+            Report.Expect(Loc.F("HP 바가 틀린 프레임 수 ({0}프레임 중)", probe.Frames), 0, probe.Mismatched);
             Report.Expect("영웅이 쓰러진 프레임의 HP 바", 0, probe.ShownWhenDead);
         }
     }
@@ -89,19 +94,29 @@ namespace BugHunt.Labs.Lab06
 
 // ============================================================================
 // 힌트: 막힐 때 하나씩만 펼치세요. (VS: Ctrl+M, Ctrl+O = 전부 접기)
+// ヒント: 行き詰まったときに 1 つずつだけ開いてください。(VS: Ctrl+M, Ctrl+O = すべて折りたたむ)
 // ============================================================================
 
-#region 힌트 1 (먼저 직접 추적해 보고 펼치세요)
+#region 힌트 1 / ヒント 1 (먼저 직접 추적해 보고 펼치세요 / まず自分で追跡してから開いてください)
 // 두 Update 에 추적점을 거세요: "{GetType().Name} frame={UnityEngine.Time.frameCount} hp={Health}" (HealthBar 쪽은 Hero.Health).
 // 출력 창에서 한 프레임 안의 순서는 "영웅 → HP 바" 인가요, "HP 바 → 영웅" 인가요?
+//
+// 2 つの Update にトレースポイントを置いてください: "{GetType().Name} frame={UnityEngine.Time.frameCount} hp={Health}" (HealthBar のほうは Hero.Health)。
+// 出力ウィンドウで、1 フレーム内の順序は「英雄 → HP バー」ですか、「HP バー → 英雄」ですか?
 #endregion
 
-#region 힌트 2
+#region 힌트 2 / ヒント 2
 // 같은 프레임의 Update 끼리 누가 먼저 도는지는 Script Execution Order 가 정합니다.
 // Edit → Project Settings → Script Execution Order 창을 보고, 이 파일에서 순서를 바꾸는 줄도 찾아보세요. 숫자가 작을수록 먼저입니다(기본 0).
+//
+// 同じフレームの Update 同士でどれが先に実行されるかは、スクリプト実行順序 (Script Execution Order) が決めます。
+// 編集 → プロジェクト設定 → スクリプト実行順序 のウィンドウを見て、このファイルで順序を変えている行も探してみてください。数字が小さいほど先です (既定は 0)。
 #endregion
 
-#region 힌트 3
+#region 힌트 3 / ヒント 3
 // "남이 Update 에서 바꾼 값을 화면에 보여 주는" 코드는 LateUpdate 에서 읽으면 같은 프레임의 모든 Update 다음에 돕니다.
 // 또는 HealthBar 에 [DefaultExecutionOrder(200)] 처럼 영웅보다 늦은 순서를 주세요. 순서가 중요하면 "우연"에 맡기지 말고 명시합니다.
+//
+// 「他のものが Update で変えた値を画面に表示する」コードは、LateUpdate で読めば同じフレームのすべての Update の後に実行されます。
+// または HealthBar に [DefaultExecutionOrder(200)] のように英雄より遅い順序を与えてください。順序が重要なら「偶然」に任せず明示します。
 #endregion

@@ -1,5 +1,7 @@
 # 해답 (스포일러!)
 
+**한국어** | [日本語](SOLUTIONS.ja.md)
+
 수치(프레임 번호, ms)는 PC 와 실행 방식에 따라 조금씩 다릅니다. 판정에 쓰는 값(기대/실제)은 같습니다.
 채점기의 숨은 테스트 케이스는 입력(적의 수, 좌표, 피해량, 서버 가동 시간 등)만 바꾸므로 해답은 같습니다. 원인을 고쳤다면 숨은 케이스도 그대로 통과합니다.
 
@@ -1039,7 +1041,7 @@ void Update()
     if (alive != shownAlive || total != shownTotal)
     {
         shownAlive = alive; shownTotal = total;
-        SquadText = $"생존 {alive}명, 부대 HP {total}";
+        SquadText = Loc.F("생존 {0}명, 부대 HP {1}", alive, total);
     }
 }
 ```

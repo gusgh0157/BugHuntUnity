@@ -7,6 +7,8 @@ namespace BugHunt.Tests
 {
     // 랩 하나 = 테스트 하나. 버그가 있는 상태에서는 실패하는 것이 정상이다.
     // 랩을 고친 뒤 Window → General → Test Runner → PlayMode → Run All 로 한꺼번에 확인할 수 있다.
+    // ラボ 1 つ = テスト 1 つ。バグがある状態では失敗するのが正常です。
+    // ラボを直したあと、ウィンドウ → 一般 → テストランナー → PlayMode → Run All でまとめて確認できます。
     public class LabTests
     {
         static IEnumerator Run(int number)

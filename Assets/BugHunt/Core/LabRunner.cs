@@ -15,28 +15,30 @@ namespace BugHunt
         public int Skipped;
         public bool Crashed;
         public bool TimedOut;
-        public bool Hung;   // HangGuard 가 "응답 없음" 을 선언했다 (TimedOut 도 true)
+        public bool Hung;   // HangGuard 가 "응답 없음" 을 선언했다 (TimedOut 도 true) / HangGuard が「応答なし」を宣言した (TimedOut も true)
         public bool HiddenCase;
         public bool UsedCase;
         public string FirstFailure;
         public string FirstSkip;
-        public string FirstException;   // 크래시였다면 처음 난 예외의 메시지 한 줄
+        public string FirstException;   // 크래시였다면 처음 난 예외의 메시지 한 줄 / クラッシュだった場合、最初に起きた例外のメッセージ 1 行
         public int ErrorLogs;
     }
 
     // 랩 실행기. BugHunt 씬에 하나 있고, 자동 테스트도 이걸로 랩을 돌린다. 여기에는 버그가 없다.
+    // ラボ実行器。BugHunt シーンに 1 つあり、自動テストもこれでラボを回します。ここにはバグはありません。
     public class LabRunner : MonoBehaviour
     {
         public struct LabEntry
         {
             public int Number;
-            public string Title;
+            public string Title;     // 한국어(표의 키). 보여 줄 때는 Loc.T / 韓国語 (表のキー)。表示するときは Loc.T
+            public string Symptom;
             public bool MakesSound;
             public Type Type;
         }
 
         public const string SoundWarning = "[주의] 소리가 납니다. 볼륨을 낮추세요";
-        public const float SoundLabListenerVolume = 0.1f;   // 소리 랩 동안의 전체 볼륨. 클립 자체도 진폭 0.3 이하다
+        public const float SoundLabListenerVolume = 0.1f;   // 소리 랩 동안의 전체 볼륨. 클립 자체도 진폭 0.3 이하다 / 音のラボの間の全体音量。クリップ自体も振幅 0.3 以下
 
         public static readonly (int First, int Last, string Name)[] Parts =
         {
@@ -73,7 +75,7 @@ namespace BugHunt
                 .Where(t => !t.IsAbstract && typeof(Lab).IsAssignableFrom(t))
                 .Select(t => (Type: t, Info: t.GetCustomAttribute<LabAttribute>()))
                 .Where(x => x.Info != null)
-                .Select(x => new LabEntry { Number = x.Info.Number, Title = x.Info.Title, MakesSound = x.Info.MakesSound, Type = x.Type })
+                .Select(x => new LabEntry { Number = x.Info.Number, Title = x.Info.Title, Symptom = x.Info.Symptom, MakesSound = x.Info.MakesSound, Type = x.Type })
                 .OrderBy(e => e.Number)
                 .ToList();
         }
@@ -84,7 +86,7 @@ namespace BugHunt
             {
                 if (number >= part.First && number <= part.Last)
                 {
-                    return part.Name;
+                    return Loc.T(part.Name);
                 }
             }
             return "";
@@ -105,10 +107,12 @@ namespace BugHunt
             int autoLab = 0;
 #if UNITY_EDITOR
             // 에디터 메뉴 BugHunt → 랩 실행 창에서 고른 랩
+            // エディターのメニュー BugHunt → ラボ実行ウィンドウで選んだラボ
             autoLab = UnityEditor.SessionState.GetInt("BugHunt.AutoLab", 0);
             UnityEditor.SessionState.EraseInt("BugHunt.AutoLab");
 #endif
             // 빌드한 플레이어: BugHuntUnity.exe -bugHuntLab 5
+            // ビルドしたプレイヤー: BugHuntUnity.exe -bugHuntLab 5
             string[] args = Environment.GetCommandLineArgs();
             for (int i = 0; i < args.Length - 1; ++i)
             {
@@ -127,14 +131,14 @@ namespace BugHunt
         {
             if (IsRunning)
             {
-                Report.Print("이미 랩이 실행 중입니다.", Color.yellow);
+                Report.Print(Loc.T("이미 랩이 실행 중입니다."), Color.yellow);
                 yield break;
             }
 
             LabEntry entry = Labs.FirstOrDefault(e => e.Number == number);
             if (entry.Type == null)
             {
-                Report.Print($"랩 {number} 은(는) 없습니다.", Color.yellow);
+                Report.Print(Loc.F("랩 {0} 은(는) 없습니다.", number), Color.yellow);
                 yield break;
             }
 
@@ -151,10 +155,10 @@ namespace BugHunt
             float savedListenerVolume = AudioListener.volume;
             if (entry.MakesSound)
             {
-                Report.Print(SoundWarning, Color.yellow);
-                AudioListener.volume = SoundLabListenerVolume;   // 모든 소리를 같은 비율로 줄인다(가상 음성 순위는 그대로)
+                Report.Print(Loc.T(SoundWarning), Color.yellow);
+                AudioListener.volume = SoundLabListenerVolume;   // 모든 소리를 같은 비율로 줄인다(가상 음성 순위는 그대로) / すべての音を同じ比率で下げる (仮想ボイスの順位はそのまま)
             }
-            Report.Print($"==== 랩 {number}: {entry.Title} ====", Color.cyan);
+            Report.Print(Loc.F("==== 랩 {0}: {1} ====", number, Loc.T(entry.Title)), Color.cyan);
             if (Lab.HiddenCase)
             {
                 Report.Note("(채점: 숨은 테스트 케이스로 실행)");
@@ -184,19 +188,19 @@ namespace BugHunt
             }
             else if (timedOut && !hung)
             {
-                Report.Fail($"시간 초과 ({lab.TimeoutSeconds}초)");
+                Report.Fail(Loc.F("시간 초과 ({0}초)", lab.TimeoutSeconds));
             }
             if (errorLogs > 0)
             {
-                Report.Fail($"랩 도중 Console 에 에러 {errorLogs}개");
+                Report.Fail(Loc.F("랩 도중 Console 에 에러 {0}개", errorLogs));
             }
 
             Destroy(root);
-            yield return null;   // Destroy 는 프레임 끝에 일어난다. 랩의 OnDestroy 정리가 끝난 뒤 결과를 낸다.
+            yield return null;   // Destroy 는 프레임 끝에 일어난다. 랩의 OnDestroy 정리가 끝난 뒤 결과를 낸다. / Destroy はフレームの終わりに起きる。ラボの OnDestroy の後始末が終わってから結果を出す。
             AudioListener.volume = savedListenerVolume;
 
             string skipped = Report.Skipped > 0 ? $" / SKIP {Report.Skipped}" : "";
-            Report.Print($"==== 랩 {number} 결과: PASS {Report.Passed} / FAIL {Report.Failed}{skipped} ====", Color.cyan);
+            Report.Print(Loc.F("==== 랩 {0} 결과: PASS {1} / FAIL {2}{3} ====", number, Report.Passed, Report.Failed, skipped), Color.cyan);
             LastResult = new LabResult
             {
                 Number = number,
@@ -217,6 +221,7 @@ namespace BugHunt
         }
 
         // 랩 코루틴을 감싸기만 한다. 예외를 잡지 않는다: 잡으면 디버거가 "처리되지 않은 예외"로 멈추지 않는다.
+        // ラボのコルーチンを包むだけです。例外はキャッチしません: キャッチするとデバッガーが「ハンドルされない例外」で止まらなくなります。
         IEnumerator Drive(Lab lab)
         {
             yield return lab.Run();
@@ -226,6 +231,7 @@ namespace BugHunt
         void OnLog(string condition, string stackTrace, LogType type)
         {
             // HangGuard 가 던진 HangException 은 크래시가 아니라 "응답 없음" 이다(이미 [FAIL] 로 셌다).
+            // HangGuard が投げた HangException はクラッシュではなく「応答なし」です (すでに [FAIL] として数えました)。
             if (type == LogType.Exception && !HangGuard.Tripped)
             {
                 crashed = true;
@@ -247,7 +253,7 @@ namespace BugHunt
         {
             const float listWidth = 260f;
             GUILayout.BeginArea(new Rect(10, 10, listWidth, Screen.height - 20), GUI.skin.box);
-            GUILayout.Label("BugHunt Unity: 랩을 고르세요");
+            GUILayout.Label(Loc.T("BugHunt Unity: 랩을 고르세요"));
             listScroll = GUILayout.BeginScrollView(listScroll);
             string currentPart = null;
             foreach (LabEntry entry in Labs)
@@ -259,7 +265,7 @@ namespace BugHunt
                     GUILayout.Label(part);
                 }
                 GUI.enabled = !IsRunning;
-                if (GUILayout.Button($"{entry.Number}. {entry.Title}{(entry.MakesSound ? " (소리 주의)" : "")}"))
+                if (GUILayout.Button($"{entry.Number}. {Loc.T(entry.Title)}{(entry.MakesSound ? Loc.T(" (소리 주의)") : "")}"))
                 {
                     StartCoroutine(RunLab(entry.Number));
                 }

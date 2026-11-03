@@ -1,5 +1,7 @@
 # BugHunt Unity — 유니티 C# 버그 추적 실습
 
+**한국어** | [日本語](README.ja.md)
+
 [BugHunt](https://github.com/gusgh0157/BugHunt)(C++ 콘솔판)와 BugHunt UE(언리얼판)의 Unity 버전입니다.
 버그가 **일부러 심어진** 작은 게임 코드 모음이고, 이번에는 **Unity 에서만 생기는** 버그들입니다.
 
@@ -118,6 +120,17 @@
 
 > ⚠ **플레이 중에 코드를 고치면** Unity 는 기본 설정(Preferences → General → Script Changes While Playing: *Recompile And Continue Playing*)에서 플레이 중에 다시 컴파일하고 정적 변수와 직렬화되지 않은 필드를 날립니다. 헷갈리면 **플레이를 멈추고 고치세요.**
 
+### 언어 (한국어 / 日本語)
+
+랩 실행 창, Console 의 판정 줄, 채점 결과는 한국어와 일본어로 볼 수 있습니다. 메뉴 이름은 두 언어를 나란히 씁니다(`랩 실행 창 · ラボ実行ウィンドウ`). 언어는 이 순서로 정해집니다.
+
+1. 명령줄 `-bughuntLang ko` / `-bughuntLang ja` (채점: `grade.bat -Lang ja`)
+2. 랩 실행 창 맨 위의 **언어 / 言語** 에서 고른 언어 (EditorPrefs 에 기억)
+3. OS 언어가 일본어면 일본어
+4. 그 밖에는 한국어
+
+랩 코드의 주석과 접힌 힌트는 한 파일 안에 한국어 다음 일본어로 나란히 있습니다. 출력 문장은 코드에 한국어로 쓰여 있고, 그 문장이 `Assets/BugHunt/Lang/Ja/LabNN.cs` 의 일본어 표의 키입니다. `grade-report.json` 은 `title`·`detail` 만 고른 언어로 나오고 `result` 값과 키는 그대로입니다.
+
 ### Console 창 읽기
 
 - 한 줄을 **클릭**하면 아래에 스택 트레이스가 나옵니다. **맨 위가 예외가 난 곳**, 아래로 갈수록 "누가 불렀나" 입니다.
@@ -181,7 +194,7 @@
 1. 랩 파일을 처음 열면 **Ctrl+M, Ctrl+O**(VS) / **Ctrl+Shift+NumPad -**(Rider)로 전부 접습니다.
 2. 막힐 때 **힌트 1**만 펼칩니다. 그래도 막히면 다음 힌트를 하나씩.
 
-랩 코드는 `Assets/BugHunt/Labs/LabNN_*.cs` 입니다(랩 10·11 은 `Lab10/`, `Lab11/` 폴더에 클래스가 하나 더 있습니다). `Assets/BugHunt/Core/`(랩 실행기, 9부의 `HangGuard`, 10부의 `GcMeter`)와 `Editor/`, `Tests/` 에는 버그가 없습니다.
+랩 코드는 `Assets/BugHunt/Labs/LabNN_*.cs` 입니다(랩 10·11 은 `Lab10/`, `Lab11/` 폴더에 클래스가 하나 더 있습니다). `Assets/BugHunt/Core/`(랩 실행기, 9부의 `HangGuard`, 10부의 `GcMeter`, 언어 전환 `Loc`)와 `Editor/`, `Lang/`, `Tests/` 에는 버그가 없습니다.
 다 풀면 [SOLUTIONS.md](SOLUTIONS.md)로 맞춰 보세요.
 
 ---
@@ -593,6 +606,7 @@ Unity 의 게임 코드는 대부분 메인 스레드 하나에서 돌지만, �
    | `-NoGraphics` | 그래픽 장치 없이(`-nographics`). 서버/CI 용. 랩 39 는 SKIP |
    | `-Labs 23,24,50` | 이 랩만 채점 |
    | `-Report 경로` | 결과 JSON 위치 (기본: 프로젝트 폴더의 `grade-report.json`) |
+   | `-Lang ja` | 출력 언어 `ko` / `ja`. 없으면 랩 실행 창에서 고른 언어, 그다음 OS 언어 |
    | `-TimeoutMinutes 20` | 전체 제한 시간. 넘으면 Unity 를 강제로 끈다(아래) |
 
    Unity 로그는 `grade.log` 에 남습니다(컴파일 에러가 나면 여기서 `error CS` 를 찾으세요. grade.bat 도 처음 몇 줄을 보여 줍니다).
@@ -632,6 +646,8 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 채점기([채점](#채점))와 별개로, 랩마다 PlayMode 테스트가 하나씩 있습니다. 채점기와 달리 숨은 케이스는 돌리지 않습니다.
 
 랩 하나가 PlayMode 테스트 하나입니다(`Assets/BugHunt/Tests/LabTests.cs`). **버그가 있는 지금 상태에서는 실패하는 것이 정상**입니다.
+
+**EditMode** 탭에는 번역 점검 테스트(`Assets/BugHunt/Tests/Editor/TranslationTests.cs`)가 있습니다. 코드의 한국어 출력 문장마다 일본어 표에 번역이 있는지, 보간 문자열(`$"..."`)에 한국어를 쓰지 않았는지(대신 `Loc.F`), 표에 쓰지 않는 키나 자리 표시자가 어긋난 번역이 없는지 봅니다. 이 테스트는 버그 상태에서도 통과합니다. 새 랩을 만들 때는 처음부터 두 언어로 쓰고 이 테스트로 확인하세요.
 
 - 에디터: Window → General → **Test Runner** → **PlayMode** 탭 → Run All. 고친 랩만 초록색이 됩니다.
 - 명령줄(에디터를 닫고, Unity.exe 경로는 설치 위치에 맞게):
