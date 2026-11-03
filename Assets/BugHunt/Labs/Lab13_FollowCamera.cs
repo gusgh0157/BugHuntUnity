@@ -90,5 +90,8 @@ namespace BugHunt.Labs.Lab13
 // Vector3.SmoothDamp(ref velocity, smoothTime) 도 프레임과 상관없이 동작합니다(다만 곡선 모양이 다르므로 이 랩의 기대값과는 다릅니다).
 //
 // 1 秒で残り距離が e^(-k) 倍になるようにするには、1 フレームの割合を 1 - e^(-k * deltaTime) にします。
+//   public float Sharpness = 6.32f;   // 60fps で 0.1 と同じ感覚: -ln(1 - 0.1) * 60
+//   float t = 1f - Mathf.Exp(-Sharpness * Time.deltaTime);
+//   transform.position = Vector3.Lerp(transform.position, Target, t);
 // Vector3.SmoothDamp(ref velocity, smoothTime) もフレームに関係なく動作します (ただし曲線の形が違うので、このラボの期待値とは異なります)。
 #endregion

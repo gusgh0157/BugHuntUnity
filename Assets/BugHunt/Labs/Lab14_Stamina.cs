@@ -80,5 +80,6 @@ namespace BugHunt.Labs.Lab14
 //   Value += RegenPerSecond * Time.deltaTime;
 // 물리처럼 고정 간격이 필요한 계산이라면 FixedUpdate 로 옮기고, 그 안에서도 Time.deltaTime(= fixedDeltaTime)을 씁니다.
 //
+//   Value += RegenPerSecond * Time.deltaTime;
 // 物理のように固定間隔が必要な計算なら FixedUpdate に移し、その中でも Time.deltaTime (= fixedDeltaTime) を使います。
 #endregion

@@ -115,5 +115,6 @@ namespace BugHunt.Labs.Lab22
 // Capacity 를 넉넉히 잡아도 소용없습니다. Add 마다 view 가 무효가 되니, view 는 길이를 바꾸는 쓰기를 건너서 들고 있지 않는 것이 규칙입니다.
 //
 // view をフィールドにキャッシュせず、使うたびに作ります。ジョブに渡すときも、スケジュールの直前に Points.AsArray() (または AsDeferredJobArray())。
+//   public Vector3 StartPoint() { return Points[0]; }
 // Capacity を十分に確保しても無駄です。Add のたびに view が無効になるので、長さを変える書き込みをまたいで view を持ち続けないのがルールです。
 #endregion

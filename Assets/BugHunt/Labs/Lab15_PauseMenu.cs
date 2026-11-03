@@ -109,6 +109,8 @@ namespace BugHunt.Labs.Lab15
 // Animator 라면 Update Mode 를 Unscaled Time 으로, 파티클은 Main 모듈의 Use Unscaled Time 을 켭니다.
 // 이 랩은 기다리는 동안 진짜 시간을 쓰므로 Time.captureDeltaTime 을 쓰지 않습니다(unscaledDeltaTime 은 captureDeltaTime 을 무시합니다).
 //
+//   Shown = Mathf.MoveTowards(Shown, target, Time.unscaledDeltaTime / SlideSeconds);
+//   yield return new WaitForSecondsRealtime(1f);
 // Animator なら更新モード (Update Mode) をスケールされていない時間 (Unscaled Time) に、パーティクルはメインモジュールの Use Unscaled Time をオンにします。
 // このラボは待つ間に本当の時間を使うので、Time.captureDeltaTime を使いません (unscaledDeltaTime は captureDeltaTime を無視します)。
 #endregion

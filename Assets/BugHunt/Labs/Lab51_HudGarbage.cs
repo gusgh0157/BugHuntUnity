@@ -103,7 +103,7 @@ namespace BugHunt.Labs.Lab51
 //
 // ウィンドウ (Window) → 分析 (Analysis) → プロファイラー (Profiler) → CPU Usage → 下のペインをヒエラルキー (Hierarchy) にして、GC アロケーション (GC Alloc) 列で並べ替えてください。HealthBar.Update はフレームごとに何バイト使っていますか?
 // どの行が使っているか分からなければ、プロファイラー上部の 詳細プロファイル (Deep Profile) をオンにしてもう一度再生してください。HealthBar.Update の下に String.Concat、Enumerable.Count、ボックス化された列挙子が見えます (詳細プロファイルは遅くなるので、終わったらオフにします)。
-// 詳細プロファイルの代わりに、怪しい行を ProfilerMarker で囲んでもかまいません: static readonly ProfilerMarker s_Text = new ProfilerMarker("HealthBar.Text"); using (s_Text.Auto()) { ... }
+// 詳細プロファイル (Deep Profile) の代わりに、怪しい行を ProfilerMarker で囲んでもかまいません: static readonly ProfilerMarker s_Text = new ProfilerMarker("HealthBar.Text"); using (s_Text.Auto()) { ... }
 #endregion
 
 #region 힌트 2 / ヒント 2

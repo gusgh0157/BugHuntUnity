@@ -102,5 +102,7 @@ namespace BugHunt.Labs.Lab17
 // 또는 지울 것을 모아 두었다가 반복이 끝난 뒤 한꺼번에 지웁니다(RemoveAll).
 //
 // ループ中に変わりうるリストは、コピーを回すか、後ろからインデックスで回します。
+//   foreach (Enemy enemy in Members.ToArray()) { enemy.TakeDamage(damage); }
+//   for (int i = Members.Count - 1; i >= 0; --i) { Members[i].TakeDamage(damage); }   // 後ろから: 削除しても前のインデックスはそのまま
 // または、削除するものを集めておき、ループが終わった後にまとめて削除します (RemoveAll)。
 #endregion

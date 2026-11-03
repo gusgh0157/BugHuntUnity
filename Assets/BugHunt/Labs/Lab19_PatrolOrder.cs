@@ -93,6 +93,7 @@ namespace BugHunt.Labs.Lab19
 // 더 좋은 방법은 찾지 않는 것입니다. 경비병에 [SerializeField] RoutePoint[] 을 두고 인스펙터에서 순서대로 끌어다 놓으면 순서가 씬 파일에 저장됩니다.
 // FindObjectsSortMode.InstanceID 도 "만든 순서" 를 보장하지 않습니다(씬을 다시 불러오면 ID 가 바뀝니다).
 //
+//   Route = FindObjectsByType<RoutePoint>(FindObjectsSortMode.None).OrderBy(p => p.Order).ToList();
 // もっと良い方法は、探さないことです。警備兵に [SerializeField] RoutePoint[] を置き、インスペクターで順番にドラッグ&ドロップすれば、順序がシーンファイルに保存されます。
 // FindObjectsSortMode.InstanceID も「作った順序」を保証しません (シーンを読み込み直すと ID が変わります)。
 #endregion
