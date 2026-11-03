@@ -67,5 +67,10 @@ namespace BugHunt.Tests
         [UnityTest] public IEnumerator Lab36_SquadRoster() => Run(36);
         [UnityTest] public IEnumerator Lab37_ThreatTable() => Run(37);
         [UnityTest] public IEnumerator Lab38_TrailPoints() => Run(38);
+        [UnityTest] public IEnumerator Lab39_Railgun() => Run(39);
+        [UnityTest] public IEnumerator Lab40_SpikeTrap() => Run(40);
+        [UnityTest] public IEnumerator Lab41_TurretLayers() => Run(41);
+        [UnityTest] public IEnumerator Lab42_MovingPlatform() => Run(42);
+        [UnityTest] public IEnumerator Lab43_LevelReset() => Run(43);
     }
 }

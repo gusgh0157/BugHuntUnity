@@ -809,3 +809,79 @@ public void AttackTop() { Prune(); ... }
 public Vector3 StartPoint() { return Points[0]; }   // view 를 캐시하지 않는다. 필요하면 쓸 때마다 Points.AsArray()
 ```
 **교훈:** `NativeList.AsArray()`, `List<T>` 에서 얻은 `Span`, `NativeArray.GetSubArray` 는 복사가 아니라 **지금 메모리의 모습**이다. 크기가 바뀌면 낡는다. 잡에 넘길 때는 스케줄 직전에 만들거나 `AsDeferredJobArray()` 를 쓴다. 에디터의 안전 검사가 예외로 알려 주지만 릴리스 빌드에서는 해제된 메모리를 조용히 읽는다.
+
+# 9부: 물리
+
+## Lab 39 — 빠른 Rigidbody 가 Discrete 충돌 감지로 벽을 터널링
+```
+틀린 결과:     벽에 맞은 횟수 0(기대 1), 탄환 x = 60 (벽 x = 10)
+도구:          FixedUpdate 에 추적점 "{transform.position.x}" → 0, 6, 12, 18 ... 벽(9.9 ~ 10.1) 안에 있었던 스텝이 없다
+              Debug.DrawRay 로 스텝마다 간 거리 6m 를 그리면 벽을 건너뛰는 것이 보인다
+진짜 원인:     기본값 Discrete 는 스텝이 끝난 위치에서만 겹침을 본다. 300m/s × 0.02초 = 6m 로 0.2m 벽을 한 번에 넘었다
+```
+**수정:**
+```csharp
+rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+```
+**교훈:** "한 스텝에 가는 거리 > 부딪힐 것의 두께" 면 터널링을 의심한다. 빠른 것만 Continuous 계열로 켜고(비싸다), 아주 많은 총알은 Rigidbody 대신 스텝마다 레이캐스트로 판정한다. 벽을 두껍게 하거나 fixedDeltaTime 을 줄이는 것은 속도가 더 빨라지면 다시 터진다.
+
+## Lab 40 — 양쪽 다 Rigidbody 가 없어 트리거 메시지가 생기지 않음
+```
+틀린 결과:     함정 발동 0번, HP 100 그대로
+도구:          OnTriggerEnter 중단점이 한 번도 걸리지 않는다 → "조건이 틀렸다" 가 아니라 "안 불렸다"
+              Physics Debugger 에서 Player 와 SpikeTrap 이 둘 다 Static 으로 나온다
+진짜 원인:     Rigidbody 가 없는 콜라이더는 정적 콜라이더다. 정적 콜라이더끼리는 겹쳐도 충돌·트리거 검사를 하지 않는다
+```
+**수정:**
+```csharp
+void Awake()
+{
+    gameObject.AddComponent<Rigidbody>().isKinematic = true;   // 코드로 움직이는 쪽에 Kinematic Rigidbody
+}
+```
+**교훈:** `OnTriggerEnter`/`OnCollisionEnter` 가 안 불리면 ① 둘 중 하나에 Rigidbody(또는 CharacterController)가 있나 ② Layer Collision Matrix 에서 두 레이어가 켜져 있나 ③ 트리거끼리라면 한쪽은 Rigidbody 가 있나 ④ 콜라이더가 꺼져 있지 않나를 차례로 본다. 움직이는 콜라이더에는 Rigidbody 를 붙이는 것이 성능에도 좋다(정적 콜라이더를 옮기면 물리 장면을 다시 만든다).
+
+## Lab 41 — 레이어 번호를 레이어 마스크로 넘김
+```
+틀린 결과:     포탑이 맞힌 것 Glass (기대 Enemy)
+도구:          조사식 Convert.ToString(EnemyLayer, 2) == "1000" → 3번 비트. 유리창이 3번 레이어
+              Physics Debugger → Queries 에서 레이가 유리창에서 멈춘다
+진짜 원인:     Raycast 의 layerMask 는 비트 마스크다. 8 은 "8번 레이어" 가 아니라 "3번 레이어만" 이다(10 은 1번과 3번)
+```
+**수정:**
+```csharp
+Physics.Raycast(transform.position, transform.forward, out RaycastHit hit, Range, 1 << EnemyLayer)
+// 더 좋게: public LayerMask EnemyMask;  → 인스펙터에서 고른다
+```
+**교훈:** `gameObject.layer` 는 번호(0~31), Physics 쿼리·`Camera.cullingMask`·`LayerMask` 는 마스크(비트 묶음)다. 둘 다 int 라 컴파일러가 막지 않는다. 숫자 대신 `LayerMask` 필드나 `LayerMask.GetMask("Enemy")` 를 쓰면 이 혼동이 사라진다.
+
+## Lab 42 — Interpolate 를 켠 Rigidbody 를 Update 에서 transform 으로 움직임
+```
+틀린 결과:     발판이 1.5초 동안 1.03m(기대 3m). 상자는 0m
+도구:          Update 에 추적점 "{Time.frameCount} {transform.position.x}" → 더한 만큼 늘었다가 다음 프레임에 도로 줄어 있다
+              transform 이동을 FixedUpdate 로 옮기면 발판은 3m 가지만 상자는 제자리에 남아 떨어진다
+진짜 원인:     ① 보간은 매 프레임 transform 을 물리 위치 사이의 보간값으로 덮어쓴다. Update 에서 바꾼 transform 은 대부분 지워진다
+              ② transform 으로 옮긴 Kinematic 은 물리 입장에서 순간이동(속도 0)이라 마찰로 상자를 끌지 못한다
+```
+**수정:**
+```csharp
+void FixedUpdate()
+{
+    rb.MovePosition(rb.position + Velocity * Time.fixedDeltaTime);
+}
+```
+**교훈:** Rigidbody 가 붙은 오브젝트는 transform 이 아니라 Rigidbody 로 움직인다. Kinematic 은 FixedUpdate 에서 `MovePosition`/`MoveRotation`, Dynamic 은 `linearVelocity`/`AddForce`. Interpolate 는 이렇게 움직일 때 화면을 부드럽게 해 주는 옵션이지, transform 으로 움직인 것을 부드럽게 해 주지 않는다.
+
+## Lab 43 — transform 을 옮긴 같은 프레임에 물리 쿼리
+```
+틀린 결과:     돌아간 자리에서 집은 것 null(기대 Crate), 옛 자리에서 집은 것 Crate(기대 null)
+도구:          ResetCrates 뒤 조사식: transform.position == (0,0,4), GetComponent<Collider>().bounds.center == (8,0,4)
+진짜 원인:     transform 변경은 다음 물리 스텝 직전에 물리 장면으로 옮겨진다. 그 사이의 Raycast 는 옛 자리의 콜라이더를 본다
+              (예전에는 Physics.autoSyncTransforms 로 쿼리마다 동기화할 수 있었지만 Unity 6 에서는 쓰지 않는다)
+```
+**수정:**
+```csharp
+for (int i = 0; i < Crates.Length; ++i) { Crates[i].position = StartPositions[i]; }
+Physics.SyncTransforms();
+```
+**교훈:** 순간이동, 레벨 초기화, 오브젝트 풀에서 꺼내 자리 잡기 직후의 Raycast·Overlap 은 옛 자리를 본다. 같은 프레임에 쿼리해야 하면 `Physics.SyncTransforms()` 를 한 번 부르거나, Rigidbody 가 있으면 `rb.position` 으로 옮긴다. 한 프레임 기다리면 "저절로 고쳐지는" 버그라 재현이 잘 안 된다.

@@ -11,6 +11,7 @@
 - **6부: 잘못된 참조와 네이티브 메모리 (랩 24~27)**: 예외 없이 새는 `NativeArray`, "분명히 Complete 했는데" 터지는 잡, 다음 프레임에 사라지는 `Allocator.Temp`, Domain Reload 를 끈 Play 에서 지난 판의 오브젝트를 붙잡는 정적 필드.
 - **7부: 멈춤 (랩 28~31)**: 크래시 없이 에디터가 굳는 무한루프와 데드락. 모두 중단, 스레드 창, 메인 스레드의 호출 스택으로 갇힌 곳을 찾습니다. 연습 중에 정말로 굳지 않도록 `HangGuard` 가 2초 뒤 "응답 없음" 을 알리고 빠져나옵니다.
 - **8부: 컨테이너 (랩 32~38)**: 인스펙터에서 줄인 배열, 반복 도중 다른 스크립트가 고친 목록, 복제하면 사라지는 `Dictionary`, 순서를 약속하지 않는 `FindObjectsByType`, 넘긴 List 를 비우는 API, 파괴된 키, 크기가 바뀐 `NativeList` 의 낡은 `AsArray`.
+- **9부: 물리 (랩 39~43)**: 얇은 벽을 뚫는 빠른 탄환, 불리지 않는 `OnTriggerEnter`, 레이어 번호와 마스크, transform 으로 움직인 Rigidbody, 옮긴 직후 옛 자리를 보는 레이캐스트. Physics Debugger, Gizmos, `Debug.DrawRay` 로 봅니다.
 
 > 콘솔판·언리얼판과 같은 규칙입니다. **코드를 눈으로 훑어 정답을 찾지 마세요.** 1부는 **예외가 난 곳에서부터**, 2부부터는 **직접 멈춘 곳에서부터 값을 확인하며** 추적하세요.
 > 콘솔판 1·3부를 먼저 끝냈다면 좋습니다. 호출 스택 창, 지역 창, 조건부 중단점, 추적점 사용법은 거기서 설명한 그대로 씁니다.
@@ -24,7 +25,7 @@
 | C++ 콘솔 | 호출 스택, 메모리 오류, 크래시 없는 흐름 추적 (랩 28개) | [BugHunt](https://github.com/gusgh0157/BugHunt) |
 | C# 콘솔 | 예외와 스택 트레이스, 흐름 추적, 비동기/동시성, 리소스와 메모리 (랩 28개) | [BugHuntCS](https://github.com/gusgh0157/BugHuntCS) |
 | 언리얼 엔진 | 크래시, 흐름 추적, 멀티플레이, 사운드, 이미지, 애니메이션 (랩 21개) | [BugHuntUE](https://github.com/gusgh0157/BugHuntUE) |
-| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너 (랩 38개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
+| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너, 물리 (랩 43개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
 
 ## 버그 범주 커버리지
 
@@ -43,7 +44,7 @@
 | 네이티브 메모리·잡 | 24, 25, 26, 38 | `Dispose` 누락, 잡 의존 사슬, `Allocator.Temp` 수명, 낡은 `AsArray` | Burst 에서만 다른 결과 |
 | 정적 상태·Domain Reload | 27 | Domain Reload 를 끈 Play 의 정적 필드 | 정적 이벤트 구독 누적 |
 | 멈춤 | 28, 29, 30, 31 | yield 없는 while, 방문 체크 없는 BFS, `.Result` 데드락, float 누적 종료 조건 | `lock` 순서가 엇갈린 데드락 |
-| 물리 | 미포함 | | 빠른 탄환 터널링, Rigidbody 없는 트리거, 레이어 번호와 마스크, `transform.position` 으로 Rigidbody 이동, `SyncTransforms` |
+| 물리 | 39, 40, 41, 42, 43 | 빠른 탄환 터널링, Rigidbody 없는 트리거, 레이어 번호와 마스크, transform 으로 움직인 Rigidbody 와 보간, `SyncTransforms` | 관절(Joint) 폭주, 비균일 스케일 콜라이더, `OnCollisionStay` 비용 |
 | 프레임레이트 의존 | 7 (일부) | Update 에서 받은 한 프레임 입력을 FixedUpdate 가 놓침 | `Time.deltaTime` 누락, 매 프레임 `Lerp(a, b, 0.1f)`, `fixedDeltaTime` 혼동, `timeScale = 0` 에서 멈추는 UI |
 | 성능·GC | 17 (일부) | 머티리얼 복제 누수 | 매 프레임 GC 할당, `Find`/`Camera.main` 반복, Instantiate/Destroy 반복, `SendMessage`, 배열을 돌려주는 API |
 | 데이터 레이스·스레드 | 30 (일부) | 메인 스레드에서 Task 를 막고 기다림 | 동기화 없는 공유 상태, 워커 스레드의 Unity API, `await` 뒤 실행 스레드 |
@@ -403,6 +404,36 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ---
 
+# 9부: 물리
+
+물리 엔진(PhysX)은 Unity 의 transform 과 **따로 자기 장면을 갖고**, 프레임이 아니라 **고정 간격(fixedDeltaTime, 기본 0.02초)마다 순간이동하듯** 계산합니다. 그래서 물리 버그는 대개 예외 없이 "안 맞는다", "안 불린다", "엉뚱한 것을 맞힌다", "덜덜 떨린다" 로 나타납니다. 중단점보다 **눈으로 보는 도구**(Physics Debugger, Gizmos, `Debug.DrawRay`)가 먼저입니다.
+
+## 9부에서 쓰는 도구
+
+| 도구 | 하는 법 | 언제 |
+|---|---|---|
+| **Physics Debugger** | Window → Analysis → **Physics Debugger**. Scene 뷰에 콜라이더를 종류별 색(Static / Kinematic / Dynamic / Trigger)으로 그린다. *Queries* 탭은 레이캐스트·오버랩을, *Contacts* 탭은 접촉점을 보여 준다 | 이 콜라이더가 물리 엔진에 어떤 종류로 들어가 있나 (랩 40), 레이캐스트가 어디에 맞았나 (랩 41), 콜라이더가 실제로 어디 있나 (랩 43) |
+| **`Debug.DrawRay` / `Debug.DrawLine`** | `Debug.DrawRay(origin, dir * length, Color.red, 5f)`. 마지막 인자는 남겨 둘 초. Scene 뷰(그리고 Game 뷰의 Gizmos 버튼)에서 보인다 | 레이의 방향과 길이 (랩 41), 물리 스텝마다 탄환이 간 거리 (랩 39) |
+| **Gizmos** | 컴포넌트에 `void OnDrawGizmos() { Gizmos.DrawWireSphere(transform.position, radius); }` | 감지 범위, 트리거 크기를 늘 띄워 두기 |
+| 일시정지 + **한 프레임씩** | Play 중 일시정지(Ctrl+Shift+P) → 다음 프레임(Ctrl+Alt+P) | 물리 스텝 사이에 무엇이 바뀌는지 (랩 39, 42, 43) |
+| **Layer Collision Matrix** | Project Settings → Physics → Layer Collision Matrix | 두 레이어가 서로 충돌·트리거하도록 되어 있나 (랩 40) |
+| 조사식에 **2진수** | `Convert.ToString(mask, 2)` | 레이어 마스크에 어느 비트가 켜져 있나 (랩 41) |
+| 조사식 `collider.bounds.center` | transform.position 과 나란히 | transform 과 물리 장면의 위치가 같은가 (랩 43) |
+
+## 9부 랩 목록
+
+| # | 이름 | 증상 | 새로 배우는 것 | 난이도 |
+|---|---|---|---|---|
+| 39 | 레일건 | 빠른 탄환이 얇은 벽을 그냥 뚫는다(충돌 0번) | **터널링**, 물리 스텝마다 순간이동, `CollisionDetectionMode.Continuous / ContinuousDynamic / ContinuousSpeculative` | ★ |
+| 40 | 가시 함정 | 함정 위를 지나가도 `OnTriggerEnter` 가 불리지 않는다 | **충돌 메시지는 한쪽에 Rigidbody 가 있어야**, 정적 콜라이더끼리, Kinematic Rigidbody, 충돌 액션 매트릭스 | ★ |
+| 41 | 포탑의 조준 | Enemy 레이어만 쏘라고 했는데 유리창에 맞는다 | **레이어 번호 ≠ 레이어 마스크**, `1 << layer`, `LayerMask` 필드, `LayerMask.GetMask` | ★ |
+| 42 | 움직이는 발판 | Interpolate 를 켜자 발판이 거의 안 움직이고, 위의 상자도 안 실려 간다 | **Rigidbody 를 transform 으로 움직이지 않기**, 보간이 transform 을 덮어씀, Kinematic 의 `MovePosition` 은 속도를 전달 | ★★ |
+| 43 | 퍼즐 초기화 | 초기화한 그 프레임에 상자를 집으면 허공을, 옛 자리를 집으면 상자를 집는다 | **transform 과 물리 장면의 동기화 시점**, `Physics.SyncTransforms`, `rb.position` | ★★ |
+
+> 9부의 판정은 충돌 횟수, 트리거 횟수, 레이캐스트가 맞은 이름, 최종 위치로 합니다. 물리는 `-batchmode -nographics` 에서도 똑같이 돌기 때문에 SKIP 은 없습니다. 랩 40·42 는 `Time.captureDeltaTime` 으로 60fps 를 고정합니다.
+
+---
+
 # 채점
 
 모든 랩을 한 번에 돌려 랩마다 결과를 매기고 총점을 냅니다. 버그를 다 고쳤다고 생각되면 돌려 보세요. **버그가 있는 처음 상태에서는 0점이 정상**입니다.
@@ -419,7 +450,7 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ### 실행하는 두 가지 방법
 
-1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 38개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
+1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 43개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
 2. **명령줄:** **에디터를 닫고** 프로젝트 폴더에서
    ```bash
    grade.bat
@@ -447,8 +478,8 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 {
     "edition": "unity",
     "version": 1,
-    "total": 38,
-    "passed": 36,
+    "total": 43,
+    "passed": 41,
     "labs": [
         { "id": 1, "title": "감시탑", "part": 1, "result": "PASS", "ms": 3294, "detail": "" },
         { "id": 28, "title": "엘리베이터", "part": 7, "result": "TIMEOUT", "ms": 2003, "detail": "응답 없음: Passenger.RideTo: 엘리베이터가 오기를 기다림 (...)" }
@@ -488,16 +519,16 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 
 | 상태 | `-batchmode` | `-batchmode -nographics` |
 |---|---|---|
-| 버그 그대로 | 38개 모두 실패 | 37개 실패, 19 Skipped |
-| SOLUTIONS.md 의 수정 적용 | 38개 모두 통과 | 37개 통과, 19 Skipped |
-| 수정을 되돌림 | 38개 모두 실패 | (같은 코드라 생략) |
+| 버그 그대로 | 43개 모두 실패 | 42개 실패, 19 Skipped |
+| SOLUTIONS.md 의 수정 적용 | 43개 모두 통과 | 42개 통과, 19 Skipped |
+| 수정을 되돌림 | 43개 모두 실패 | (같은 코드라 생략) |
 
 채점기(`grade.bat`)도 같은 PC 에서 이렇게 확인했습니다.
 
 | 상태 | `grade.bat` | `grade.bat -NoGraphics` |
 |---|---|---|
-| 버그 그대로 | 0 / 38 (CRASH 10, FAIL 24, TIMEOUT 4), 종료 코드 1 | 0 / 37 (SKIP 1: 랩 19), 종료 코드 1 |
-| SOLUTIONS.md 의 수정 적용 | 38 / 38, 종료 코드 0 | 37 / 37 (SKIP 1: 랩 19), 종료 코드 0 |
+| 버그 그대로 | 0 / 43 (CRASH 10, FAIL 29, TIMEOUT 4), 종료 코드 1 | 0 / 42 (SKIP 1: 랩 19), 종료 코드 1 |
+| SOLUTIONS.md 의 수정 적용 | 43 / 43, 종료 코드 0 | 42 / 42 (SKIP 1: 랩 19), 종료 코드 0 |
 
 - 보통 입력의 기대값만 코드에 박아 넣은 가짜 수정(랩 2, 31)은 `[숨은 케이스]` FAIL 로 걸러졌습니다.
 - 랩 28 의 `HangGuard.Tick` 을 지워 에디터를 정말로 굳힌 상태에서 `grade.bat -TimeoutMinutes 1` 은 1분 뒤 Unity 를 끄고, 결과 파일에 랩 28 을 TIMEOUT, 그 뒤 랩을 FAIL 로 남겼습니다.
