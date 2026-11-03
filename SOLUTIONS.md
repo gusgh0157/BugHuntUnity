@@ -583,4 +583,100 @@ public static class WaveDirector
 ```
 (덤으로 `void OnDestroy() { Alive.Remove(this); }` 를 두면 씬 전환으로 사라진 적도 빠진다. 하지만 그것만으로는 Wave 가 이어지는 버그가 남는다.)
 **교훈:** *Reload Scene only*(Domain Reload 끔)는 Play 를 몇 초씩 빠르게 해 주지만, 그 대가로 **정적 필드, 정적 이벤트, 싱글턴 Instance** 를 직접 되돌려야 한다. Unity 문서의 권장은 `SubsystemRegistration` 시점의 `[RuntimeInitializeOnLoadMethod]`. 정적 이벤트(`static event Action`)도 같다: 구독자가 지난 Play 의 파괴된 오브젝트라서 1부의 MissingReferenceException 이 엉뚱한 곳에서 난다. 빌드한 게임에서는 항상 새로 시작하므로 "에디터에서만 나는 버그" 로 신고되기 쉽다.
+# 7부: 멈춤 (무한루프와 데드락)
 
+## Lab 28 — Update 가 바꿔 줄 값을 yield 없이 while 로 기다림
+```
+증상:          엘리베이터를 부르는 순간 응답 없음. 작업 관리자에서 Unity 가 CPU 한 코어를 꽉 씀(무한루프)
+모두 중단:      스레드 창의 Main Thread 호출 스택 맨 위 = Passenger.RideTo 의 첫 while (HangGuard 의 예외 스택 트레이스도 같은 곳)
+이상한 값:      F10 을 계속 눌러도 Elevator.Floor 가 5 에서 바뀌지 않는다
+처음 어긋난 곳: Floor 를 바꾸는 것은 Elevator.Update. 그런데 Update 는 이 코루틴이 yield 해야 다음 프레임에 불린다
+진짜 원인:     코루틴은 스레드가 아니다. yield 를 만나기 전까지는 메인 스레드의 보통 함수다. while 안에 yield 가 없으니 이 프레임에서 영원히 돈다
+```
+**수정:**
+```csharp
+while (!Elevator.IsAt(Floor))
+{
+    HangGuard.Tick("Passenger.RideTo: 엘리베이터가 오기를 기다림");
+    yield return null;   // 한 프레임 양보 → 그동안 Elevator.Update 가 돈다
+}
+...
+while (!Elevator.IsAt(destination))
+{
+    HangGuard.Tick("Passenger.RideTo: 목표 층에 닿기를 기다림");
+    yield return null;
+}
+```
+(또는 `yield return new WaitUntil(() => Elevator.IsAt(Floor));`)
+**교훈:** "다른 무언가가 바꿔 줄 값" 을 기다리는 반복문은 반드시 그 무언가에게 차례를 넘겨야 한다. Unity 에서는 `yield return null`(코루틴), `await Awaitable.NextFrameAsync()`(async), 아니면 Update 에서 상태를 확인하는 방식. Update/Start/버튼 처리기 안의 `while (!loaded) {}` 도 똑같이 에디터를 굳힌다. 굳었을 때는 **모두 중단 → 스레드 창 → Main Thread** 가 첫 수다.
+
+## Lab 29 — BFS 에 방문 체크가 없음
+```
+증상:          길이 이어져 있을 때는 정답(5). 3-6 문을 잠근 뒤 응답 없음, 메모리 급증
+도구:          while 첫 줄 조건부 중단점 queue.Count > 100 → 방이 8개뿐인데 걸린다. queue 를 펼치면 1, 2, 4, 5 가 수십 번씩
+처음 어긋난 곳: 0 → 1 → (0, 2, 4) 에서 다시 0 을 넣는다. 양방향 문과 1-2-5-4 고리를 따라 같은 방을 끝없이 다시 넣는다
+진짜 원인:     목표에 닿을 수 있으면 BFS 는 언젠가 목표를 꺼내 return 하므로 버그가 숨어 있었다. 닿을 수 없으면 큐가 비지 않는다
+```
+**수정:**
+```csharp
+var queue = new Queue<(int Room, int Doors)>();
+queue.Enqueue((start, 0));
+var visited = new bool[dungeon.Doors.Length];
+visited[start] = true;
+while (queue.Count > 0)
+{
+    ...
+    foreach (int next in dungeon.Doors[room])
+    {
+        if (!visited[next])
+        {
+            visited[next] = true;
+            queue.Enqueue((next, doors + 1));
+        }
+    }
+}
+```
+**교훈:** 그래프(방, 웨이포인트, 대화 노드, 전선, 아이템 조합)를 순회하는 코드는 **방문 기록**이 기본이다. 테스트 데이터에 고리나 끊긴 길이 없으면 영영 드러나지 않다가, 레벨 디자이너가 문 하나를 잠그는 순간 터진다. "멈춤 + 메모리 증가" 면 무한루프 안에서 무언가를 쌓고 있다는 뜻이다. 재귀 DFS 에서 같은 실수를 하면 멈춤 대신 StackOverflowException(에디터 크래시)으로 나타난다.
+
+## Lab 30 — 메인 스레드에서 .Result 로 기다려 데드락
+```
+증상:          상점을 여는 순간 응답 없음. CPU 는 0% 근처(데드락)
+모두 중단:      Main Thread 호출 스택: ShopWindow.Open → (HangGuard.Wait =) Task.Wait → Monitor.Wait. 자고 있다
+              작업(Tasks) 창 / 병렬 스택: LoadGoldAsync 는 "대기 중", await Task.Delay 다음 줄을 실행할 차례를 기다린다
+처음 어긋난 곳: Task.Delay 는 200ms 뒤에 끝났다. 그런데 await 다음 줄(return Gold)은 UnitySynchronizationContext 를 통해 "메인 스레드, 다음 프레임" 에 예약됐다
+진짜 원인:     메인 스레드는 그 Task 가 끝나기를 막고 기다리고, Task 는 메인 스레드가 비기를 기다린다. 서로 기다린다
+              (콘솔 앱은 SynchronizationContext 가 없어 스레드 풀에서 이어 가므로 멀쩡했다)
+```
+**수정:**
+```csharp
+public async void Open(SaveFile save)
+{
+    ShownGold = await save.LoadGoldAsync();
+}
+```
+(코루틴이라면 `var task = save.LoadGoldAsync(); while (!task.IsCompleted) yield return null; ShownGold = task.Result;`)
+**교훈:** 메인 스레드에서 `Task` 를 막고 기다리지 말 것(`.Result`, `.Wait()`, `.GetAwaiter().GetResult()`). 끝까지 `await` 로 잇는다. 라이브러리 쪽에 `ConfigureAwait(false)` 를 붙이면 데드락은 풀리지만 `Open` 은 여전히 디스크를 읽는 200ms 동안 게임을 멈춘다(이 랩의 두 번째 `[FAIL]`). 그리고 `ConfigureAwait(false)` 다음 줄은 워커 스레드에서 돌기 때문에 거기서 Unity API(`transform`, `GetComponent`)를 부르면 "can only be called from the main thread" 예외가 난다. 데드락은 CPU 0%, 무한루프는 CPU 100% 라는 지문을 기억하자.
+
+## Lab 31 — float 시간에 작은 틱을 누적
+```
+증상:          막 켠 서버(90초)는 128틱으로 정상. 켠 지 7일(604800초) 된 서버는 응답 없음
+도구:          while 안 조건부 중단점 Ticks > 1000 → 조사식 SimTime == 604800, SimTime + TickSeconds == SimTime 이 true
+진짜 원인:     float 의 유효 숫자는 24비트. 2^19 = 524288 이상에서 이웃한 float 의 간격은 1/16. 1/64 를 더하면 반올림되어 그대로다.
+              SimTime < target 이 영원히 참이다
+```
+**수정 (택1):**
+```csharp
+public double SimTime;                       // ① double: 1/64 는 2 의 거듭제곱이라 double 에서 정확하다
+...
+double target = SimTime + seconds;
+
+// ② 정수 틱으로 세고 시간은 계산한다 (가장 튼튼하다)
+public long TickCount;
+public double SimTime => TickCount * (double)TickSeconds;
+public void FastForward(float seconds)
+{
+    int steps = Mathf.RoundToInt(seconds / TickSeconds);
+    for (int i = 0; i < steps; ++i) { ... ++TickCount; }
+}
+```
+**교훈:** 반복문의 종료 조건을 **float 누적 결과**에 걸지 말자. 큰 값에 작은 값을 더하면 그대로일 수 있고(멈춤), 작은 값끼리 더해도 `0.1f` 열 번이 `1f` 가 아니다(`!=` 로 끝내면 멈춤). Unity 의 `Time.time` 도 float 이라 며칠 켜 둔 서버·키오스크·스트리밍 빌드에서 같은 일이 생긴다(`Time.timeAsDouble`, `Time.frameCount` 를 쓴다). 개발 중에는 절대 재현되지 않는 "오래 켜 두면" 류 버그의 대표다.

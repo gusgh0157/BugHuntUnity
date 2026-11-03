@@ -22,6 +22,7 @@ namespace BugHunt.Tests
             {
                 Assert.Ignore($"랩 {number}: 이 환경에서는 판정할 수 없어 SKIP (Console 의 [SKIP] 줄 참고)");
             }
+            Assert.IsFalse(result.Hung, $"랩 {number}: 응답 없음 (무한루프 또는 데드락)");
             Assert.IsFalse(result.Crashed, $"랩 {number}: 예외로 중단됨");
             Assert.IsFalse(result.TimedOut, $"랩 {number}: 시간 초과");
             Assert.AreEqual(0, result.Failed, $"랩 {number}: FAIL {result.Failed}개");
@@ -55,5 +56,9 @@ namespace BugHunt.Tests
         [UnityTest] public IEnumerator Lab25_Watchtower() => Run(25);
         [UnityTest] public IEnumerator Lab26_SpawnPlan() => Run(26);
         [UnityTest] public IEnumerator Lab27_SecondRound() => Run(27);
+        [UnityTest] public IEnumerator Lab28_Elevator() => Run(28);
+        [UnityTest] public IEnumerator Lab29_Pathfinding() => Run(29);
+        [UnityTest] public IEnumerator Lab30_ShopGold() => Run(30);
+        [UnityTest] public IEnumerator Lab31_ReplayFastForward() => Run(31);
     }
 }

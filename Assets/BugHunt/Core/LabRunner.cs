@@ -15,6 +15,7 @@ namespace BugHunt
         public int Skipped;
         public bool Crashed;
         public bool TimedOut;
+        public bool Hung;   // HangGuard 가 "응답 없음" 을 선언했다 (TimedOut 도 true)
         public int ErrorLogs;
     }
 
@@ -36,6 +37,7 @@ namespace BugHunt
             (16, 19, "4부: 이미지 / 렌더링"),
             (20, 23, "5부: 애니메이션"),
             (24, 27, "6부: 잘못된 참조와 네이티브 메모리"),
+            (28, 31, "7부: 멈춤 (무한루프와 데드락)"),
         };
 
         static List<LabEntry> labs;
@@ -129,6 +131,7 @@ namespace BugHunt
             crashed = false;
             labDone = false;
             errorLogs = 0;
+            HangGuard.Reset();
 
             Report.Print($"==== 랩 {number}: {entry.Title} ====", Color.cyan);
             Application.logMessageReceived += OnLog;
@@ -137,11 +140,12 @@ namespace BugHunt
             var lab = (Lab)root.AddComponent(entry.Type);
             Coroutine drive = StartCoroutine(Drive(lab));
             float deadline = Time.realtimeSinceStartup + lab.TimeoutSeconds;
-            while (!labDone && !crashed && Time.realtimeSinceStartup < deadline)
+            while (!labDone && !crashed && !HangGuard.Tripped && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
             }
-            bool timedOut = !labDone && !crashed;
+            bool hung = HangGuard.Tripped;
+            bool timedOut = hung || (!labDone && !crashed);
 
             if (!labDone && drive != null)
             {
@@ -153,7 +157,7 @@ namespace BugHunt
             {
                 Report.Fail("예외로 중단됨: Console 창의 빨간 줄을 클릭해 스택 트레이스를 보세요");
             }
-            else if (timedOut)
+            else if (timedOut && !hung)
             {
                 Report.Fail($"시간 초과 ({lab.TimeoutSeconds}초)");
             }
@@ -175,6 +179,7 @@ namespace BugHunt
                 Skipped = Report.Skipped,
                 Crashed = crashed,
                 TimedOut = timedOut,
+                Hung = hung,
                 ErrorLogs = errorLogs,
             };
             IsRunning = false;
@@ -189,7 +194,8 @@ namespace BugHunt
 
         void OnLog(string condition, string stackTrace, LogType type)
         {
-            if (type == LogType.Exception)
+            // HangGuard 가 던진 HangException 은 크래시가 아니라 "응답 없음" 이다(이미 [FAIL] 로 셌다).
+            if (type == LogType.Exception && !HangGuard.Tripped)
             {
                 crashed = true;
             }
