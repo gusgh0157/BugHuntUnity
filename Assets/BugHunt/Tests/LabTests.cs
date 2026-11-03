@@ -72,5 +72,9 @@ namespace BugHunt.Tests
         [UnityTest] public IEnumerator Lab41_TurretLayers() => Run(41);
         [UnityTest] public IEnumerator Lab42_MovingPlatform() => Run(42);
         [UnityTest] public IEnumerator Lab43_LevelReset() => Run(43);
+        [UnityTest] public IEnumerator Lab44_Hovercar() => Run(44);
+        [UnityTest] public IEnumerator Lab45_FollowCamera() => Run(45);
+        [UnityTest] public IEnumerator Lab46_Stamina() => Run(46);
+        [UnityTest] public IEnumerator Lab47_PauseMenu() => Run(47);
     }
 }

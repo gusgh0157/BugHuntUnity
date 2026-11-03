@@ -12,6 +12,7 @@
 - **7부: 멈춤 (랩 28~31)**: 크래시 없이 에디터가 굳는 무한루프와 데드락. 모두 중단, 스레드 창, 메인 스레드의 호출 스택으로 갇힌 곳을 찾습니다. 연습 중에 정말로 굳지 않도록 `HangGuard` 가 2초 뒤 "응답 없음" 을 알리고 빠져나옵니다.
 - **8부: 컨테이너 (랩 32~38)**: 인스펙터에서 줄인 배열, 반복 도중 다른 스크립트가 고친 목록, 복제하면 사라지는 `Dictionary`, 순서를 약속하지 않는 `FindObjectsByType`, 넘긴 List 를 비우는 API, 파괴된 키, 크기가 바뀐 `NativeList` 의 낡은 `AsArray`.
 - **9부: 물리 (랩 39~43)**: 얇은 벽을 뚫는 빠른 탄환, 불리지 않는 `OnTriggerEnter`, 레이어 번호와 마스크, transform 으로 움직인 Rigidbody, 옮긴 직후 옛 자리를 보는 레이캐스트. Physics Debugger, Gizmos, `Debug.DrawRay` 로 봅니다.
+- **10부: 프레임레이트 의존 (랩 44~47)**: 30fps 와 120fps 에서 결과가 다른 버그. 빠진 `Time.deltaTime`, 매 프레임 `Lerp(a, b, 0.1f)`, Update 의 `fixedDeltaTime`, `timeScale = 0` 에서 멈추는 메뉴.
 
 > 콘솔판·언리얼판과 같은 규칙입니다. **코드를 눈으로 훑어 정답을 찾지 마세요.** 1부는 **예외가 난 곳에서부터**, 2부부터는 **직접 멈춘 곳에서부터 값을 확인하며** 추적하세요.
 > 콘솔판 1·3부를 먼저 끝냈다면 좋습니다. 호출 스택 창, 지역 창, 조건부 중단점, 추적점 사용법은 거기서 설명한 그대로 씁니다.
@@ -25,7 +26,7 @@
 | C++ 콘솔 | 호출 스택, 메모리 오류, 크래시 없는 흐름 추적 (랩 28개) | [BugHunt](https://github.com/gusgh0157/BugHunt) |
 | C# 콘솔 | 예외와 스택 트레이스, 흐름 추적, 비동기/동시성, 리소스와 메모리 (랩 28개) | [BugHuntCS](https://github.com/gusgh0157/BugHuntCS) |
 | 언리얼 엔진 | 크래시, 흐름 추적, 멀티플레이, 사운드, 이미지, 애니메이션 (랩 21개) | [BugHuntUE](https://github.com/gusgh0157/BugHuntUE) |
-| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너, 물리 (랩 43개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
+| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너, 물리, 프레임레이트 의존 (랩 47개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
 
 ## 버그 범주 커버리지
 
@@ -45,7 +46,7 @@
 | 정적 상태·Domain Reload | 27 | Domain Reload 를 끈 Play 의 정적 필드 | 정적 이벤트 구독 누적 |
 | 멈춤 | 28, 29, 30, 31 | yield 없는 while, 방문 체크 없는 BFS, `.Result` 데드락, float 누적 종료 조건 | `lock` 순서가 엇갈린 데드락 |
 | 물리 | 39, 40, 41, 42, 43 | 빠른 탄환 터널링, Rigidbody 없는 트리거, 레이어 번호와 마스크, transform 으로 움직인 Rigidbody 와 보간, `SyncTransforms` | 관절(Joint) 폭주, 비균일 스케일 콜라이더, `OnCollisionStay` 비용 |
-| 프레임레이트 의존 | 7 (일부) | Update 에서 받은 한 프레임 입력을 FixedUpdate 가 놓침 | `Time.deltaTime` 누락, 매 프레임 `Lerp(a, b, 0.1f)`, `fixedDeltaTime` 혼동, `timeScale = 0` 에서 멈추는 UI |
+| 프레임레이트 의존 | 7, 44, 45, 46, 47 | 한 프레임짜리 입력을 FixedUpdate 가 놓침, `Time.deltaTime` 누락, 매 프레임 `Lerp(a, b, 0.1f)`, `fixedDeltaTime` 혼동, `timeScale = 0` 에서 멈추는 UI | Update 에서 `AddForce`(물리 스텝과 어긋남), 가변 deltaTime 의 큰 스파이크(첫 프레임, 로딩 직후) |
 | 성능·GC | 17 (일부) | 머티리얼 복제 누수 | 매 프레임 GC 할당, `Find`/`Camera.main` 반복, Instantiate/Destroy 반복, `SendMessage`, 배열을 돌려주는 API |
 | 데이터 레이스·스레드 | 30 (일부) | 메인 스레드에서 Task 를 막고 기다림 | 동기화 없는 공유 상태, 워커 스레드의 Unity API, `await` 뒤 실행 스레드 |
 | UI | 미포함 | | 레이캐스트를 가로막는 투명 이미지, Canvas 재빌드, 해상도별 앵커 |
@@ -434,6 +435,39 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ---
 
+# 10부: 프레임레이트 의존
+
+개발 PC 에서는 완벽한데 **다른 기기에서만** 빠르거나 느린 버그입니다. Update 는 1초에 몇 번 불릴지 모르고(30fps 노트북, 144Hz 모니터, 발열로 떨어진 휴대폰), 그 횟수에 기대는 코드는 기기마다 결과가 다릅니다. 2부 랩 7(한 프레임짜리 입력을 FixedUpdate 가 놓침)은 Update 와 FixedUpdate 의 **횟수 차이**를, 10부는 **한 번에 움직이는 양**을 다룹니다.
+
+이 부의 랩은 같은 코드를 **30fps 와 120fps 에서 한 번씩** 돌려(`Time.captureDeltaTime` 으로 프레임 간격을 고정) 두 결과가 사양과 같은지 봅니다. 채점기의 숨은 케이스는 24fps 와 144fps 입니다. 랩 47 은 `timeScale = 0` 을 다루므로 진짜 시간으로 기다립니다.
+
+## 10부에서 쓰는 도구
+
+| 도구 | 하는 법 | 언제 |
+|---|---|---|
+| **fps 바꿔 재현** | `Application.targetFrameRate = 30;` (vSync 를 끄고: Quality → VSync Count = Don't Sync), 또는 `Time.captureDeltaTime = 1f / 30f;` 로 간격 고정 | "내 PC 에서는 되는데" 를 내 PC 에서 재현하기 |
+| Game 뷰 **Stats** | Game 뷰 오른쪽 위 Stats | 지금 fps 와 프레임 시간 |
+| 추적점으로 **프레임마다 값 찍기** | `{Time.frameCount} {Time.deltaTime} {transform.position.x}` | 한 프레임에 얼마씩 바뀌나, 그것이 deltaTime 에 비례하나 (랩 44, 45) |
+| 조사식에 **시간 값 나란히** | `Time.deltaTime`, `Time.fixedDeltaTime`, `Time.unscaledDeltaTime`, `Time.timeScale` | 어느 시간이 fps 와 timeScale 에 따라 바뀌나 (랩 46, 47) |
+| Profiler → CPU → **Timeline** | 프레임 하나에 Update 와 FixedUpdate 가 몇 번씩 들어 있나 | 고정 간격 물리와 프레임의 관계 |
+
+| 시간 값 | Update 에서 | FixedUpdate 에서 | `timeScale = 0` 이면 |
+|---|---|---|---|
+| `Time.deltaTime` | 지난 프레임부터 흐른 게임 시간 | `fixedDeltaTime` 과 같은 값 | 0 |
+| `Time.fixedDeltaTime` | 설정값(기본 0.02) 그대로. **fps 와 상관없음** | 같음 | 그대로(FixedUpdate 는 멈춤) |
+| `Time.unscaledDeltaTime` | 지난 프레임부터 흐른 진짜 시간 | 진짜 시간 | 진짜 시간 |
+
+## 10부 랩 목록
+
+| # | 이름 | 증상 | 새로 배우는 것 | 난이도 |
+|---|---|---|---|---|
+| 44 | 호버카 | 30fps 에서 절반, 120fps 에서 두 배 속도 | **프레임당 값과 초당 값**, `* Time.deltaTime`, 단위를 이름에 | ★ |
+| 45 | 따라오는 카메라 | 30fps 에서 카메라가 한참 처지고 120fps 에서 딱 붙는다 | **매 프레임 `Lerp(a, b, 0.1f)` 는 프레임 수의 거듭제곱**, `1 - exp(-k·dt)` 지수 감쇠, `SmoothDamp` | ★★ |
+| 46 | 스태미나 | "시간을 곱했는데도" fps 에 따라 차는 속도가 다르다 | **`fixedDeltaTime` 은 Update 에서 쓰면 상수**, FixedUpdate 안의 `deltaTime` | ★ |
+| 47 | 일시정지 메뉴 | `timeScale = 0` 에서 메뉴가 안 들어오고 카운트다운이 멈춘다 | **timeScale 0 에서도 Update 는 돈다**, `unscaledDeltaTime`, `WaitForSecondsRealtime`, Animator Unscaled Time | ★ |
+
+---
+
 # 채점
 
 모든 랩을 한 번에 돌려 랩마다 결과를 매기고 총점을 냅니다. 버그를 다 고쳤다고 생각되면 돌려 보세요. **버그가 있는 처음 상태에서는 0점이 정상**입니다.
@@ -450,7 +484,7 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ### 실행하는 두 가지 방법
 
-1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 43개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
+1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 47개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
 2. **명령줄:** **에디터를 닫고** 프로젝트 폴더에서
    ```bash
    grade.bat
@@ -478,8 +512,8 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 {
     "edition": "unity",
     "version": 1,
-    "total": 43,
-    "passed": 41,
+    "total": 47,
+    "passed": 45,
     "labs": [
         { "id": 1, "title": "감시탑", "part": 1, "result": "PASS", "ms": 3294, "detail": "" },
         { "id": 28, "title": "엘리베이터", "part": 7, "result": "TIMEOUT", "ms": 2003, "detail": "응답 없음: Passenger.RideTo: 엘리베이터가 오기를 기다림 (...)" }
@@ -519,21 +553,21 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 
 | 상태 | `-batchmode` | `-batchmode -nographics` |
 |---|---|---|
-| 버그 그대로 | 43개 모두 실패 | 42개 실패, 19 Skipped |
-| SOLUTIONS.md 의 수정 적용 | 43개 모두 통과 | 42개 통과, 19 Skipped |
-| 수정을 되돌림 | 43개 모두 실패 | (같은 코드라 생략) |
+| 버그 그대로 | 47개 모두 실패 | 46개 실패, 19 Skipped |
+| SOLUTIONS.md 의 수정 적용 | 47개 모두 통과 | 46개 통과, 19 Skipped |
+| 수정을 되돌림 | 47개 모두 실패 | (같은 코드라 생략) |
 
 채점기(`grade.bat`)도 같은 PC 에서 이렇게 확인했습니다.
 
 | 상태 | `grade.bat` | `grade.bat -NoGraphics` |
 |---|---|---|
-| 버그 그대로 | 0 / 43 (CRASH 10, FAIL 29, TIMEOUT 4), 종료 코드 1 | 0 / 42 (SKIP 1: 랩 19), 종료 코드 1 |
-| SOLUTIONS.md 의 수정 적용 | 43 / 43, 종료 코드 0 | 42 / 42 (SKIP 1: 랩 19), 종료 코드 0 |
+| 버그 그대로 | 0 / 47 (CRASH 10, FAIL 33, TIMEOUT 4), 종료 코드 1 | 0 / 46 (SKIP 1: 랩 19), 종료 코드 1 |
+| SOLUTIONS.md 의 수정 적용 | 47 / 47, 종료 코드 0 | 46 / 46 (SKIP 1: 랩 19), 종료 코드 0 |
 
 - 보통 입력의 기대값만 코드에 박아 넣은 가짜 수정(랩 2, 31)은 `[숨은 케이스]` FAIL 로 걸러졌습니다.
 - 랩 28 의 `HangGuard.Tick` 을 지워 에디터를 정말로 굳힌 상태에서 `grade.bat -TimeoutMinutes 1` 은 1분 뒤 Unity 를 끄고, 결과 파일에 랩 28 을 TIMEOUT, 그 뒤 랩을 FAIL 로 남겼습니다.
 
-랩 7·23 은 `Time.captureDeltaTime` 으로 프레임 간격을 고정하므로 PC 성능과 상관없이 같은 결과가 나옵니다.
+랩 7·23·40·42·44~46 은 `Time.captureDeltaTime` 으로 프레임 간격을 고정하므로 PC 성능과 상관없이 같은 결과가 나옵니다.
 
 ---
 

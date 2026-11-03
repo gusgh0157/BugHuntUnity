@@ -885,3 +885,58 @@ for (int i = 0; i < Crates.Length; ++i) { Crates[i].position = StartPositions[i]
 Physics.SyncTransforms();
 ```
 **교훈:** 순간이동, 레벨 초기화, 오브젝트 풀에서 꺼내 자리 잡기 직후의 Raycast·Overlap 은 옛 자리를 본다. 같은 프레임에 쿼리해야 하면 `Physics.SyncTransforms()` 를 한 번 부르거나, Rigidbody 가 있으면 `rb.position` 으로 옮긴다. 한 프레임 기다리면 "저절로 고쳐지는" 버그라 재현이 잘 안 된다.
+
+# 10부: 프레임레이트 의존
+
+## Lab 44 — 프레임당 이동량에 deltaTime 을 곱하지 않음
+```
+틀린 결과:     2초 동안 30fps 6m, 120fps 24m (기대 둘 다 12m)
+도구:          Update 추적점 "{Time.frameCount} {transform.position.z}" → 한 번에 0.1m 씩, 1초에 Update 30번/120번
+진짜 원인:     Speed 는 "프레임당 0.1m" 다. 1초에 가는 거리 = 0.1 × fps. 60fps 에서만 6m/s 다
+```
+**수정:**
+```csharp
+public float Speed = 6f;   // 1초에 6m
+transform.position += Vector3.forward * Speed * Time.deltaTime;
+```
+**교훈:** Update 에서 바꾸는 양은 "초당 값 × `Time.deltaTime`" 이어야 한다. 단위(MetersPerSecond)를 이름이나 주석에 남기면 프레임당 값이 섞여 들어올 때 눈에 띈다. 고정 간격이 필요한 계산은 FixedUpdate 로 보낸다.
+
+## Lab 45 — 매 프레임 Lerp(a, b, 0.1f)
+```
+틀린 결과:     0.5초 뒤 남은 거리 30fps 2.06m, 120fps 0.02m (기대 둘 다 0.42m)
+도구:          LateUpdate 추적점 → 남은 거리가 프레임마다 0.9 배. 30fps 0.5초 = 15프레임 → 0.9^15, 120fps = 60프레임 → 0.9^60
+진짜 원인:     비율을 고정한 Lerp 는 "프레임 수" 에 대한 거듭제곱이다. deltaTime 을 그냥 곱해도(0.1f * dt * 60) 1차 근사일 뿐 맞지 않는다
+```
+**수정:**
+```csharp
+public float Sharpness = 6.32f;   // = -ln(1 - 0.1) * 60 : 60fps 에서 0.1 과 같은 느낌
+transform.position = Vector3.Lerp(transform.position, Target, 1f - Mathf.Exp(-Sharpness * Time.deltaTime));
+```
+**교훈:** "매 프레임 남은 것의 몇 %" 는 지수 감쇠다. 한 프레임 비율을 `1 - e^(-k·dt)` 로 두면 프레임을 어떻게 나누든 1초 뒤 결과가 같다(`e^(-k·a) · e^(-k·b) = e^(-k·(a+b))`). `Vector3.SmoothDamp`, `Mathf.SmoothDamp` 도 프레임과 무관하다(곡선 모양은 다르다).
+
+## Lab 46 — Update 에서 Time.fixedDeltaTime 을 곱함
+```
+틀린 결과:     1.5초 동안 30fps 18, 120fps 72 (기대 둘 다 30)
+도구:          Update 조사식: Time.fixedDeltaTime 은 fps 와 상관없이 0.02, Time.deltaTime 은 0.0333 / 0.0083
+진짜 원인:     fixedDeltaTime 은 FixedUpdate 간격 설정값(상수)이다. Update 에서 곱하면 Update 횟수 × 0.02 가 된다. 50fps 에서만 맞다
+```
+**수정:**
+```csharp
+Value += RegenPerSecond * Time.deltaTime;
+```
+**교훈:** 어디서든 `Time.deltaTime` 을 쓰면 된다. FixedUpdate 안에서 읽으면 Unity 가 알아서 `fixedDeltaTime` 을 돌려준다. `fixedDeltaTime` 을 직접 쓸 곳은 FixedUpdate 간격 자체를 바꿀 때뿐이다.
+
+## Lab 47 — timeScale 0 에서 deltaTime 과 WaitForSeconds 를 씀
+```
+틀린 결과:     멈춘 동안 메뉴가 들어온 정도 0 (기대 1), 카운트다운 뒤 timeScale 0 (기대 1)
+도구:          PauseMenu.Update 중단점 → 멈춘 동안에도 불린다. Time.deltaTime == 0, Time.unscaledDeltaTime == 0.016
+              Countdown 의 yield 다음 줄에 중단점 → 영원히 오지 않는다
+진짜 원인:     timeScale = 0 은 Update 를 멈추지 않고 게임 시간만 멈춘다. deltaTime 이 0 이라 메뉴가 안 움직이고, WaitForSeconds 는 게임 시간으로 기다리므로 끝나지 않는다
+```
+**수정:**
+```csharp
+Shown = Mathf.MoveTowards(Shown, target, Time.unscaledDeltaTime / SlideSeconds);
+...
+yield return new WaitForSecondsRealtime(1f);
+```
+**교훈:** 일시정지 중에도 움직여야 하는 것(메뉴, 카운트다운, 일시정지 화면의 애니메이션·파티클)은 진짜 시간을 쓴다: `unscaledDeltaTime`, `WaitForSecondsRealtime`, Animator 의 Update Mode = Unscaled Time, 파티클의 Use Unscaled Time. 반대로 게임 안의 것은 일부러 `deltaTime` 을 써서 함께 멈추게 한다. "멈춘 동안 무엇이 움직여야 하나" 를 먼저 정하자.
