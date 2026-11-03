@@ -1046,3 +1046,61 @@ void Update()
 }
 ```
 **교훈:** 배열을 돌려주는 API(`OverlapSphere`, `RaycastAll`, `GetComponents<T>()`, `GetComponentsInChildren<T>()`, `FindObjectsByType`, `Mesh.vertices`)에는 대개 버퍼를 채우는 짝(`NonAlloc`, `List<T>` 를 받는 오버로드, `GetVertices(List)`)이 있다. 버퍼가 작으면 넘친 결과가 **조용히 버려지므로** 돌려받은 개수가 버퍼 크기와 같을 때 경고를 남긴다(숨은 케이스는 아군 30명). 버퍼를 함수 밖으로 내보내면 랩 36 의 공유 버그가 된다.
+
+# 12부: 데이터 레이스와 스레드
+
+## Lab 53 — 재고 확인과 차감 사이에 다른 스레드가 끼어듦
+```
+틀린 결과:     팔린 수 2(기대 1), 남은 재고 -1(기대 0), 구매자 명단 2명
+도구:          TryBuy 의 if 줄에 중단점 → 스레드 창: 워커 두 개가 같은 줄에 있고 둘 다 Stock == 1
+              추적점 "{Environment.CurrentManagedThreadId} Stock={Stock}" → 두 스레드 모두 1 을 보고 통과
+진짜 원인:     "Stock > 0 확인 → 결제 → Stock--" 이 한 덩어리가 아니다. 결제가 끝나기 전에 두 번째 요청도 확인을 통과한다
+```
+**수정:**
+```csharp
+readonly object gate = new object();
+
+public bool TryBuy(string buyer)
+{
+    lock (gate)
+    {
+        if (Stock > 0) { Payment(buyer); Stock--; Buyers.Add(buyer); return true; }
+        return false;
+    }
+}
+```
+**교훈:** 공유 상태를 "확인하고 → 행동" 하는 코드는 둘 사이에 끼어들 틈이 없게 한 덩어리로 묶는다(`lock`). 결제처럼 오래 걸리는 일을 lock 안에 두기 싫다면 lock 안에서 재고를 먼저 예약(Stock--)하고 실패 시 되돌린다. `Stock--` 와 `List.Add` 자체도 원자적이지 않다(`Interlocked.Decrement`, `ConcurrentQueue`). Job System 안전 시스템은 NativeContainer 만 감시하므로 이런 C# 객체 레이스는 아무도 알려 주지 않는다.
+
+## Lab 54 — Task.Run 안에서 transform 을 씀
+```
+틀린 결과:     길 찾기는 워커 스레드에서 했지만 도착 false, 위치 그대로. Console 은 조용하다
+도구:          transform.position 줄에서 F10 → 다음 줄로 가지 않고 사라진다
+              조사식 task.Status == Faulted, task.Exception.InnerException: UnityException "get_transform can only be called from the main thread"
+진짜 원인:     Unity API 는 메인 스레드 전용이다. Task 안에서 난 예외는 Task 에 담기고, 아무도 await 하지 않아 Console 에 나오지 않는다
+```
+**수정:**
+```csharp
+public async Task GoTo(Vector3 from, Vector3 goal)
+{
+    List<Vector3> path = await Task.Run(() => FindPath(from, goal));   // 계산만 워커에서
+    transform.position = path[path.Count - 1];                          // await 뒤는 메인 스레드
+    Arrived = true;
+}
+```
+**교훈:** 워커 스레드에는 계산만 보내고, Unity 오브젝트를 만지는 일은 메인 스레드로 돌아와서 한다. 메인 스레드에서 시작한 `await` 는 UnitySynchronizationContext 가 다음 줄을 메인 스레드로 돌려보낸다. 돌려받은 Task 를 버리면(fire-and-forget) 예외도 함께 버려지므로, await 하거나 `ContinueWith` 로 `Exception` 을 로그로 남긴다. Task 안에서는 `transform.position` 을 **읽는 것**도 안 된다(값을 미리 꺼내 넘긴다).
+
+## Lab 55 — BackgroundThreadAsync 뒤에 메인 스레드로 돌아오지 않음
+```
+증상:          불러오기 시 UnityException: get_gameObject can only be called from the main thread
+도구:          Load 첫 줄과 gameObject.name 줄에서 조사식 Thread.CurrentThread.ManagedThreadId → 1 에서 다른 번호로 바뀌었다
+진짜 원인:     await Awaitable.BackgroundThreadAsync() 다음 줄부터는 스레드 풀이다. 돌아오라고 하기 전까지 계속 백그라운드다
+```
+**수정:**
+```csharp
+await Awaitable.BackgroundThreadAsync();
+SaveData data = Parse(json);
+await Awaitable.MainThreadAsync();      // 여기부터 메인 스레드
+gameObject.name = data.Name;
+transform.localScale = Vector3.one * data.Scale;
+```
+**교훈:** await 다음 줄의 스레드는 "무엇을 await 했나" 가 정한다. 보통의 `await Task`(메인 스레드에서 시작)는 메인으로 돌아오고, `Awaitable.BackgroundThreadAsync()` 와 `ConfigureAwait(false)` 는 돌아오지 않는다. 백그라운드 구간은 `MainThreadAsync()` 로 닫는 짝을 만든다. 돌아온 뒤 오브젝트가 이미 파괴됐을 수 있으니 `if (this == null) return;` 이나 `destroyCancellationToken` 을 쓴다.

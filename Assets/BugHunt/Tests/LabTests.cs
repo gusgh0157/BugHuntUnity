@@ -81,5 +81,8 @@ namespace BugHunt.Tests
         [UnityTest] public IEnumerator Lab50_BulletPool() => Run(50);
         [UnityTest] public IEnumerator Lab51_FlameThrower() => Run(51);
         [UnityTest] public IEnumerator Lab52_HealingAura() => Run(52);
+        [UnityTest] public IEnumerator Lab53_LimitedStock() => Run(53);
+        [UnityTest] public IEnumerator Lab54_BackgroundPath() => Run(54);
+        [UnityTest] public IEnumerator Lab55_SaveLoader() => Run(55);
     }
 }

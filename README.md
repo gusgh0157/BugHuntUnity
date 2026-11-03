@@ -14,6 +14,7 @@
 - **9부: 물리 (랩 39~43)**: 얇은 벽을 뚫는 빠른 탄환, 불리지 않는 `OnTriggerEnter`, 레이어 번호와 마스크, transform 으로 움직인 Rigidbody, 옮긴 직후 옛 자리를 보는 레이캐스트. Physics Debugger, Gizmos, `Debug.DrawRay` 로 봅니다.
 - **10부: 프레임레이트 의존 (랩 44~47)**: 30fps 와 120fps 에서 결과가 다른 버그. 빠진 `Time.deltaTime`, 매 프레임 `Lerp(a, b, 0.1f)`, Update 의 `fixedDeltaTime`, `timeScale = 0` 에서 멈추는 메뉴.
 - **11부: 성능 (랩 48~52)**: 결과는 맞는데 느린 버그. 매 프레임 쌓이는 GC 쓰레기(문자열, LINQ, 박싱), Update 의 `Find`, 돌려주지 않는 오브젝트 풀, `SendMessage`, 배열을 돌려주는 API. Profiler 의 GC Alloc 열, Deep Profile, ProfilerMarker 로 찾고 `ProfilerRecorder` 로 바이트를 재서 판정합니다.
+- **12부: 데이터 레이스와 스레드 (랩 53~55)**: `Task.Run` 두 개가 끼어들어 한정품이 두 번 팔리고, 워커 스레드에서 부른 `transform` 의 예외가 Task 안에 삼켜지고, `Awaitable.BackgroundThreadAsync()` 뒤 메인 스레드로 돌아오지 않는 버그. 매번 같은 결과가 나오게 재현합니다.
 
 > 콘솔판·언리얼판과 같은 규칙입니다. **코드를 눈으로 훑어 정답을 찾지 마세요.** 1부는 **예외가 난 곳에서부터**, 2부부터는 **직접 멈춘 곳에서부터 값을 확인하며** 추적하세요.
 > 콘솔판 1·3부를 먼저 끝냈다면 좋습니다. 호출 스택 창, 지역 창, 조건부 중단점, 추적점 사용법은 거기서 설명한 그대로 씁니다.
@@ -27,7 +28,7 @@
 | C++ 콘솔 | 호출 스택, 메모리 오류, 크래시 없는 흐름 추적 (랩 28개) | [BugHunt](https://github.com/gusgh0157/BugHunt) |
 | C# 콘솔 | 예외와 스택 트레이스, 흐름 추적, 비동기/동시성, 리소스와 메모리 (랩 28개) | [BugHuntCS](https://github.com/gusgh0157/BugHuntCS) |
 | 언리얼 엔진 | 크래시, 흐름 추적, 멀티플레이, 사운드, 이미지, 애니메이션 (랩 21개) | [BugHuntUE](https://github.com/gusgh0157/BugHuntUE) |
-| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너, 물리, 프레임레이트 의존, 성능 (랩 52개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
+| 유니티 | 크래시/예외, 흐름 추적, 사운드, 이미지, 애니메이션, 잘못된 참조와 네이티브 메모리, 멈춤, 컨테이너, 물리, 프레임레이트 의존, 성능, 데이터 레이스 (랩 55개) | [BugHuntUnity](https://github.com/gusgh0157/BugHuntUnity) **(지금 보는 저장소)** |
 
 ## 버그 범주 커버리지
 
@@ -49,7 +50,7 @@
 | 물리 | 39, 40, 41, 42, 43 | 빠른 탄환 터널링, Rigidbody 없는 트리거, 레이어 번호와 마스크, transform 으로 움직인 Rigidbody 와 보간, `SyncTransforms` | 관절(Joint) 폭주, 비균일 스케일 콜라이더, `OnCollisionStay` 비용 |
 | 프레임레이트 의존 | 7, 44, 45, 46, 47 | 한 프레임짜리 입력을 FixedUpdate 가 놓침, `Time.deltaTime` 누락, 매 프레임 `Lerp(a, b, 0.1f)`, `fixedDeltaTime` 혼동, `timeScale = 0` 에서 멈추는 UI | Update 에서 `AddForce`(물리 스텝과 어긋남), 가변 deltaTime 의 큰 스파이크(첫 프레임, 로딩 직후) |
 | 성능·GC | 17, 48, 49, 50, 51, 52 | 머티리얼 복제 누수, 매 프레임 GC 할당(문자열·LINQ·박싱), Update 의 `Find`/`FindObjectsByType`, 돌려주지 않는 풀, `SendMessage`, 배열을 돌려주는 API | 렌더링 비용(배칭 깨짐, 과도한 그림자), 큰 에셋 동기 로드로 멈춤, 매 프레임 Canvas 재빌드 |
-| 데이터 레이스·스레드 | 30 (일부) | 메인 스레드에서 Task 를 막고 기다림 | 동기화 없는 공유 상태, 워커 스레드의 Unity API, `await` 뒤 실행 스레드 |
+| 데이터 레이스·스레드 | 30, 53, 54, 55 | 메인 스레드에서 Task 를 막고 기다림, check-then-act 레이스, 워커 스레드의 Unity API 와 삼켜진 예외, `await` 뒤 실행 스레드 | 잡 안의 static 공유 상태, `volatile` 없는 종료 플래그, 여러 스레드가 함께 쓰는 캐시 `Dictionary` |
 | UI | 미포함 | | 레이캐스트를 가로막는 투명 이미지, Canvas 재빌드, 해상도별 앵커 |
 | 입력 | 미포함 | | Input System 액션 맵 비활성, 포커스를 잃었을 때 눌린 채 남는 키 |
 | 빌드 전용 | 미포함 | | IL2CPP 코드 스트리핑, 플랫폼별 경로·대소문자 |
@@ -500,6 +501,48 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ---
 
+# 12부: 데이터 레이스와 스레드
+
+Unity 의 게임 코드는 대부분 메인 스레드 하나에서 돌지만, 무거운 일을 `Task.Run`, `Thread`, `Awaitable.BackgroundThreadAsync()` 로 넘기는 순간 **두 스레드가 같은 데이터를 만지는** 버그가 생깁니다. 7부 랩 30(메인 스레드에서 `.Result` 로 기다려 데드락)이 "서로 기다리기" 라면, 12부는 "서로 끼어들기" 와 "엉뚱한 스레드에서 Unity 부르기" 입니다.
+
+레이스는 원래 가끔만 납니다. 연습이 되도록 **랩마다 매번 같은 결과**가 나오게 만들었습니다: 랩 53 은 랩이 넣은 결제 흉내가 동시에 들어온 요청끼리 서로를 최대 1초 기다리게 해서 "둘 다 확인을 통과한 상태" 를 확실하게 만들고, 랩 54·55 는 스레드가 바뀌는 것 자체가 버그라서 늘 재현됩니다.
+
+## 12부에서 쓰는 도구
+
+| 도구 | 하는 법 | 언제 |
+|---|---|---|
+| **스레드 창** | VS: 디버그 → 창 → 스레드 (Ctrl+Alt+H), Rider: Debug 창 Threads | 중단점에 멈춘 곳이 메인 스레드인가, 같은 줄에 스레드가 몇 개 있나 (모든 랩) |
+| **병렬 스택 / 작업 창** | VS: 디버그 → 창 → 병렬 스택, 작업(Tasks) | 어떤 Task 가 어디까지 왔나, 끝났나, 예외로 끝났나 (랩 53, 54) |
+| 중단점 **필터** / 추적점 | 중단점 → 조건 → 필터 `ThreadId == 1` / 추적점 `{Environment.CurrentManagedThreadId} Stock={Stock}` | 스레드별로 끼어드는 순서 보기. 추적점은 멈추지 않으므로 타이밍을 덜 바꾼다 (랩 53) |
+| 조사식 `Thread.CurrentThread.ManagedThreadId` | await 앞뒤 줄에서 비교 | await 다음 줄이 어느 스레드에서 도나 (랩 55) |
+| **예외 설정: throw 될 때 중단** | Common Language Runtime Exceptions 전체 체크 | Task 안에서 삼켜지는 예외를 던지는 자리에서 잡기 (랩 54) |
+| 조사식 `task.Status`, `task.Exception` | Faulted / RanToCompletion, InnerException | "아무 일도 안 일어났다" 의 정체 (랩 54) |
+
+## Job System 안전 시스템이 잡는 것과 못 잡는 것
+
+6부(랩 25, 26)의 안전 시스템은 **NativeContainer 를 쓰는 잡**에 대해서만 레이스를 막아 줍니다.
+
+| 상황 | 안전 시스템 | 이 판에서 |
+|---|---|---|
+| 두 잡이 같은 `NativeArray` 에 동시에 쓴다(의존 관계 없음) | **잡는다** (스케줄할 때 InvalidOperationException, 잡과 필드 이름이 나온다) | 랩 25 |
+| 잡이 쓰는 중인 `NativeArray` 를 메인 스레드가 읽는다(Complete 전) | **잡는다** | 랩 25 |
+| 해제된 `NativeArray` 를 잡이나 메인 스레드가 만진다 | **잡는다** (ObjectDisposedException) | 랩 26, 38 |
+| `[ReadOnly]` 없이 두 잡이 같은 배열을 읽기만 한다 | 잡는다(쓰기로 보고 막는다). `[ReadOnly]` 를 붙이면 허용 | — |
+| `Task.Run` / `Thread` 가 C# 객체(`List`, 필드, `Dictionary`)를 함께 쓴다 | **못 잡는다** (관리 힙은 감시 대상이 아니다) | 랩 53 |
+| 워커 스레드에서 Unity API(`transform`, `gameObject`) 호출 | 안전 시스템이 아니라 **엔진이** UnityException 을 던진다. 단 Task 안이면 삼켜진다 | 랩 54, 55 |
+| 잡 안에서 static 필드를 함께 쓴다 | **못 잡는다** (Burst 는 static 쓰기를 컴파일 오류로 막지만, Burst 를 끄면 그냥 돈다) | — |
+| `NativeDisableParallelForRestriction`, `NativeDisableContainerSafetyRestriction` 을 붙인 필드 | 일부러 **끈 것**이라 못 잡는다 | — |
+
+## 12부 랩 목록
+
+| # | 이름 | 증상 | 새로 배우는 것 | 난이도 |
+|---|---|---|---|---|
+| 53 | 한정 판매 | 한 자루 남은 검을 두 명이 샀다. 재고 -1 | **확인하고 행동하기(check-then-act) 레이스**, `lock`, 공유 `List` 의 동시 Add, 안전 시스템이 못 잡는 관리 힙 | ★★ |
+| 54 | 백그라운드 길 찾기 | 길 찾기는 끝까지 도는데 로봇이 안 움직인다. Console 은 조용하다 | **워커 스레드의 Unity API**, Task 안에서 삼켜지는 예외, `await Task.Run(...)` 뒤는 메인 스레드 | ★★ |
+| 55 | 세이브 불러오기 | 백그라운드 해석으로 바꾸자 "can only be called from the main thread" | **await 다음 줄의 스레드**, `Awaitable.BackgroundThreadAsync` / `MainThreadAsync`, UnitySynchronizationContext | ★★ |
+
+---
+
 # 채점
 
 모든 랩을 한 번에 돌려 랩마다 결과를 매기고 총점을 냅니다. 버그를 다 고쳤다고 생각되면 돌려 보세요. **버그가 있는 처음 상태에서는 0점이 정상**입니다.
@@ -516,7 +559,7 @@ C# 은 GC 가 메모리를 치워 주지만, Unity 에는 **GC 가 모르는 메
 
 ### 실행하는 두 가지 방법
 
-1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 52개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
+1. **에디터:** 메뉴 **BugHunt → 채점 (모든 랩)** (Ctrl+Alt+G, 랩 실행 창 맨 위 버튼도 같음). BugHunt 씬에서 Play 를 시작해 랩 55개를 차례로 돌리고(1~2분), 끝나면 Play 를 멈추고 **채점 결과 창**을 엽니다. Console 에도 표가 찍힙니다(검색: `[채점]`). 결과 창은 **BugHunt → 채점 결과 창** 으로 다시 열 수 있습니다.
 2. **명령줄:** **에디터를 닫고** 프로젝트 폴더에서
    ```bash
    grade.bat
@@ -544,8 +587,8 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 {
     "edition": "unity",
     "version": 1,
-    "total": 52,
-    "passed": 50,
+    "total": 55,
+    "passed": 53,
     "labs": [
         { "id": 1, "title": "감시탑", "part": 1, "result": "PASS", "ms": 3294, "detail": "" },
         { "id": 28, "title": "엘리베이터", "part": 7, "result": "TIMEOUT", "ms": 2003, "detail": "응답 없음: Passenger.RideTo: 엘리베이터가 오기를 기다림 (...)" }
@@ -585,16 +628,16 @@ BugHunt 네 판(C++, C#, 언리얼, 유니티)이 같은 형식을 씁니다.
 
 | 상태 | `-batchmode` | `-batchmode -nographics` |
 |---|---|---|
-| 버그 그대로 | 52개 모두 실패 | 51개 실패, 19 Skipped |
-| SOLUTIONS.md 의 수정 적용 | 52개 모두 통과 | 51개 통과, 19 Skipped |
-| 수정을 되돌림 | 52개 모두 실패 | (같은 코드라 생략) |
+| 버그 그대로 | 55개 모두 실패 | 54개 실패, 19 Skipped |
+| SOLUTIONS.md 의 수정 적용 | 55개 모두 통과 | 54개 통과, 19 Skipped |
+| 수정을 되돌림 | 55개 모두 실패 | (같은 코드라 생략) |
 
 채점기(`grade.bat`)도 같은 PC 에서 이렇게 확인했습니다.
 
 | 상태 | `grade.bat` | `grade.bat -NoGraphics` |
 |---|---|---|
-| 버그 그대로 | 0 / 52 (CRASH 10, FAIL 38, TIMEOUT 4), 종료 코드 1 | 0 / 51 (SKIP 1: 랩 19), 종료 코드 1 |
-| SOLUTIONS.md 의 수정 적용 | 52 / 52, 종료 코드 0 | 51 / 51 (SKIP 1: 랩 19), 종료 코드 0 |
+| 버그 그대로 | 0 / 55 (CRASH 11, FAIL 40, TIMEOUT 4), 종료 코드 1 | 0 / 54 (SKIP 1: 랩 19), 종료 코드 1 |
+| SOLUTIONS.md 의 수정 적용 | 55 / 55, 종료 코드 0 | 54 / 54 (SKIP 1: 랩 19), 종료 코드 0 |
 
 - 보통 입력의 기대값만 코드에 박아 넣은 가짜 수정(랩 2, 31)은 `[숨은 케이스]` FAIL 로 걸러졌습니다.
 - 랩 28 의 `HangGuard.Tick` 을 지워 에디터를 정말로 굳힌 상태에서 `grade.bat -TimeoutMinutes 1` 은 1분 뒤 Unity 를 끄고, 결과 파일에 랩 28 을 TIMEOUT, 그 뒤 랩을 FAIL 로 남겼습니다.
