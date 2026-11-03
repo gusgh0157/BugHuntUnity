@@ -113,5 +113,10 @@ namespace BugHunt.Labs.Lab18
 //   public void OnAfterDeserialize() { Prices = new Dictionary<string, int>(); for (int i = 0; i < priceKeys.Count; ++i) Prices[priceKeys[i]] = priceValues[i]; }
 //
 // 商品棚: 内側の List を [Serializable] クラスで 1 回包みます。
+//   [System.Serializable] public class Shelf { public List<string> Items = new List<string>(); }
+//   public List<Shelf> Shelves = new List<Shelf>();     // AddShelf / ItemAt も Shelves[shelf].Items[slot] に
 // 価格表: ISerializationCallbackReceiver で、保存の直前にキー・値のリストに展開し、読み込んだ直後に Dictionary を作り直します。
+//   [SerializeField] List<string> priceKeys = new List<string>(); [SerializeField] List<int> priceValues = new List<int>();
+//   public void OnBeforeSerialize() { priceKeys.Clear(); priceValues.Clear(); foreach (var kv in Prices) { priceKeys.Add(kv.Key); priceValues.Add(kv.Value); } }
+//   public void OnAfterDeserialize() { Prices = new Dictionary<string, int>(); for (int i = 0; i < priceKeys.Count; ++i) Prices[priceKeys[i]] = priceValues[i]; }
 #endregion

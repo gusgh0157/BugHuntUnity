@@ -176,13 +176,13 @@
 5. 誰が破棄したのかを探します。`Enemy.TakeDamage` の `Destroy(gameObject)` の行で **F9** を押してブレークポイントを置き、再生を止めてからもう一度ラボ 1。最初に止まったとき、コールスタックには誰がいますか? → *その値が来た場所*
 6. 監視塔の Update は「自分が撃って倒したときだけ」ターゲットを切り替えます。他の誰かが破棄した場合は? → *本当の原因*
 7. 直したら **Ctrl+Alt+R** → `[PASS]` が 2 つ。
-8. ボーナス: デバッガーなしで **コンソール → エラーで一時停止** をオンにしてラボ 1 を実行してみてください。例外が起きたフレームで再生が一時停止し、ヒエラルキーとインスペクターでその瞬間を確認できます。
+8. ボーナス: デバッガーなしで **コンソール → エラーで一時停止** (Console → Error Pause) をオンにしてラボ 1 を実行してみてください。例外が起きたフレームで再生が一時停止し、ヒエラルキーとインスペクターでその瞬間を確認できます。
 
 ## 第1部 ラボ一覧
 
 | # | 名前 | 症状 | 新しく学ぶこと | 難易度 |
 |---|---|---|---|---|
-| 1 | 監視塔 | 爆弾が敵を吹き飛ばしたとたん、例外が大量に出る | **MissingReferenceException**、破棄されたオブジェクト、Destroy にブレークポイント、エラーで一時停止 | ★ |
+| 1 | 監視塔 | 爆弾が敵を吹き飛ばしたとたん、例外が大量に出る | **MissingReferenceException**、破棄されたオブジェクト、Destroy にブレークポイント、エラーで一時停止 (Error Pause) | ★ |
 | 2 | ヘッドショット | 胴体は大丈夫なのに、頭を撃つと NullReferenceException | **GetComponent は自分のオブジェクトしか**見ない、`GetComponentInParent`、`TryGetComponent` | ★ |
 | 3 | スコアボード | マネージャーと UI を作ったとたん NullReferenceException | **Awake / OnEnable / Start の順序**、AddComponent の中ですぐ呼ばれる Awake・OnEnable | ★★ |
 | 4 | リスポーン | 倒れたプレイヤーがいつまでもリスポーンしない(エラー 1 行) | **非アクティブなオブジェクトのコルーチン**、コルーチンの持ち主、「エラーを消しても FAIL」 | ★★ |
@@ -559,7 +559,7 @@ Unity のゲームコードはほとんどがメインスレッド 1 つで動�
 |---|---|---|
 | **プロファイラー → CPU Usage → ヒエラルキー** | ウィンドウ → 分析 → プロファイラー。下のペインをヒエラルキーにして **GC アロケーション** (GC Alloc) 列でソート。呼び出し (Calls)、時間 (ミリ秒) (Time ms) 列もあわせて | どの関数が毎フレームゴミを作っているか、何回呼ばれているか (すべてのラボ) |
 | **詳細プロファイル** (Deep Profile) | プロファイラー上部の 詳細プロファイル をオンにして再生し直す | 自分の関数の中のどの呼び出し(String.Concat、Enumerable.Count、ボックス化)がアロケーションしているか。かなり遅くなるので見るときだけ (ラボ 51) |
-| **ProfilerMarker** | `static readonly ProfilerMarker s_Find = new ProfilerMarker("Turret.Find");` → `using (s_Find.Auto()) { ... }` | 詳細プロファイルなしで、怪しい区間だけにプロファイラー上の名前を付けて見る (ラボ 51, 52) |
+| **ProfilerMarker** | `static readonly ProfilerMarker s_Find = new ProfilerMarker("Turret.Find");` → `using (s_Find.Auto()) { ... }` | 詳細プロファイル (Deep Profile) なしで、怪しい区間だけにプロファイラー上の名前を付けて見る (ラボ 51, 52) |
 | **ProfilerRecorder** | `ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame")` → `LastValue` | コードでアロケーション量を測り、テストで守る (この部の判定) |
 | プロファイラー → **タイムライン** | GC.Collect がいつ、どれだけメインスレッドを止めているか | 「数秒ごとに途切れる」の正体 |
 | **Profile Analyzer** (パッケージ) | 複数フレームを集めて関数ごとの平均・最大 | 直す前と後の比較 |
@@ -568,7 +568,7 @@ Unity のゲームコードはほとんどがメインスレッド 1 つで動�
 
 | # | 名前 | 症状 | 新しく学ぶこと | 難易度 |
 |---|---|---|---|---|
-| 51 | 体力ゲージ | 値は変わっていないのに毎フレームゴミが溜まり、GC でカクつく | **文字列連結、LINQ、インターフェース foreach のボックス化**、毎フレームの `GetComponent`、変わったときだけ作る、詳細プロファイル、ProfilerMarker | ★★ |
+| 51 | 体力ゲージ | 値は変わっていないのに毎フレームゴミが溜まり、GC でカクつく | **文字列連結、LINQ、インターフェース foreach のボックス化**、毎フレームの `GetComponent`、変わったときだけ作る、詳細プロファイル (Deep Profile)、ProfilerMarker | ★★ |
 | 52 | タレットの標的探し | マップのオブジェクトが増えるとフレームレートが崩れ、GC が跳ねる | **Update での `GameObject.Find` / `FindObjectsByType`**、一度だけ探す、登録簿(OnEnable/OnDisable)、`Camera.main` は今はキャッシュされる | ★★ |
 | 53 | 弾のプール | プールを作ったのに毎発 Instantiate され、プールはいつも空 | **返却しないオブジェクトプール**、Release と初期化、`UnityEngine.Pool.ObjectPool<T>` | ★ |
 | 54 | 火炎放射器 | 敵がダメージを受けない(エラーなし)。名前を直してもアロケーションが残る | **`SendMessage` の名前のタイプミスと、ボックス化・リフレクションのコスト**、インターフェース、`TryGetComponent` | ★ |

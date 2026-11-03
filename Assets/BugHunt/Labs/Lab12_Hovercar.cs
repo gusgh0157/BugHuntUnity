@@ -80,5 +80,7 @@ namespace BugHunt.Labs.Lab12
 //   transform.position += Vector3.forward * Speed * Time.deltaTime;
 // 단위를 이름이나 주석에 남기세요(MetersPerSecond). "프레임당" 값은 그 자체로 버그 냄새입니다.
 //
+//   public float Speed = 6f;   // 1 秒に 6m
+//   transform.position += Vector3.forward * Speed * Time.deltaTime;
 // 単位を名前やコメントに残してください (MetersPerSecond)。「フレームあたり」の値は、それ自体がバグのにおいです。
 #endregion

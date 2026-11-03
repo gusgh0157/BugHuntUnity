@@ -86,5 +86,6 @@ namespace BugHunt.Labs.Lab20
 // 또는 호출하는 쪽이 자기 List 를 넘기게 합니다(void SoldiersOf(GameObject unit, List<Soldier> into)). 그러면 누가 버퍼의 주인인지 분명해집니다.
 //
 // 使い回すバッファーは関数の中だけで使い、外にはコピーを渡します。
+//   unit.GetComponentsInChildren(results); return new List<Soldier>(results);
 // または、呼び出す側が自分の List を渡すようにします (void SoldiersOf(GameObject unit, List<Soldier> into))。そうすれば、誰がバッファーの持ち主なのかがはっきりします。
 #endregion

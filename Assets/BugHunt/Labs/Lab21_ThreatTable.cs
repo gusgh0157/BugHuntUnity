@@ -98,6 +98,7 @@ namespace BugHunt.Labs.Lab21
 // ThreatCount 도 죽은 적을 빼고 세어야 합니다. 치우는 곳을 한 곳(Prune 함수)으로 모아 두면 둘 다 해결됩니다.
 //
 // 方法 1: 使う前に死んだキーを片付けます。
+//   foreach (Enemy dead in Threat.Keys.Where(e => e == null).ToList()) { Threat.Remove(dead); }   // == null は Unity のオーバーライドなので破棄されたものも捕まえる
 // 方法 2: 敵が死ぬときに知らせます。Enemy.OnDestroy で event を発火し、Boss が受け取って Threat.Remove(enemy)。
 // ThreatCount も死んだ敵を除いて数える必要があります。片付ける場所を 1 か所 (Prune 関数) にまとめておけば、両方とも解決します。
 #endregion
