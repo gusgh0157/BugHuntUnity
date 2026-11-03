@@ -9,22 +9,26 @@ using UnityEngine;
 namespace BugHunt.Editor
 {
     // 랩이 쓰는 에셋(소리, 아이콘, 머티리얼, 프리팹, 애니메이션, 씬)을 코드로 만든다.
-    // 저장소에는 결과물이 이미 들어 있으므로 평소에는 실행할 필요가 없다. 버그가 심어진 값(랩 10 프리팹의 100, 랩 12 의 Preload 끔,
-    // 랩 22 의 Exit Time 0.7)도 여기서 정해진다. 학습자가 고친 에셋을 원래대로 되돌리려면 git restore 를 쓰는 편이 낫다.
+    // 저장소에는 결과물이 이미 들어 있으므로 평소에는 실행할 필요가 없다. 버그가 심어진 값(랩 10 프리팹의 100, 랩 32 의 Preload 끔,
+    // 랩 42 의 Exit Time 0.7)도 여기서 정해진다. 학습자가 고친 에셋을 원래대로 되돌리려면 git restore 를 쓰는 편이 낫다.
+    // ラボが使うアセット (音、アイコン、マテリアル、プレハブ、アニメーション、シーン) をコードで作ります。
+    // リポジトリには生成物がすでに入っているので、普段は実行する必要はありません。バグが仕込まれた値 (ラボ 10 のプレハブの 100、ラボ 32 の Preload オフ、
+    // ラボ 42 の 終了時間 0.7) もここで決まります。学習者が直したアセットを元に戻すには git restore を使うほうがよいです。
     public static class BugHuntAssetBuilder
     {
         const string Root = "Assets/BugHunt/Resources/BugHunt";
 
-        [MenuItem("BugHunt/개발용/랩 에셋 다시 만들기")]
+        [MenuItem(MenuPaths.RebuildAssets)]
         static void BuildFromMenu()
         {
-            if (EditorUtility.DisplayDialog("랩 에셋 다시 만들기", "Resources/BugHunt 아래 에셋과 BugHunt 씬을 덮어씁니다. 고친 에셋도 버그 상태로 돌아갑니다.", "덮어쓰기", "취소"))
+            if (EditorUtility.DisplayDialog(Loc.T("랩 에셋 다시 만들기"), Loc.T("Resources/BugHunt 아래 에셋과 BugHunt 씬을 덮어씁니다. 고친 에셋도 버그 상태로 돌아갑니다."), Loc.T("덮어쓰기"), Loc.T("취소")))
             {
                 BuildAll();
             }
         }
 
         // 명령줄: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildAll
+        // コマンドライン: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildAll
         public static void BuildAll()
         {
             PlayerSettings.colorSpace = ColorSpace.Linear;
@@ -43,22 +47,27 @@ namespace BugHunt.Editor
             BuildAnimation();
             BuildScene();
             AssetDatabase.SaveAssets();
-            Debug.Log($"{Report.Tag} 랩 에셋을 만들었습니다.");
+            Debug.Log($"{Report.Tag} {Loc.T("랩 에셋을 만들었습니다.")}");
         }
 
-        // ---------------------------------------------------------------- 소리
-        static void BuildAudio()
+        // ---------------------------------------------------------------- 소리 / 音
+        // 소리만 다시 만들기: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildAudio
+        // 파일마다 음 높이를 달리해 소리끼리 구분된다. 길이는 판정에 쓰인다(랩 34: 0.2초 뒤, 랩 35: 1초 뒤 재생 중이어야 함).
+        // 音だけ作り直す: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildAudio
+        // ファイルごとに音の高さを変えてあるので、音同士を聞き分けられます。長さは判定に使われます (ラボ 34: 0.2 秒後、ラボ 35: 1 秒後に再生中であること)。
+        public static void BuildAudio()
         {
-            WriteTone("lab12_blaster", 0.3f, 880f, 660f);
-            WriteTone("lab13_footsteps", 0.4f, 120f, 90f);
-            WriteTone("lab13_boss", 3f, 160f, 140f);
-            WriteTone("lab14_explosion", 1.5f, 70f, 40f);
-            WriteTone("lab15_briefing", 3f, 440f, 440f);
-            WriteTone("lab15_grunt", 0.3f, 300f, 200f);
+            WriteTone("blaster", 0.3f, 880f);
+            WriteTone("footsteps", 0.4f, 220f);
+            WriteTone("boss", 3f, 330f);
+            WriteTone("explosion", 1.5f, 110f);
+            WriteTone("briefing", 3f, 440f);
+            WriteTone("grunt", 0.3f, 660f);
             AssetDatabase.Refresh();
 
-            // 랩 12 의 버그: 메모리를 아끼려고 미리 로드를 껐다.
-            var importer = (AudioImporter)AssetImporter.GetAtPath($"{Root}/Audio/lab12_blaster.wav");
+            // 랩 32 의 버그: 메모리를 아끼려고 미리 로드를 껐다.
+            // ラボ 32 のバグ: メモリを節約しようとして事前ロードをオフにした。
+            var importer = (AudioImporter)AssetImporter.GetAtPath($"{Root}/Audio/blaster.wav");
             importer.loadInBackground = true;
             AudioImporterSampleSettings settings = importer.defaultSampleSettings;
             settings.loadType = AudioClipLoadType.DecompressOnLoad;
@@ -67,8 +76,9 @@ namespace BugHunt.Editor
             importer.SaveAndReimport();
         }
 
-        // 16비트 모노 WAV. 주파수가 from → to 로 미끄러지고 끝으로 갈수록 작아지는 소리.
-        static void WriteTone(string name, float seconds, float fromHz, float toHz)
+        // 16비트 모노 WAV. 고정 주파수 하나의 단일음, 일정한 볼륨. 클릭 소리가 나지 않게 앞뒤 10ms 만 페이드.
+        // 16 ビットモノラル WAV。固定周波数 1 つの単音で、音量は一定。クリック音が出ないよう前後 10ms だけフェード。
+        static void WriteTone(string name, float seconds, float hz)
         {
             const int SampleRate = 44100;
             int samples = Mathf.RoundToInt(seconds * SampleRate);
@@ -86,18 +96,17 @@ namespace BugHunt.Editor
             writer.Write((short)16);
             writer.Write(new[] { 'd', 'a', 't', 'a' });
             writer.Write(samples * 2);
-            double phase = 0;
+            const float Volume = 0.3f;
+            const int FadeSamples = SampleRate / 100;   // 10ms
             for (int i = 0; i < samples; ++i)
             {
-                float t = (float)i / samples;
-                float hz = Mathf.Lerp(fromHz, toHz, t);
-                phase += 2 * Mathf.PI * hz / SampleRate;
-                float envelope = Mathf.Min(1f, i / 200f) * (1f - t);
-                writer.Write((short)(Mathf.Sin((float)phase) * envelope * 0.5f * short.MaxValue));
+                float envelope = Mathf.Min(1f, Mathf.Min(i, samples - 1 - i) / (float)FadeSamples);
+                double phase = 2 * System.Math.PI * hz * i / SampleRate;
+                writer.Write((short)(System.Math.Sin(phase) * envelope * Volume * short.MaxValue));
             }
         }
 
-        // ---------------------------------------------------------------- 아이콘
+        // ---------------------------------------------------------------- 아이콘 / アイコン
         static void BuildIcons()
         {
             WriteIcon("sword", new Color(0.75f, 0.8f, 0.9f));
@@ -123,38 +132,39 @@ namespace BugHunt.Editor
             Object.DestroyImmediate(texture);
         }
 
-        // ---------------------------------------------------------------- 머티리얼
+        // ---------------------------------------------------------------- 머티리얼 / マテリアル
         static void BuildMaterials()
         {
             var crate = new Material(Shader.Find("Standard")) { color = Color.white };
             AssetDatabase.CreateAsset(crate, $"{Root}/Materials/Crate.mat");
         }
 
-        // ---------------------------------------------------------------- 랩 10: 패치 전 값이 저장된 프리팹
+        // ---------------------------------------------------------------- 랩 10: 패치 전 값이 저장된 프리팹 / ラボ 10: パッチ前の値が保存されたプレハブ
         static void BuildSlimePrefab()
         {
             var go = new GameObject("Slime");
             var stats = go.AddComponent<SlimeStats>();
             var serialized = new SerializedObject(stats);
-            serialized.FindProperty(nameof(SlimeStats.MaxHealth)).intValue = 100;   // 1.0 때 만든 프리팹
+            serialized.FindProperty(nameof(SlimeStats.MaxHealth)).intValue = 100;   // 1.0 때 만든 프리팹 / 1.0 のときに作ったプレハブ
             serialized.ApplyModifiedPropertiesWithoutUndo();
             PrefabUtility.SaveAsPrefabAsset(go, $"{Root}/Slime.prefab");
             Object.DestroyImmediate(go);
         }
 
-        // ---------------------------------------------------------------- 랩 11
+        // ---------------------------------------------------------------- 랩 11 / ラボ 11
         static void BuildWeaponData()
         {
             var rifle = ScriptableObject.CreateInstance<WeaponData>();
             AssetDatabase.CreateAsset(rifle, $"{Root}/Rifle.asset");
         }
 
-        // ---------------------------------------------------------------- 애니메이션
+        // ---------------------------------------------------------------- 애니메이션 / アニメーション
         static void BuildAnimation()
         {
             string dir = $"{Root}/Animation";
 
-            // 랩 20: Idle --(Attack 트리거)--> Attack --(끝나면)--> Idle
+            // 랩 40: Idle --(Attack 트리거)--> Attack --(끝나면)--> Idle
+            // ラボ 40: Idle --(Attack トリガー)--> Attack --(終わったら)--> Idle
             AnimationClip knightIdle = Clip($"{dir}/Knight_Idle.anim", "Body", 1f, true, 0f, 0.05f);
             AnimationClip knightAttack = Clip($"{dir}/Knight_Attack.anim", "Body", 0.6f, false, 0f, 0.5f);
             var knight = AnimatorController.CreateAnimatorControllerAtPath($"{dir}/Knight.controller");
@@ -174,7 +184,8 @@ namespace BugHunt.Editor
             attackDone.exitTime = 1f;
             attackDone.duration = 0.1f;
 
-            // 랩 21: 걷기 1초, 발소리 이벤트 0.25초·0.75초
+            // 랩 41: 걷기 1초, 발소리 이벤트 0.25초·0.75초
+            // ラボ 41: 歩き 1 秒、足音イベント 0.25 秒・0.75 秒
             AnimationClip walk = Clip($"{dir}/Guard_Walk.anim", "Body", 1f, true, 0f, 0.1f);
             AnimationUtility.SetAnimationEvents(walk, new[]
             {
@@ -184,7 +195,8 @@ namespace BugHunt.Editor
             var guard = AnimatorController.CreateAnimatorControllerAtPath($"{dir}/Guard.controller");
             guard.layers[0].stateMachine.AddState("Walk").motion = walk;
 
-            // 랩 22: Swing 1초, Hit 이벤트 0.9초. 버그: Swing → Idle 이 0.7 에 시작해 0.8 에 끝난다.
+            // 랩 42: Swing 1초, Hit 이벤트 0.9초. 버그: Swing → Idle 이 0.7 에 시작해 0.8 에 끝난다.
+            // ラボ 42: Swing 1 秒、Hit イベント 0.9 秒。バグ: Swing → Idle が 0.7 で始まり 0.8 で終わる。
             AnimationClip swordIdle = Clip($"{dir}/Swordsman_Idle.anim", "Blade", 1f, true, 0f, 0f);
             AnimationClip swing = Clip($"{dir}/Swordsman_Swing.anim", "Blade", 1f, false, 0f, 1f);
             AnimationUtility.SetAnimationEvents(swing, new[]
@@ -209,7 +221,8 @@ namespace BugHunt.Editor
             swingDone.hasFixedDuration = false;
             swingDone.duration = 0.1f;
 
-            // 랩 23: 손이 0.5초 주기로 좌우로 흔들린다
+            // 랩 43: 손이 0.5초 주기로 좌우로 흔들린다
+            // ラボ 43: 手が 0.5 秒周期で左右に揺れる
             var wave = new AnimationClip { name = "Waver_Wave" };
             wave.SetCurve("Hand", typeof(Transform), "m_LocalPosition.x",
                 new AnimationCurve(new Keyframe(0f, -1f), new Keyframe(0.25f, 1f), new Keyframe(0.5f, -1f)));
@@ -222,6 +235,7 @@ namespace BugHunt.Editor
         }
 
         // path 자식의 localPosition.y 를 from → to 로 움직이는 클립
+        // path の子の localPosition.y を from → to へ動かすクリップ
         static AnimationClip Clip(string assetPath, string bonePath, float length, bool loop, float from, float to)
         {
             var clip = new AnimationClip { name = Path.GetFileNameWithoutExtension(assetPath) };
@@ -240,7 +254,7 @@ namespace BugHunt.Editor
             AnimationUtility.SetAnimationClipSettings(clip, settings);
         }
 
-        // ---------------------------------------------------------------- 씬
+        // ---------------------------------------------------------------- 씬 / シーン
         static void BuildScene()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);

@@ -37,3 +37,7 @@ crashlytics-buildtime-id
 
 # 테스트 결과
 /TestResults*.xml
+
+# 채점 결과 (grade.bat / BugHunt → 채점)
+grade-report.json
+grade.log
