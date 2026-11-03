@@ -69,9 +69,16 @@ namespace BugHunt.Labs.Lab18
             slot.Show(cached);   // 같은 프레임에 스크롤되어 칸이 물약으로 재사용됨
             Report.Note($"프레임 {Time.frameCount}: 칸에 {cached} 표시 요청 (아이콘 {(slot.Icon ? slot.Icon.name : "없음")})");
 
-            for (int i = 0; i < 10; ++i)
+            // 늦게 오는 아이콘이 다 읽힐 때까지 기다린다(그래픽 장치가 있으면 텍스처 업로드로 몇 프레임 더 걸린다).
+            ResourceRequest slowLoad = Resources.LoadAsync<Texture2D>($"BugHunt/Icons/icon_{slow}");
+            float deadline = Time.realtimeSinceStartup + 5f;
+            while (!slowLoad.isDone && Time.realtimeSinceStartup < deadline)
             {
                 yield return null;
+            }
+            for (int i = 0; i < 3; ++i)
+            {
+                yield return null;   // 같은 에셋의 앞선 요청이 콜백을 부를 때까지
             }
 
             string iconName = slot.Icon ? slot.Icon.name : "없음";
