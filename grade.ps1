@@ -1,7 +1,7 @@
 ﻿# BugHunt Unity 채점 (명령줄). grade.bat 이 이 스크립트를 부른다. 사용법은 README 의 "채점" 을 보세요.
 #   grade.bat                        모든 랩 채점
-#   grade.bat -NoGraphics            그래픽 장치 없이 (랩 19 는 SKIP)
-#   grade.bat -Labs 24,25,31         이 랩만
+#   grade.bat -NoGraphics            그래픽 장치 없이 (랩 39 는 SKIP)
+#   grade.bat -Labs 23,24,50         이 랩만
 #   grade.bat -Unity "D:\Unity\6000.3.27f2\Editor\Unity.exe"
 # 결과: 콘솔 표, 프로젝트 폴더의 grade-report.json, Unity 로그 grade.log. 종료 코드: 만점 0, 아니면 1, 채점 실패 2.
 param(

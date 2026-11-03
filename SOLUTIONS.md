@@ -249,442 +249,64 @@ public class Weapon : MonoBehaviour
 (`WeaponData.Ammo` 필드는 지워도 된다.)
 **교훈:** ScriptableObject 에는 **읽기 전용 설정**만. 게임 중 바뀌는 상태는 컴포넌트(인스턴스)가 들고 있는다. 런타임 사본이 필요하면 `Instantiate(data)`. 빌드에서는 프로그램을 껐다 켜면 원래 값으로 돌아가므로 "에디터에서만 생기는 버그"처럼 보이지만, 빌드에서도 **같은 실행 안에서는** 두 플레이어가 값을 공유하는 진짜 버그다. 이미 값이 줄어 있다면 에디터를 다시 켜거나 에셋을 Reimport 하자(`git status` 로 Rifle.asset 이 바뀌었는지도 확인).
 
----
-
-# 3부: 사운드
-
-## Lab 12 — Preload Audio Data 를 꺼 둔 클립을 미리 로드하지 않음
+## Lab 12 — 프레임당 이동량에 deltaTime 을 곱하지 않음
 ```
-틀린 결과:     첫 발을 쏜 순간 loadState == Unloaded. 발사 후 데이터가 올라오기까지 몇 프레임
-멈춘 위치:     Blaster.Fire → FireClip.loadState: Unloaded, preloadAudioData: false, loadInBackground: true
-진짜 원인:     임포트 설정에서 Preload Audio Data 를 껐다. Resources.Load 로 클립 객체는 생겼지만 소리 데이터는 "처음 재생할 때" 올라온다.
-              Load In Background 가 켜져 있어 재생이 데이터가 올라온 뒤로 미뤄진다 → 섬광보다 늦은 소리.
-```
-**수정 (택1):**
-```csharp
-// ① 장착할 때 미리 올린다 (메모리를 아끼려고 끈 설정을 살리는 방법)
-public void Equip(AudioClip fireClip)
-{
-    FireClip = fireClip;
-    source = gameObject.AddComponent<AudioSource>();
-    source.playOnAwake = false;
-    FireClip.LoadAudioData();
-}
-```
-② `lab12_blaster.wav` 임포트 설정에서 **Preload Audio Data** 를 켜고 Apply.
-**교훈:** 오디오 임포트 설정 셋의 의미: **Load Type**(메모리에 어떤 형태로: 풀어서/압축째/스트리밍), **Preload Audio Data**(씬·에셋이 로드될 때 데이터도 같이), **Load In Background**(로드를 기다리지 않고 미루기). 끄면 메모리를 아끼는 대신 "언제 올릴지"를 코드가 책임져야 한다. Load In Background 를 끄면 지연 대신 그 프레임이 멈칫한다(히치).
-
-## Lab 13 — 실제 음성 한도를 넘었고 보스 대사의 우선순위가 같음
-```
-틀린 결과:     boss.Voice.isPlaying == true 인데 isVirtual == true
-도구:          Profiler Audio 모듈 → 재생 41개, 실제 32개, 가상 9개
-진짜 원인:     Max Real Voices 32 < 동시에 재생하려는 소리 41. 우선순위가 모두 128 이라 "더 작게 들리는" 보스 대사(볼륨 0.6)가 가상으로 밀려났다.
+틀린 결과:     2초 동안 30fps 6m, 120fps 24m (기대 둘 다 12m)
+도구:          Update 추적점 "{Time.frameCount} {transform.position.z}" → 한 번에 0.1m 씩, 1초에 Update 30번/120번
+진짜 원인:     Speed 는 "프레임당 0.1m" 다. 1초에 가는 거리 = 0.1 × fps. 60fps 에서만 6m/s 다
 ```
 **수정:**
 ```csharp
-Voice.priority = 0;   // 0 이 가장 중요
+public float Speed = 6f;   // 1초에 6m
+transform.position += Vector3.forward * Speed * Time.deltaTime;
 ```
-(발소리 쪽을 `priority = 200` 으로 낮춰도 된다. 근본적으로는 같은 소리를 수십 개 동시에 낼 필요가 없으니 발소리 수를 제한한다.)
-**교훈:** "소리가 안 들린다"의 큰 원인 하나가 **동시 재생 한도**. 가상 음성은 위치만 계속 계산하고 소리는 내지 않다가 자리가 나면 이어서 나온다. 중요한 소리(대사, UI, 경보)는 priority 로 보호한다.
+**교훈:** Update 에서 바꾸는 양은 "초당 값 × `Time.deltaTime`" 이어야 한다. 단위(MetersPerSecond)를 이름이나 주석에 남기면 프레임당 값이 섞여 들어올 때 눈에 띈다. 고정 간격이 필요한 계산은 FixedUpdate 로 보낸다.
 
-## Lab 14 — AudioSource 가 붙은 오브젝트를 바로 Destroy
+## Lab 13 — 매 프레임 Lerp(a, b, 0.1f)
 ```
-틀린 결과:     통은 사라졌고, 0.2초 뒤 폭발음을 재생 중인 AudioSource 가 없다
-도구:          Explode 끝에 Debug.Break() → 다음 프레임 Hierarchy 에서 ExplosiveBarrel 과 그 AudioSource 가 사라짐
-진짜 원인:     소리의 수명 = AudioSource 의 수명 = 게임 오브젝트의 수명. Destroy 가 재생 중인 소리를 끊었다.
+틀린 결과:     0.5초 뒤 남은 거리 30fps 2.06m, 120fps 0.02m (기대 둘 다 0.42m)
+도구:          LateUpdate 추적점 → 남은 거리가 프레임마다 0.9 배. 30fps 0.5초 = 15프레임 → 0.9^15, 120fps = 60프레임 → 0.9^60
+진짜 원인:     비율을 고정한 Lerp 는 "프레임 수" 에 대한 거듭제곱이다. deltaTime 을 그냥 곱해도(0.1f * dt * 60) 1차 근사일 뿐 맞지 않는다
 ```
 **수정:**
 ```csharp
-public void Explode()
-{
-    AudioSource.PlayClipAtPoint(ExplosionClip, transform.position);
-    Destroy(gameObject);
-}
+public float Sharpness = 6.32f;   // = -ln(1 - 0.1) * 60 : 60fps 에서 0.1 과 같은 느낌
+transform.position = Vector3.Lerp(transform.position, Target, 1f - Mathf.Exp(-Sharpness * Time.deltaTime));
 ```
-**교훈:** 사라지는 것(총알, 적, 상자)이 내는 소리는 **다른 수명을 가진 곳**에서 낸다: `PlayClipAtPoint`(임시 "One shot audio" 오브젝트), 떼어 낸 자식 + `Destroy(go, clip.length)`, 사운드 매니저의 AudioSource 풀. `PlayClipAtPoint` 는 AudioSource 설정(믹서 그룹, 3D 설정)을 줄 수 없어서 큰 프로젝트에서는 풀이 일반적이다.
+**교훈:** "매 프레임 남은 것의 몇 %" 는 지수 감쇠다. 한 프레임 비율을 `1 - e^(-k·dt)` 로 두면 프레임을 어떻게 나누든 1초 뒤 결과가 같다(`e^(-k·a) · e^(-k·b) = e^(-k·(a+b))`). `Vector3.SmoothDamp`, `Mathf.SmoothDamp` 도 프레임과 무관하다(곡선 모양은 다르다).
 
-## Lab 15 — 짧은 효과음을 Play() 로 내서 긴 소리를 끊음
+## Lab 14 — Update 에서 Time.fixedDeltaTime 을 곱함
 ```
-틀린 결과:     1초 뒤 Source.clip == grunt, 브리핑 재생 안 함
-멈춘 위치:     PlayHurt → F10 전후: Source.clip lab15_briefing → lab15_grunt, Source.time 0.5 → 0
-진짜 원인:     AudioSource 하나는 clip 하나를 재생한다. clip 을 바꾸고 Play() 하면 지금 재생 중이던 브리핑은 멈춘다.
+틀린 결과:     1.5초 동안 30fps 18, 120fps 72 (기대 둘 다 30)
+도구:          Update 조사식: Time.fixedDeltaTime 은 fps 와 상관없이 0.02, Time.deltaTime 은 0.0333 / 0.0083
+진짜 원인:     fixedDeltaTime 은 FixedUpdate 간격 설정값(상수)이다. Update 에서 곱하면 Update 횟수 × 0.02 가 된다. 50fps 에서만 맞다
 ```
 **수정:**
 ```csharp
-public void PlayHurt(AudioClip grunt)
-{
-    Source.PlayOneShot(grunt);
-}
+Value += RegenPerSecond * Time.deltaTime;
 ```
-**교훈:** `Play()` = 이 소스의 "주 트랙"을 처음부터(제어 가능: Stop, Pause, time). `PlayOneShot()` = 주 트랙을 건드리지 않고 겹쳐 쏘기(개별 제어 불가, `Stop()` 하면 같이 멈춤). 대사·음악처럼 제어가 필요한 것과 효과음은 AudioSource 를 나누는 것이 깔끔하다.
+**교훈:** 어디서든 `Time.deltaTime` 을 쓰면 된다. FixedUpdate 안에서 읽으면 Unity 가 알아서 `fixedDeltaTime` 을 돌려준다. `fixedDeltaTime` 을 직접 쓸 곳은 FixedUpdate 간격 자체를 바꿀 때뿐이다.
 
----
-
-# 4부: 이미지 / 렌더링
-
-## Lab 16 — sharedMaterial 을 고쳐서 에셋 자체를 바꿈
+## Lab 15 — timeScale 0 에서 deltaTime 과 WaitForSeconds 를 씀
 ```
-틀린 결과:     옆 상자도 빨강, Crate.mat 에셋도 빨강
-멈춘 위치:     OnHoverEnter → body.sharedMaterial.GetInstanceID() 가 모든 상자에서 같음 = Crate.mat 에셋
-진짜 원인:     sharedMaterial 은 에셋 그 자체. 같은 머티리얼을 쓰는 모든 렌더러가 바뀌고, 에디터에서는 에셋 파일에도 저장될 수 있다.
+틀린 결과:     멈춘 동안 메뉴가 들어온 정도 0 (기대 1), 카운트다운 뒤 timeScale 0 (기대 1)
+도구:          PauseMenu.Update 중단점 → 멈춘 동안에도 불린다. Time.deltaTime == 0, Time.unscaledDeltaTime == 0.016
+              Countdown 의 yield 다음 줄에 중단점 → 영원히 오지 않는다
+진짜 원인:     timeScale = 0 은 Update 를 멈추지 않고 게임 시간만 멈춘다. deltaTime 이 0 이라 메뉴가 안 움직이고, WaitForSeconds 는 게임 시간으로 기다리므로 끝나지 않는다
 ```
 **수정:**
 ```csharp
-public void OnHoverEnter()
-{
-    body.material.color = Color.red;   // 이 렌더러 전용 사본 "Crate (Instance)"
-}
-
-public void OnHoverExit()
-{
-    body.material.color = Color.white;
-}
-```
-(사본의 정리는 랩 17 참고. 색만 바꾼다면 MaterialPropertyBlock 이 더 좋다.)
-**교훈:** `sharedMaterial`/`sharedMesh` = 에셋(모두 공유), `material`/`mesh` = 첫 접근 때 복제한 내 것. 에디터에서 `sharedMaterial` 을 런타임에 고치면 플레이를 멈춰도 돌아오지 않는다. `git status` 에 `.mat` 이 뜨면 이 버그를 의심하자.
-
-## Lab 17 — renderer.material 복제본이 누수됨
-```
-틀린 결과:     웨이브마다 Material 객체 +100, 상자를 다 지운 뒤에도 +200
-도구:          Paint 전후 sharedMaterial.name: "Crate" → "Crate (Instance)". Memory Profiler 스냅샷 비교: Material "Crate (Instance)" 200개
-진짜 원인:     renderer.material 은 머티리얼을 복제한다. 복제본은 게임 오브젝트를 지워도 함께 지워지지 않는다(씬 언로드나 UnloadUnusedAssets 까지 남음).
-              게다가 상자마다 머티리얼이 달라 배칭도 깨진다(Frame Debugger 에서 드로 콜 수 확인).
-```
-**수정:**
-```csharp
-public class SupplyCrate : MonoBehaviour
-{
-    public Color Tint;
-    static MaterialPropertyBlock block;
-    static readonly int ColorId = Shader.PropertyToID("_Color");
-
-    public void Paint(Color tint)
-    {
-        Tint = tint;
-        block ??= new MaterialPropertyBlock();
-        var body = GetComponent<Renderer>();
-        body.GetPropertyBlock(block);
-        block.SetColor(ColorId, tint);
-        body.SetPropertyBlock(block);
-    }
-}
-```
-(복제본을 꼭 써야 한다면 `OnDestroy` 에서 `Destroy(GetComponent<Renderer>().material)`. 단 `OnDestroy` 에서 `.material` 에 처음 접근하면 그 자리에서 또 복제하므로 Paint 때 받아 둔 참조를 지운다.)
-**교훈:** 렌더러마다 값만 다르면 **MaterialPropertyBlock**. 머티리얼 복제 없이 렌더러별 값을 준다. 참고: URP/HDRP 의 SRP Batcher 는 MaterialPropertyBlock 을 쓰면 그 렌더러를 배칭에서 뺀다. SRP 프로젝트라면 머티리얼 변형을 미리 만들어 두거나 GPU 인스턴싱/셰이더 속성(`[PerRendererData]`, `UNITY_INSTANCING_BUFFER`)을 쓴다.
-
-## Lab 18 — 늦게 도착한 비동기 로드 결과가 재사용된 칸을 덮어씀
-```
-틀린 결과:     칸의 아이템 potion, 아이콘 icon_sword
-멈춘 위치:     람다 texture => Icon = texture → 두 번 멈춤: 같은 프레임에 potion(캐시, 즉시), 다음 프레임 이후 sword(LoadAsync 완료)
-기대 → 실제:   요청 순서 sword → potion, 도착 순서 potion → sword
-진짜 원인:     콜백은 "도착한 때의 칸"에 아이콘을 넣는다. 그 사이 칸이 물약으로 재사용됐는데 확인하지 않았다.
-```
-**수정:**
-```csharp
-public void Show(string itemId)
-{
-    ItemId = itemId;
-    Icon = null;
-    Loader.Request(itemId, texture =>
-    {
-        if (ItemId == itemId)   // 아직도 그 아이템을 보여 주는 칸인가?
-        {
-            Icon = texture;
-        }
-    });
-}
-```
-**교훈:** 비동기 결과는 "요청한 때"가 아니라 "도착한 때"의 세상에 떨어진다. 도착했을 때 **아직 유효한지**(같은 아이템인가, 오브젝트가 살아 있나) 확인한다. `ResourceRequest.completed` 와 Addressables 의 `Completed` 는 이미 로드된 에셋이어도 같은 프레임에 불리지 않을 수 있다. 캐시 적중(즉시)과 미스(나중)가 섞이면 순서가 뒤집힌다.
-
-## Lab 19 — Linear 색 공간에서 색을 SetVector 로 넘김
-```
-틀린 결과:     깃발 픽셀 (255, 188, 137), 기대 (255, 128, 64)
-기록:          0x80/255 = 0.502 → 188 = sRGB 인코딩(0.502) ≈ 0.735. 0x40 → 137 도 같은 곡선. 0x00, 0xFF 는 곡선의 양 끝이라 그대로
-도구:          Frame Debugger → TeamBanner 드로 콜 → _Color 값 (1, 0.502, 0.251): sRGB 값이 선형 값 자리에 그대로 들어감
-진짜 원인:     Color Space = Linear. 셰이더는 선형 값을 기대하고, 화면에 쓸 때 sRGB 로 인코딩한다.
-              SetVector 는 숫자를 그대로 넘겨서 sRGB 색(기획서 hex)이 변환 없이 "선형 값"으로 쓰였다 → 한 번 더 밝아짐.
-```
-**수정:**
-```csharp
-block.SetColor(ColorId, teamColor);   // Linear 색 공간이면 sRGB → 선형 변환을 해 준다
-// 또는 block.SetVector(ColorId, teamColor.linear);
-```
-**교훈:** 사람이 고른 색(색상 선택기, hex, 텍스처의 색)은 sRGB, 셰이더 계산은 선형. 변환은 `SetColor`/`Color.linear`/텍스처의 **sRGB (Color Texture)** 체크가 해 준다. 노멀 맵, 마스크, 데이터 텍스처는 sRGB 를 **꺼야** 한다(켜면 반대로 값이 어두워진다). "0 과 255 는 맞는데 중간만 틀리다"면 감마 곡선을 의심하자.
-
----
-
-# 5부: 애니메이션
-
-## Lab 20 — Animator 파라미터 이름의 대소문자
-```
-틀린 결과:     Attack 상태에 들어가지 않음
-Console:        ⚠ Parameter 'Hash 1203776827' does not exist.
-Animator 창:   Parameters 탭의 이름은 "Attack". 코드는 Animator.StringToHash("attack")
-진짜 원인:     파라미터 이름은 대소문자를 구분한다. 틀리면 경고만 찍고 아무 일도 하지 않는다.
-```
-**수정:**
-```csharp
-static readonly int AttackId = Animator.StringToHash("Attack");
-```
-**교훈:** 문자열 파라미터는 컴파일러가 검사해 주지 않는다. 이름은 한 곳에 상수로 두고, 시작할 때 `animator.parameters` 로 필요한 이름이 있는지 검사하는 습관을 들이자. 경고 필터를 꺼 두면 이 버그는 몇 주씩 숨는다.
-
-## Lab 21 — Culling Mode = Cull Completely 라 화면 밖에서 이벤트가 사라짐
-```
-틀린 결과:     2.1초 동안 발소리 0번, Renderer.isVisible == false
-도구:          Inspector 의 Animator → Culling Mode: Cull Completely. Animator 창에서 Walk 진행 막대가 멈춰 있다.
-              Scene 뷰를 경비병 쪽으로 돌리면 진행 막대가 움직이고 Footstep 중단점이 걸린다.
-진짜 원인:     Cull Completely 는 렌더러가 하나도 안 보이면 애니메이션을 통째로 멈춘다. 애니메이션 이벤트도 불리지 않는다.
-```
-**수정:**
-```csharp
-GetComponent<Animator>().cullingMode = AnimatorCullingMode.CullUpdateTransforms;   // 또는 AlwaysAnimate
-```
-**교훈:** 화면 밖에서도 게임 로직이 애니메이션(이벤트, 루트 모션)에 기대는 캐릭터에 Cull Completely 를 쓰면 안 된다. Cull Update Transforms 는 상태 머신과 이벤트를 유지하면서 뼈 쓰기·IK 를 생략한다. 에디터에서는 **Scene 뷰 카메라도 "보는 것"** 이라서, 에디터에서는 되고 빌드에서는 안 되는(또는 반대) 버그로 신고되기 쉽다.
-
-## Lab 22 — 트랜지션이 이벤트보다 먼저 끝남
-```
-틀린 결과:     3번 휘둘러 Hit 0번
-도구:          Animation 창: Swordsman_Swing 길이 1초, Hit 이벤트 0.9초
-              Animator 창: Swing → Idle 트랜지션 Has Exit Time ✔, Exit Time 0.7, Transition Duration 0.1 (Fixed Duration 끔 = 클립 길이의 10%)
-처음 어긋난 곳: Swing 은 0.7 에 빠지기 시작해 0.8 에 완전히 끝난다. 0.9 의 이벤트는 재생되지 않는 구간
-진짜 원인:     애니메이션 에셋. 이벤트가 트랜지션 뒤에 있다.
-```
-**수정 (택1):** Animator 창에서 Swing → Idle 트랜지션의 **Exit Time 을 0.95** 로(이벤트 뒤에서 넘어가기 시작). 또는 Animation 창에서 **Hit 이벤트를 0.5초** 무렵(칼날이 실제로 닿는 지점)으로 옮기기.
-**교훈:** 트랜지션 도중에는 두 상태의 클립이 같이 재생되며 양쪽 이벤트가 불리지만, 트랜지션이 **끝난 뒤** 원래 클립은 더 진행되지 않는다. 판정용 이벤트는 트랜지션 시작 전에 둔다. 피격·회피 같은 인터럽트로 공격이 끊길 때 판정이 빠지는 것도 같은 원리이고, 그건 의도된 동작일 수도 있다(기획과 정하자).
-
-## Lab 23 — 애니메이션 결과를 Update 에서 읽음
-```
-틀린 결과:     거의 모든 프레임에서 손과 횃불이 어긋남
-도구:          Update 와 LateUpdate 의 추적점 → 같은 프레임인데 손의 x 가 다르다
-              Profiler Timeline: Update.ScriptRunBehaviourUpdate → PreLateUpdate.DirectorUpdateAnimationBegin/End → PreLateUpdate.ScriptRunBehaviourLateUpdate
-진짜 원인:     Animator 는 Update 뒤, LateUpdate 앞에서 뼈(Transform)를 쓴다. Update 에서 읽은 손 위치는 지난 프레임 것이다.
-```
-**수정:**
-```csharp
-void LateUpdate()
-{
-    transform.SetPositionAndRotation(Hand.position, Hand.rotation);
-}
-```
-(가장 간단하게는 횃불을 손의 자식으로: `transform.SetParent(Hand, false)`.)
-**교훈:** 애니메이션이 움직인 뼈를 따라가는 모든 것(무기 붙이기, 카메라, 조준선, IK 보정, 이펙트 위치)은 LateUpdate. 한 프레임 늦음은 화면에서 "흔들림/떨림"으로 보이고, 판정에 쓰이면 진짜 버그가 된다.
-
-# 6부: 잘못된 참조와 네이티브 메모리
-
-## Lab 24 — NativeArray 를 Dispose 하지 않음
-```
-틀린 결과:     목표를 5번 바꾼 뒤 살아 있는 버퍼 5개(기대 1), 순찰병을 없앤 뒤에도 5개(기대 0). 예외는 없다
-도구:          플레이를 멈추면 Console: "Leak Detected : Persistent allocates 5 individual allocations"
-              Preferences → Jobs → Leak Detection Level → Enabled With Stack Trace 로 다시 돌리면 할당한 곳이 PathCache.Rebuild 로 찍힌다
-처음 어긋난 곳: 두 번째 Rebuild. Points = new ... 가 첫 버퍼의 주소를 덮어써서 아무도 그 버퍼를 해제할 수 없게 됐다
-진짜 원인:     NativeArray 는 GC 가 치우지 않는다. 덮어쓰기 전에도, 컴포넌트가 사라질 때도 Dispose 가 없다
-```
-**수정:**
-```csharp
-public void Rebuild(Vector3 from, Vector3 to, int segments)
-{
-    if (Points.IsCreated)
-    {
-        Points.Dispose();
-    }
-    Points = new NativeArray<Vector3>(segments + 1, Allocator.Persistent);
-    ...
-}
-
-void OnDestroy()
-{
-    if (Points.IsCreated)
-    {
-        Points.Dispose();
-    }
-}
-```
-**교훈:** `new NativeArray(..., Allocator.Persistent)` 는 `new` 보다 `malloc` 에 가깝다. 만든 곳과 짝이 되는 `Dispose` 를 같이 적는다(필드라면 `OnDestroy`/`OnDisable`). 누수는 예외 없이 메모리만 늘기 때문에 Leak Detection 메시지와 Memory Profiler 로 찾는다. `IsCreated` 는 "이 변수가" 버퍼를 들고 있는지일 뿐이다. 구조체 복사본은 원본이 Dispose 된 뒤에도 `IsCreated == true` 이고, 접근하면 안전 시스템이 `ObjectDisposedException` 을 던진다(랩은 이것으로 살아 있는 버퍼를 센다).
-
-## Lab 25 — 앞 잡만 Complete 하고 뒤 잡의 출력을 읽음
-```
-멈춘 곳:        Watchtower.Scan 의 count[0]
-예외:          InvalidOperationException: The previously scheduled job CountInRangeJob writes to the NativeArray CountInRangeJob.Count.
-              You must call JobHandle.Complete() on the job CountInRangeJob, before you can read from the NativeArray safely.
-이상한 값:      measured.Complete() 는 불렀다. 그런데 메시지의 잡은 MeasureDistanceJob 이 아니라 CountInRangeJob
-진짜 원인:     tally 는 measured 에 의존한다(measured 가 끝나야 tally 가 시작). 반대 방향은 아니다. measured 를 기다려도 tally 는 아직 예약 상태일 수 있다
-```
-**수정:**
-```csharp
-running = tally.Schedule(measured);
-running.Complete();   // 사슬의 끝을 기다린다 (앞 잡도 함께 끝나 있다)
-EnemiesInRange = count[0];
-```
-**교훈:** 메인 스레드가 버퍼를 읽거나 쓰거나 Dispose 하려면, 그 버퍼를 쓰는 **모든** 잡의 핸들이 Complete 되어 있어야 한다. 실제로 잡이 끝났는지와 상관없이 안전 시스템이 막는다(그래서 타이밍에 따라 가끔 터지는 버그가 아니라 항상 터지는 버그가 된다. 고마운 일이다). 의존 사슬은 끝 핸들 하나를 Complete 하면 되고, 여러 갈래는 `JobHandle.CombineDependencies` 로 묶는다. 메시지는 **잡 이름.필드 이름**까지 알려 주니 끝까지 읽자.
-
-## Lab 26 — Allocator.Temp 버퍼를 다음 프레임에 읽음
-```
-멈춘 곳:        SpawnDirector.Update 의 plan[next] (StartWave 다음 프레임, next == 0)
-예외:          ObjectDisposedException: The NativeArray has been deallocated, it is not allowed to access it
-이상한 값:      Dispose 를 부른 곳이 없는데 "deallocated"
-진짜 원인:     Allocator.Temp 는 그 프레임 안에서만 유효하다. 프레임이 끝나면 Unity 가 Temp 메모리를 통째로 되감는다. 필드에 넣어 다음 프레임에 읽으면 이미 없다
-```
-**수정:**
-```csharp
-public void StartWave(int[] perFrame)
-{
-    if (plan.IsCreated)
-    {
-        plan.Dispose();
-    }
-    plan = new NativeArray<int>(perFrame.Length, Allocator.Persistent);
-    plan.CopyFrom(perFrame);
-    ...
-}
-
-void OnDestroy()
-{
-    if (plan.IsCreated)
-    {
-        plan.Dispose();
-    }
-}
-```
-(잡에 넘기지 않는 데이터라면 그냥 `int[]` 로 바꾸는 것도 맞는 답이다.)
-**교훈:** Allocator 는 수명 약속이다. Temp = 이 프레임, 함수 안 지역 변수용. TempJob = 잡에 넘겨 4프레임 안에 Dispose. Persistent = 직접 Dispose 할 때까지. 필드에 넣는 순간 Temp 는 틀린 선택이다. 에디터에서는 안전 시스템이 바로 예외를 던져 주지만, 릴리스 빌드에서는 안전 검사가 없으니 다른 코드가 덮어쓴 메모리를 읽어 **엉뚱한 마릿수**가 나올 수 있다.
-
-## Lab 27 — Domain Reload 를 끈 Play 에서 정적 상태가 남음
-```
-틀린 결과:     2판 첫 웨이브 4 (기대 1), 레이더의 적 4 (기대 2), radar.Nearest() 에서 MissingReferenceException
-도구:          SimulateEnterPlayMode() 다음 줄에 중단점 → 조사식 Enemy.Alive: Count 4 인데 앞의 2개는 "null"(파괴된 1판의 적)
-              WaveDirector.Wave == 3: 1판의 값 그대로
-진짜 원인:     Domain Reload 를 끄면 Play 할 때 C# 을 다시 올리지 않으므로 정적 필드의 초기값(= 0, = new List)이 다시 적용되지 않는다.
-              1판이 끝날 때 살아 있던 적은 Die() 를 거치지 않고 씬과 함께 파괴되어 목록에 남았다
-```
-**수정:**
-```csharp
-public class Enemy : MonoBehaviour
-{
-    public static readonly List<Enemy> Alive = new List<Enemy>();
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics()
-    {
-        Alive.Clear();
-    }
-    ...
-}
-
-public static class WaveDirector
-{
-    public static int Wave;
-
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetStatics()
-    {
-        Wave = 0;
-    }
-    ...
-}
-```
-(덤으로 `void OnDestroy() { Alive.Remove(this); }` 를 두면 씬 전환으로 사라진 적도 빠진다. 하지만 그것만으로는 Wave 가 이어지는 버그가 남는다.)
-**교훈:** *Reload Scene only*(Domain Reload 끔)는 Play 를 몇 초씩 빠르게 해 주지만, 그 대가로 **정적 필드, 정적 이벤트, 싱글턴 Instance** 를 직접 되돌려야 한다. Unity 문서의 권장은 `SubsystemRegistration` 시점의 `[RuntimeInitializeOnLoadMethod]`. 정적 이벤트(`static event Action`)도 같다: 구독자가 지난 Play 의 파괴된 오브젝트라서 1부의 MissingReferenceException 이 엉뚱한 곳에서 난다. 빌드한 게임에서는 항상 새로 시작하므로 "에디터에서만 나는 버그" 로 신고되기 쉽다.
-# 7부: 멈춤 (무한루프와 데드락)
-
-## Lab 28 — Update 가 바꿔 줄 값을 yield 없이 while 로 기다림
-```
-증상:          엘리베이터를 부르는 순간 응답 없음. 작업 관리자에서 Unity 가 CPU 한 코어를 꽉 씀(무한루프)
-모두 중단:      스레드 창의 Main Thread 호출 스택 맨 위 = Passenger.RideTo 의 첫 while (HangGuard 의 예외 스택 트레이스도 같은 곳)
-이상한 값:      F10 을 계속 눌러도 Elevator.Floor 가 5 에서 바뀌지 않는다
-처음 어긋난 곳: Floor 를 바꾸는 것은 Elevator.Update. 그런데 Update 는 이 코루틴이 yield 해야 다음 프레임에 불린다
-진짜 원인:     코루틴은 스레드가 아니다. yield 를 만나기 전까지는 메인 스레드의 보통 함수다. while 안에 yield 가 없으니 이 프레임에서 영원히 돈다
-```
-**수정:**
-```csharp
-while (!Elevator.IsAt(Floor))
-{
-    HangGuard.Tick("Passenger.RideTo: 엘리베이터가 오기를 기다림");
-    yield return null;   // 한 프레임 양보 → 그동안 Elevator.Update 가 돈다
-}
+Shown = Mathf.MoveTowards(Shown, target, Time.unscaledDeltaTime / SlideSeconds);
 ...
-while (!Elevator.IsAt(destination))
-{
-    HangGuard.Tick("Passenger.RideTo: 목표 층에 닿기를 기다림");
-    yield return null;
-}
+yield return new WaitForSecondsRealtime(1f);
 ```
-(또는 `yield return new WaitUntil(() => Elevator.IsAt(Floor));`)
-**교훈:** "다른 무언가가 바꿔 줄 값" 을 기다리는 반복문은 반드시 그 무언가에게 차례를 넘겨야 한다. Unity 에서는 `yield return null`(코루틴), `await Awaitable.NextFrameAsync()`(async), 아니면 Update 에서 상태를 확인하는 방식. Update/Start/버튼 처리기 안의 `while (!loaded) {}` 도 똑같이 에디터를 굳힌다. 굳었을 때는 **모두 중단 → 스레드 창 → Main Thread** 가 첫 수다.
+**교훈:** 일시정지 중에도 움직여야 하는 것(메뉴, 카운트다운, 일시정지 화면의 애니메이션·파티클)은 진짜 시간을 쓴다: `unscaledDeltaTime`, `WaitForSecondsRealtime`, Animator 의 Update Mode = Unscaled Time, 파티클의 Use Unscaled Time. 반대로 게임 안의 것은 일부러 `deltaTime` 을 써서 함께 멈추게 한다. "멈춘 동안 무엇이 움직여야 하나" 를 먼저 정하자.
 
-## Lab 29 — BFS 에 방문 체크가 없음
-```
-증상:          길이 이어져 있을 때는 정답(5). 3-6 문을 잠근 뒤 응답 없음, 메모리 급증
-도구:          while 첫 줄 조건부 중단점 queue.Count > 100 → 방이 8개뿐인데 걸린다. queue 를 펼치면 1, 2, 4, 5 가 수십 번씩
-처음 어긋난 곳: 0 → 1 → (0, 2, 4) 에서 다시 0 을 넣는다. 양방향 문과 1-2-5-4 고리를 따라 같은 방을 끝없이 다시 넣는다
-진짜 원인:     목표에 닿을 수 있으면 BFS 는 언젠가 목표를 꺼내 return 하므로 버그가 숨어 있었다. 닿을 수 없으면 큐가 비지 않는다
-```
-**수정:**
-```csharp
-var queue = new Queue<(int Room, int Doors)>();
-queue.Enqueue((start, 0));
-var visited = new bool[dungeon.Doors.Length];
-visited[start] = true;
-while (queue.Count > 0)
-{
-    ...
-    foreach (int next in dungeon.Doors[room])
-    {
-        if (!visited[next])
-        {
-            visited[next] = true;
-            queue.Enqueue((next, doors + 1));
-        }
-    }
-}
-```
-**교훈:** 그래프(방, 웨이포인트, 대화 노드, 전선, 아이템 조합)를 순회하는 코드는 **방문 기록**이 기본이다. 테스트 데이터에 고리나 끊긴 길이 없으면 영영 드러나지 않다가, 레벨 디자이너가 문 하나를 잠그는 순간 터진다. "멈춤 + 메모리 증가" 면 무한루프 안에서 무언가를 쌓고 있다는 뜻이다. 재귀 DFS 에서 같은 실수를 하면 멈춤 대신 StackOverflowException(에디터 크래시)으로 나타난다.
+---
 
-## Lab 30 — 메인 스레드에서 .Result 로 기다려 데드락
-```
-증상:          상점을 여는 순간 응답 없음. CPU 는 0% 근처(데드락)
-모두 중단:      Main Thread 호출 스택: ShopWindow.Open → (HangGuard.Wait =) Task.Wait → Monitor.Wait. 자고 있다
-              작업(Tasks) 창 / 병렬 스택: LoadGoldAsync 는 "대기 중", await Task.Delay 다음 줄을 실행할 차례를 기다린다
-처음 어긋난 곳: Task.Delay 는 200ms 뒤에 끝났다. 그런데 await 다음 줄(return Gold)은 UnitySynchronizationContext 를 통해 "메인 스레드, 다음 프레임" 에 예약됐다
-진짜 원인:     메인 스레드는 그 Task 가 끝나기를 막고 기다리고, Task 는 메인 스레드가 비기를 기다린다. 서로 기다린다
-              (콘솔 앱은 SynchronizationContext 가 없어 스레드 풀에서 이어 가므로 멀쩡했다)
-```
-**수정:**
-```csharp
-public async void Open(SaveFile save)
-{
-    ShownGold = await save.LoadGoldAsync();
-}
-```
-(코루틴이라면 `var task = save.LoadGoldAsync(); while (!task.IsCompleted) yield return null; ShownGold = task.Result;`)
-**교훈:** 메인 스레드에서 `Task` 를 막고 기다리지 말 것(`.Result`, `.Wait()`, `.GetAwaiter().GetResult()`). 끝까지 `await` 로 잇는다. 라이브러리 쪽에 `ConfigureAwait(false)` 를 붙이면 데드락은 풀리지만 `Open` 은 여전히 디스크를 읽는 200ms 동안 게임을 멈춘다(이 랩의 두 번째 `[FAIL]`). 그리고 `ConfigureAwait(false)` 다음 줄은 워커 스레드에서 돌기 때문에 거기서 Unity API(`transform`, `GetComponent`)를 부르면 "can only be called from the main thread" 예외가 난다. 데드락은 CPU 0%, 무한루프는 CPU 100% 라는 지문을 기억하자.
+# 3부: 컨테이너
 
-## Lab 31 — float 시간에 작은 틱을 누적
-```
-증상:          막 켠 서버(90초)는 128틱으로 정상. 켠 지 7일(604800초) 된 서버는 응답 없음
-도구:          while 안 조건부 중단점 Ticks > 1000 → 조사식 SimTime == 604800, SimTime + TickSeconds == SimTime 이 true
-진짜 원인:     float 의 유효 숫자는 24비트. 2^19 = 524288 이상에서 이웃한 float 의 간격은 1/16. 1/64 를 더하면 반올림되어 그대로다.
-              SimTime < target 이 영원히 참이다
-```
-**수정 (택1):**
-```csharp
-public double SimTime;                       // ① double: 1/64 는 2 의 거듭제곱이라 double 에서 정확하다
-...
-double target = SimTime + seconds;
-
-// ② 정수 틱으로 세고 시간은 계산한다 (가장 튼튼하다)
-public long TickCount;
-public double SimTime => TickCount * (double)TickSeconds;
-public void FastForward(float seconds)
-{
-    int steps = Mathf.RoundToInt(seconds / TickSeconds);
-    for (int i = 0; i < steps; ++i) { ... ++TickCount; }
-}
-```
-**교훈:** 반복문의 종료 조건을 **float 누적 결과**에 걸지 말자. 큰 값에 작은 값을 더하면 그대로일 수 있고(멈춤), 작은 값끼리 더해도 `0.1f` 열 번이 `1f` 가 아니다(`!=` 로 끝내면 멈춤). Unity 의 `Time.time` 도 float 이라 며칠 켜 둔 서버·키오스크·스트리밍 빌드에서 같은 일이 생긴다(`Time.timeAsDouble`, `Time.frameCount` 를 쓴다). 개발 중에는 절대 재현되지 않는 "오래 켜 두면" 류 버그의 대표다.
-
-# 8부: 컨테이너
-
-## Lab 32 — 상수 길이로 배열을 돌고, 바깥 번호를 확인하지 않음
+## Lab 16 — 상수 길이로 배열을 돌고, 바깥 번호를 확인하지 않음
 ```
 증상:          단축 바를 만드는 순간 IndexOutOfRangeException (Hotbar.Build)
 도구:          예외 설정에서 IndexOutOfRangeException 을 throw 될 때 중단 → 조사식 i == 3, Slots.Length == 3
@@ -703,7 +325,7 @@ public string Select(int key)
 ```
 **교훈:** 인스펙터에 보이는 배열의 크기는 코드가 정하지 않는다. 반복은 `Length`/`Count` 로, 입력·네트워크·세이브 파일에서 온 번호는 범위를 확인한 뒤 쓴다. 크기가 규칙이라면 `OnValidate` 에서 강제한다. 배열은 `IndexOutOfRangeException`, `List` 는 `ArgumentOutOfRangeException` 이라 메시지만 보고도 어느 쪽인지 안다.
 
-## Lab 33 — foreach 도중 다른 스크립트가 목록에서 자신을 지움
+## Lab 17 — foreach 도중 다른 스크립트가 목록에서 자신을 지움
 ```
 증상:          공습에 HP 10 인 적이 쓰러지는 순간 InvalidOperationException: Collection was modified
 도구:          Enemy.Die 의 Members.Remove 에 중단점 → 호출 스택: Die ← TakeDamage ← Squad.Airstrike(foreach)
@@ -714,9 +336,9 @@ public string Select(int key)
 foreach (Enemy enemy in Members.ToArray()) { enemy.TakeDamage(damage); }        // 복사본을 돈다
 for (int i = Members.Count - 1; i >= 0; --i) { Members[i].TakeDamage(damage); }  // 뒤에서부터 돈다
 ```
-**교훈:** 반복하는 동안 불리는 코드(이벤트, 콜백, 다른 컴포넌트의 함수)가 같은 목록을 고칠 수 있으면 복사본이나 역순으로 돈다. 앞에서부터 인덱스로 돌면서 지우면 예외 없이 **하나씩 건너뛰는** 더 조용한 버그가 된다. `Destroy` 가 부르는 `OnDestroy` 는 프레임 끝이라 이 예외 대신 랩 37 같은 "파괴된 원소가 남는" 문제가 된다.
+**교훈:** 반복하는 동안 불리는 코드(이벤트, 콜백, 다른 컴포넌트의 함수)가 같은 목록을 고칠 수 있으면 복사본이나 역순으로 돈다. 앞에서부터 인덱스로 돌면서 지우면 예외 없이 **하나씩 건너뛰는** 더 조용한 버그가 된다. `Destroy` 가 부르는 `OnDestroy` 는 프레임 끝이라 이 예외 대신 랩 21 같은 "파괴된 원소가 남는" 문제가 된다.
 
-## Lab 34 — Unity 직렬화가 Dictionary 와 List<List<T>> 를 버림
+## Lab 18 — Unity 직렬화가 Dictionary 와 List<List<T>> 를 버림
 ```
 틀린 결과:     복제본과 불러온 상점의 potion 가격 -1, 진열대 0개. 이름과 금화는 정상
 도구:          랩 출력 "저장된 JSON: {"ShopName":"대장간","Gold":500}" — Prices, Shelves 가 없다
@@ -753,7 +375,7 @@ public class Shop : MonoBehaviour, ISerializationCallbackReceiver
 ```
 **교훈:** 인스펙터에 안 보이는 필드는 프리팹, 씬 저장, Instantiate, Undo, `JsonUtility` 에서도 빠진다. `Dictionary`, `T[,]`, `T[][]`, `List<List<T>>` 는 `[Serializable]` 래퍼나 `ISerializationCallbackReceiver` 로 직렬화 가능한 모양으로 바꾼다. 콜백은 직렬화 스레드에서 불릴 수 있으니 그 안에서 Unity API 를 부르지 않는다.
 
-## Lab 35 — FindObjectsByType 의 순서를 게임 순서로 씀
+## Lab 19 — FindObjectsByType 의 순서를 게임 순서로 씀
 ```
 틀린 결과:     맵 세 개 중 한두 개는 0,1,2 로 맞고 나머지는 2,1,0, 1,3,0,2 처럼 틀린다. 같은 코드인데 채점기와 Test Runner 에서 맞는 맵이 다르다
 도구:          LearnRoute 뒤 조사식 Route → 각 원소의 Order 와 name(놓은 순서 A, B, C)
@@ -765,7 +387,7 @@ Route = FindObjectsByType<RoutePoint>(FindObjectsSortMode.None).OrderBy(p => p.O
 ```
 **교훈:** `FindObjectsByType`, `GetComponents`, `GetComponentsInChildren`, `Dictionary` 열거, 이벤트 호출 순서는 게임 규칙의 순서가 아니다. 의미 있는 순서는 데이터(번호)로 갖고 직접 정렬하거나, 인스펙터 배열에 순서대로 넣어 씬 파일에 저장한다. 이 버그는 "에디터에선 되는데 빌드에선 순서가 다름" 으로 나타나기 쉽다.
 
-## Lab 36 — 돌려쓰는 결과 버퍼를 그대로 반환
+## Lab 20 — 돌려쓰는 결과 버퍼를 그대로 반환
 ```
 틀린 결과:     Alpha 명단 2명(기대 3), Alpha 명단에 Bravo 병사. alphaRoster == bravoRoster 가 true
 도구:          조사식 참조 비교. alphaRoster 줄 뒤 Count 3 → bravoRoster 줄 뒤 Count 2 로 바뀐다
@@ -779,7 +401,7 @@ return new List<Soldier>(results);
 ```
 **교훈:** 할당을 줄이는 API(`GetComponents(List)`, `GetComponentsInChildren(List)`, `Physics.RaycastNonAlloc`, `OverlapSphereNonAlloc`)의 버퍼는 **다음 호출이 덮어쓴다**. 버퍼는 함수 안에서만 쓰고 밖으로 내보낼 때는 복사하거나, 호출하는 쪽이 버퍼를 갖게 한다.
 
-## Lab 37 — 파괴된 오브젝트가 Dictionary 키로 남음
+## Lab 21 — 파괴된 오브젝트가 Dictionary 키로 남음
 ```
 틀린 결과:     위협 목록 3명(기대 2). AttackTop 에서 MissingReferenceException
 도구:          AttackTop 에 중단점 → 조사식 top == null 은 true, (object)top == null 은 false
@@ -798,7 +420,7 @@ public void AttackTop() { Prune(); ... }
 
 **교훈:** `UnityEngine.Object` 를 담은 컨테이너(`Dictionary` 키, `HashSet`, `List`)는 `Destroy` 를 모른다. 꺼낼 때 `== null`(Unity 재정의)로 걸러 치우거나, 죽을 때 알려서 지운다. 치우지 않은 항목은 C# 객체를 붙잡아 작은 누수도 된다. 1부 랩 1·8 의 fake null 이 컨테이너 안에 숨은 모양이다.
 
-## Lab 38 — 크기가 바뀐 NativeList 의 AsArray 를 캐시해 둠
+## Lab 22 — 크기가 바뀐 NativeList 의 AsArray 를 캐시해 둠
 ```
 증상:          출발점을 읽는 줄에서 ObjectDisposedException: NativeList ... has been deallocated
 도구:          Step 에 중단점 → Points.Capacity 4, Length 가 5 가 되는 Add 다음부터 view 가 죽는다
@@ -810,9 +432,129 @@ public Vector3 StartPoint() { return Points[0]; }   // view 를 캐시하지 않
 ```
 **교훈:** `NativeList.AsArray()`, `List<T>` 에서 얻은 `Span`, `NativeArray.GetSubArray` 는 복사가 아니라 **지금 메모리의 모습**이다. 크기가 바뀌면 낡는다. 잡에 넘길 때는 스케줄 직전에 만들거나 `AsDeferredJobArray()` 를 쓴다. 에디터의 안전 검사가 예외로 알려 주지만 릴리스 빌드에서는 해제된 메모리를 조용히 읽는다.
 
-# 9부: 물리
+---
 
-## Lab 39 — 빠른 Rigidbody 가 Discrete 충돌 감지로 벽을 터널링
+# 4부: 잘못된 참조와 네이티브 메모리
+
+## Lab 23 — NativeArray 를 Dispose 하지 않음
+```
+틀린 결과:     목표를 5번 바꾼 뒤 살아 있는 버퍼 5개(기대 1), 순찰병을 없앤 뒤에도 5개(기대 0). 예외는 없다
+도구:          플레이를 멈추면 Console: "Leak Detected : Persistent allocates 5 individual allocations"
+              Preferences → Jobs → Leak Detection Level → Enabled With Stack Trace 로 다시 돌리면 할당한 곳이 PathCache.Rebuild 로 찍힌다
+처음 어긋난 곳: 두 번째 Rebuild. Points = new ... 가 첫 버퍼의 주소를 덮어써서 아무도 그 버퍼를 해제할 수 없게 됐다
+진짜 원인:     NativeArray 는 GC 가 치우지 않는다. 덮어쓰기 전에도, 컴포넌트가 사라질 때도 Dispose 가 없다
+```
+**수정:**
+```csharp
+public void Rebuild(Vector3 from, Vector3 to, int segments)
+{
+    if (Points.IsCreated)
+    {
+        Points.Dispose();
+    }
+    Points = new NativeArray<Vector3>(segments + 1, Allocator.Persistent);
+    ...
+}
+
+void OnDestroy()
+{
+    if (Points.IsCreated)
+    {
+        Points.Dispose();
+    }
+}
+```
+**교훈:** `new NativeArray(..., Allocator.Persistent)` 는 `new` 보다 `malloc` 에 가깝다. 만든 곳과 짝이 되는 `Dispose` 를 같이 적는다(필드라면 `OnDestroy`/`OnDisable`). 누수는 예외 없이 메모리만 늘기 때문에 Leak Detection 메시지와 Memory Profiler 로 찾는다. `IsCreated` 는 "이 변수가" 버퍼를 들고 있는지일 뿐이다. 구조체 복사본은 원본이 Dispose 된 뒤에도 `IsCreated == true` 이고, 접근하면 안전 시스템이 `ObjectDisposedException` 을 던진다(랩은 이것으로 살아 있는 버퍼를 센다).
+
+## Lab 24 — 앞 잡만 Complete 하고 뒤 잡의 출력을 읽음
+```
+멈춘 곳:        Watchtower.Scan 의 count[0]
+예외:          InvalidOperationException: The previously scheduled job CountInRangeJob writes to the NativeArray CountInRangeJob.Count.
+              You must call JobHandle.Complete() on the job CountInRangeJob, before you can read from the NativeArray safely.
+이상한 값:      measured.Complete() 는 불렀다. 그런데 메시지의 잡은 MeasureDistanceJob 이 아니라 CountInRangeJob
+진짜 원인:     tally 는 measured 에 의존한다(measured 가 끝나야 tally 가 시작). 반대 방향은 아니다. measured 를 기다려도 tally 는 아직 예약 상태일 수 있다
+```
+**수정:**
+```csharp
+running = tally.Schedule(measured);
+running.Complete();   // 사슬의 끝을 기다린다 (앞 잡도 함께 끝나 있다)
+EnemiesInRange = count[0];
+```
+**교훈:** 메인 스레드가 버퍼를 읽거나 쓰거나 Dispose 하려면, 그 버퍼를 쓰는 **모든** 잡의 핸들이 Complete 되어 있어야 한다. 실제로 잡이 끝났는지와 상관없이 안전 시스템이 막는다(그래서 타이밍에 따라 가끔 터지는 버그가 아니라 항상 터지는 버그가 된다. 고마운 일이다). 의존 사슬은 끝 핸들 하나를 Complete 하면 되고, 여러 갈래는 `JobHandle.CombineDependencies` 로 묶는다. 메시지는 **잡 이름.필드 이름**까지 알려 주니 끝까지 읽자.
+
+## Lab 25 — Allocator.Temp 버퍼를 다음 프레임에 읽음
+```
+멈춘 곳:        SpawnDirector.Update 의 plan[next] (StartWave 다음 프레임, next == 0)
+예외:          ObjectDisposedException: The NativeArray has been deallocated, it is not allowed to access it
+이상한 값:      Dispose 를 부른 곳이 없는데 "deallocated"
+진짜 원인:     Allocator.Temp 는 그 프레임 안에서만 유효하다. 프레임이 끝나면 Unity 가 Temp 메모리를 통째로 되감는다. 필드에 넣어 다음 프레임에 읽으면 이미 없다
+```
+**수정:**
+```csharp
+public void StartWave(int[] perFrame)
+{
+    if (plan.IsCreated)
+    {
+        plan.Dispose();
+    }
+    plan = new NativeArray<int>(perFrame.Length, Allocator.Persistent);
+    plan.CopyFrom(perFrame);
+    ...
+}
+
+void OnDestroy()
+{
+    if (plan.IsCreated)
+    {
+        plan.Dispose();
+    }
+}
+```
+(잡에 넘기지 않는 데이터라면 그냥 `int[]` 로 바꾸는 것도 맞는 답이다.)
+**교훈:** Allocator 는 수명 약속이다. Temp = 이 프레임, 함수 안 지역 변수용. TempJob = 잡에 넘겨 4프레임 안에 Dispose. Persistent = 직접 Dispose 할 때까지. 필드에 넣는 순간 Temp 는 틀린 선택이다. 에디터에서는 안전 시스템이 바로 예외를 던져 주지만, 릴리스 빌드에서는 안전 검사가 없으니 다른 코드가 덮어쓴 메모리를 읽어 **엉뚱한 마릿수**가 나올 수 있다.
+
+## Lab 26 — Domain Reload 를 끈 Play 에서 정적 상태가 남음
+```
+틀린 결과:     2판 첫 웨이브 4 (기대 1), 레이더의 적 4 (기대 2), radar.Nearest() 에서 MissingReferenceException
+도구:          SimulateEnterPlayMode() 다음 줄에 중단점 → 조사식 Enemy.Alive: Count 4 인데 앞의 2개는 "null"(파괴된 1판의 적)
+              WaveDirector.Wave == 3: 1판의 값 그대로
+진짜 원인:     Domain Reload 를 끄면 Play 할 때 C# 을 다시 올리지 않으므로 정적 필드의 초기값(= 0, = new List)이 다시 적용되지 않는다.
+              1판이 끝날 때 살아 있던 적은 Die() 를 거치지 않고 씬과 함께 파괴되어 목록에 남았다
+```
+**수정:**
+```csharp
+public class Enemy : MonoBehaviour
+{
+    public static readonly List<Enemy> Alive = new List<Enemy>();
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics()
+    {
+        Alive.Clear();
+    }
+    ...
+}
+
+public static class WaveDirector
+{
+    public static int Wave;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics()
+    {
+        Wave = 0;
+    }
+    ...
+}
+```
+(덤으로 `void OnDestroy() { Alive.Remove(this); }` 를 두면 씬 전환으로 사라진 적도 빠진다. 하지만 그것만으로는 Wave 가 이어지는 버그가 남는다.)
+**교훈:** *Reload Scene only*(Domain Reload 끔)는 Play 를 몇 초씩 빠르게 해 주지만, 그 대가로 **정적 필드, 정적 이벤트, 싱글턴 Instance** 를 직접 되돌려야 한다. Unity 문서의 권장은 `SubsystemRegistration` 시점의 `[RuntimeInitializeOnLoadMethod]`. 정적 이벤트(`static event Action`)도 같다: 구독자가 지난 Play 의 파괴된 오브젝트라서 1부의 MissingReferenceException 이 엉뚱한 곳에서 난다. 빌드한 게임에서는 항상 새로 시작하므로 "에디터에서만 나는 버그" 로 신고되기 쉽다.
+
+---
+
+# 5부: 물리
+
+## Lab 27 — 빠른 Rigidbody 가 Discrete 충돌 감지로 벽을 터널링
 ```
 틀린 결과:     벽에 맞은 횟수 0(기대 1), 탄환 x = 60 (벽 x = 10)
 도구:          FixedUpdate 에 추적점 "{transform.position.x}" → 0, 6, 12, 18 ... 벽(9.9 ~ 10.1) 안에 있었던 스텝이 없다
@@ -825,7 +567,7 @@ rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 ```
 **교훈:** "한 스텝에 가는 거리 > 부딪힐 것의 두께" 면 터널링을 의심한다. 빠른 것만 Continuous 계열로 켜고(비싸다), 아주 많은 총알은 Rigidbody 대신 스텝마다 레이캐스트로 판정한다. 벽을 두껍게 하거나 fixedDeltaTime 을 줄이는 것은 속도가 더 빨라지면 다시 터진다.
 
-## Lab 40 — 양쪽 다 Rigidbody 가 없어 트리거 메시지가 생기지 않음
+## Lab 28 — 양쪽 다 Rigidbody 가 없어 트리거 메시지가 생기지 않음
 ```
 틀린 결과:     함정 발동 0번, HP 100 그대로
 도구:          OnTriggerEnter 중단점이 한 번도 걸리지 않는다 → "조건이 틀렸다" 가 아니라 "안 불렸다"
@@ -841,7 +583,7 @@ void Awake()
 ```
 **교훈:** `OnTriggerEnter`/`OnCollisionEnter` 가 안 불리면 ① 둘 중 하나에 Rigidbody(또는 CharacterController)가 있나 ② Layer Collision Matrix 에서 두 레이어가 켜져 있나 ③ 트리거끼리라면 한쪽은 Rigidbody 가 있나 ④ 콜라이더가 꺼져 있지 않나를 차례로 본다. 움직이는 콜라이더에는 Rigidbody 를 붙이는 것이 성능에도 좋다(정적 콜라이더를 옮기면 물리 장면을 다시 만든다).
 
-## Lab 41 — 레이어 번호를 레이어 마스크로 넘김
+## Lab 29 — 레이어 번호를 레이어 마스크로 넘김
 ```
 틀린 결과:     포탑이 맞힌 것 Glass (기대 Enemy)
 도구:          조사식 Convert.ToString(EnemyLayer, 2) == "1000" → 3번 비트. 유리창이 3번 레이어
@@ -855,7 +597,7 @@ Physics.Raycast(transform.position, transform.forward, out RaycastHit hit, Range
 ```
 **교훈:** `gameObject.layer` 는 번호(0~31), Physics 쿼리·`Camera.cullingMask`·`LayerMask` 는 마스크(비트 묶음)다. 둘 다 int 라 컴파일러가 막지 않는다. 숫자 대신 `LayerMask` 필드나 `LayerMask.GetMask("Enemy")` 를 쓰면 이 혼동이 사라진다.
 
-## Lab 42 — Interpolate 를 켠 Rigidbody 를 Update 에서 transform 으로 움직임
+## Lab 30 — Interpolate 를 켠 Rigidbody 를 Update 에서 transform 으로 움직임
 ```
 틀린 결과:     발판이 1.5초 동안 1.03m(기대 3m). 상자는 0m
 도구:          Update 에 추적점 "{Time.frameCount} {transform.position.x}" → 더한 만큼 늘었다가 다음 프레임에 도로 줄어 있다
@@ -872,7 +614,7 @@ void FixedUpdate()
 ```
 **교훈:** Rigidbody 가 붙은 오브젝트는 transform 이 아니라 Rigidbody 로 움직인다. Kinematic 은 FixedUpdate 에서 `MovePosition`/`MoveRotation`, Dynamic 은 `linearVelocity`/`AddForce`. Interpolate 는 이렇게 움직일 때 화면을 부드럽게 해 주는 옵션이지, transform 으로 움직인 것을 부드럽게 해 주지 않는다.
 
-## Lab 43 — transform 을 옮긴 같은 프레임에 물리 쿼리
+## Lab 31 — transform 을 옮긴 같은 프레임에 물리 쿼리
 ```
 틀린 결과:     돌아간 자리에서 집은 것 null(기대 Crate), 옛 자리에서 집은 것 Crate(기대 null)
 도구:          ResetCrates 뒤 조사식: transform.position == (0,0,4), GetComponent<Collider>().bounds.center == (8,0,4)
@@ -886,64 +628,387 @@ Physics.SyncTransforms();
 ```
 **교훈:** 순간이동, 레벨 초기화, 오브젝트 풀에서 꺼내 자리 잡기 직후의 Raycast·Overlap 은 옛 자리를 본다. 같은 프레임에 쿼리해야 하면 `Physics.SyncTransforms()` 를 한 번 부르거나, Rigidbody 가 있으면 `rb.position` 으로 옮긴다. 한 프레임 기다리면 "저절로 고쳐지는" 버그라 재현이 잘 안 된다.
 
-# 10부: 프레임레이트 의존
+---
 
-## Lab 44 — 프레임당 이동량에 deltaTime 을 곱하지 않음
+# 6부: 사운드
+
+## Lab 32 — Preload Audio Data 를 꺼 둔 클립을 미리 로드하지 않음
 ```
-틀린 결과:     2초 동안 30fps 6m, 120fps 24m (기대 둘 다 12m)
-도구:          Update 추적점 "{Time.frameCount} {transform.position.z}" → 한 번에 0.1m 씩, 1초에 Update 30번/120번
-진짜 원인:     Speed 는 "프레임당 0.1m" 다. 1초에 가는 거리 = 0.1 × fps. 60fps 에서만 6m/s 다
+틀린 결과:     첫 발을 쏜 순간 loadState == Unloaded. 발사 후 데이터가 올라오기까지 몇 프레임
+멈춘 위치:     Blaster.Fire → FireClip.loadState: Unloaded, preloadAudioData: false, loadInBackground: true
+진짜 원인:     임포트 설정에서 Preload Audio Data 를 껐다. Resources.Load 로 클립 객체는 생겼지만 소리 데이터는 "처음 재생할 때" 올라온다.
+              Load In Background 가 켜져 있어 재생이 데이터가 올라온 뒤로 미뤄진다 → 섬광보다 늦은 소리.
+```
+**수정 (택1):**
+```csharp
+// ① 장착할 때 미리 올린다 (메모리를 아끼려고 끈 설정을 살리는 방법)
+public void Equip(AudioClip fireClip)
+{
+    FireClip = fireClip;
+    source = gameObject.AddComponent<AudioSource>();
+    source.playOnAwake = false;
+    FireClip.LoadAudioData();
+}
+```
+② `blaster.wav` 임포트 설정에서 **Preload Audio Data** 를 켜고 Apply.
+**교훈:** 오디오 임포트 설정 셋의 의미: **Load Type**(메모리에 어떤 형태로: 풀어서/압축째/스트리밍), **Preload Audio Data**(씬·에셋이 로드될 때 데이터도 같이), **Load In Background**(로드를 기다리지 않고 미루기). 끄면 메모리를 아끼는 대신 "언제 올릴지"를 코드가 책임져야 한다. Load In Background 를 끄면 지연 대신 그 프레임이 멈칫한다(히치).
+
+## Lab 33 — 실제 음성 한도를 넘었고 보스 대사의 우선순위가 같음
+```
+틀린 결과:     boss.Voice.isPlaying == true 인데 isVirtual == true
+도구:          Profiler Audio 모듈 → 재생 41개, 실제 32개, 가상 9개
+진짜 원인:     Max Real Voices 32 < 동시에 재생하려는 소리 41. 우선순위가 모두 128 이라 "더 작게 들리는" 보스 대사(볼륨 0.6)가 가상으로 밀려났다.
 ```
 **수정:**
 ```csharp
-public float Speed = 6f;   // 1초에 6m
-transform.position += Vector3.forward * Speed * Time.deltaTime;
+Voice.priority = 0;   // 0 이 가장 중요
 ```
-**교훈:** Update 에서 바꾸는 양은 "초당 값 × `Time.deltaTime`" 이어야 한다. 단위(MetersPerSecond)를 이름이나 주석에 남기면 프레임당 값이 섞여 들어올 때 눈에 띈다. 고정 간격이 필요한 계산은 FixedUpdate 로 보낸다.
+(발소리 쪽을 `priority = 200` 으로 낮춰도 된다. 근본적으로는 같은 소리를 수십 개 동시에 낼 필요가 없으니 발소리 수를 제한한다.)
+**교훈:** "소리가 안 들린다"의 큰 원인 하나가 **동시 재생 한도**. 가상 음성은 위치만 계속 계산하고 소리는 내지 않다가 자리가 나면 이어서 나온다. 중요한 소리(대사, UI, 경보)는 priority 로 보호한다.
 
-## Lab 45 — 매 프레임 Lerp(a, b, 0.1f)
+## Lab 34 — AudioSource 가 붙은 오브젝트를 바로 Destroy
 ```
-틀린 결과:     0.5초 뒤 남은 거리 30fps 2.06m, 120fps 0.02m (기대 둘 다 0.42m)
-도구:          LateUpdate 추적점 → 남은 거리가 프레임마다 0.9 배. 30fps 0.5초 = 15프레임 → 0.9^15, 120fps = 60프레임 → 0.9^60
-진짜 원인:     비율을 고정한 Lerp 는 "프레임 수" 에 대한 거듭제곱이다. deltaTime 을 그냥 곱해도(0.1f * dt * 60) 1차 근사일 뿐 맞지 않는다
+틀린 결과:     통은 사라졌고, 0.2초 뒤 폭발음을 재생 중인 AudioSource 가 없다
+도구:          Explode 끝에 Debug.Break() → 다음 프레임 Hierarchy 에서 ExplosiveBarrel 과 그 AudioSource 가 사라짐
+진짜 원인:     소리의 수명 = AudioSource 의 수명 = 게임 오브젝트의 수명. Destroy 가 재생 중인 소리를 끊었다.
 ```
 **수정:**
 ```csharp
-public float Sharpness = 6.32f;   // = -ln(1 - 0.1) * 60 : 60fps 에서 0.1 과 같은 느낌
-transform.position = Vector3.Lerp(transform.position, Target, 1f - Mathf.Exp(-Sharpness * Time.deltaTime));
+public void Explode()
+{
+    AudioSource.PlayClipAtPoint(ExplosionClip, transform.position);
+    Destroy(gameObject);
+}
 ```
-**교훈:** "매 프레임 남은 것의 몇 %" 는 지수 감쇠다. 한 프레임 비율을 `1 - e^(-k·dt)` 로 두면 프레임을 어떻게 나누든 1초 뒤 결과가 같다(`e^(-k·a) · e^(-k·b) = e^(-k·(a+b))`). `Vector3.SmoothDamp`, `Mathf.SmoothDamp` 도 프레임과 무관하다(곡선 모양은 다르다).
+**교훈:** 사라지는 것(총알, 적, 상자)이 내는 소리는 **다른 수명을 가진 곳**에서 낸다: `PlayClipAtPoint`(임시 "One shot audio" 오브젝트), 떼어 낸 자식 + `Destroy(go, clip.length)`, 사운드 매니저의 AudioSource 풀. `PlayClipAtPoint` 는 AudioSource 설정(믹서 그룹, 3D 설정)을 줄 수 없어서 큰 프로젝트에서는 풀이 일반적이다.
 
-## Lab 46 — Update 에서 Time.fixedDeltaTime 을 곱함
+## Lab 35 — 짧은 효과음을 Play() 로 내서 긴 소리를 끊음
 ```
-틀린 결과:     1.5초 동안 30fps 18, 120fps 72 (기대 둘 다 30)
-도구:          Update 조사식: Time.fixedDeltaTime 은 fps 와 상관없이 0.02, Time.deltaTime 은 0.0333 / 0.0083
-진짜 원인:     fixedDeltaTime 은 FixedUpdate 간격 설정값(상수)이다. Update 에서 곱하면 Update 횟수 × 0.02 가 된다. 50fps 에서만 맞다
+틀린 결과:     1초 뒤 Source.clip == grunt, 브리핑 재생 안 함
+멈춘 위치:     PlayHurt → F10 전후: Source.clip briefing → grunt, Source.time 0.5 → 0
+진짜 원인:     AudioSource 하나는 clip 하나를 재생한다. clip 을 바꾸고 Play() 하면 지금 재생 중이던 브리핑은 멈춘다.
 ```
 **수정:**
 ```csharp
-Value += RegenPerSecond * Time.deltaTime;
+public void PlayHurt(AudioClip grunt)
+{
+    Source.PlayOneShot(grunt);
+}
 ```
-**교훈:** 어디서든 `Time.deltaTime` 을 쓰면 된다. FixedUpdate 안에서 읽으면 Unity 가 알아서 `fixedDeltaTime` 을 돌려준다. `fixedDeltaTime` 을 직접 쓸 곳은 FixedUpdate 간격 자체를 바꿀 때뿐이다.
+**교훈:** `Play()` = 이 소스의 "주 트랙"을 처음부터(제어 가능: Stop, Pause, time). `PlayOneShot()` = 주 트랙을 건드리지 않고 겹쳐 쏘기(개별 제어 불가, `Stop()` 하면 같이 멈춤). 대사·음악처럼 제어가 필요한 것과 효과음은 AudioSource 를 나누는 것이 깔끔하다.
 
-## Lab 47 — timeScale 0 에서 deltaTime 과 WaitForSeconds 를 씀
+---
+
+# 7부: 이미지 / 렌더링
+
+## Lab 36 — sharedMaterial 을 고쳐서 에셋 자체를 바꿈
 ```
-틀린 결과:     멈춘 동안 메뉴가 들어온 정도 0 (기대 1), 카운트다운 뒤 timeScale 0 (기대 1)
-도구:          PauseMenu.Update 중단점 → 멈춘 동안에도 불린다. Time.deltaTime == 0, Time.unscaledDeltaTime == 0.016
-              Countdown 의 yield 다음 줄에 중단점 → 영원히 오지 않는다
-진짜 원인:     timeScale = 0 은 Update 를 멈추지 않고 게임 시간만 멈춘다. deltaTime 이 0 이라 메뉴가 안 움직이고, WaitForSeconds 는 게임 시간으로 기다리므로 끝나지 않는다
+틀린 결과:     옆 상자도 빨강, Crate.mat 에셋도 빨강
+멈춘 위치:     OnHoverEnter → body.sharedMaterial.GetInstanceID() 가 모든 상자에서 같음 = Crate.mat 에셋
+진짜 원인:     sharedMaterial 은 에셋 그 자체. 같은 머티리얼을 쓰는 모든 렌더러가 바뀌고, 에디터에서는 에셋 파일에도 저장될 수 있다.
 ```
 **수정:**
 ```csharp
-Shown = Mathf.MoveTowards(Shown, target, Time.unscaledDeltaTime / SlideSeconds);
+public void OnHoverEnter()
+{
+    body.material.color = Color.red;   // 이 렌더러 전용 사본 "Crate (Instance)"
+}
+
+public void OnHoverExit()
+{
+    body.material.color = Color.white;
+}
+```
+(사본의 정리는 랩 37 참고. 색만 바꾼다면 MaterialPropertyBlock 이 더 좋다.)
+**교훈:** `sharedMaterial`/`sharedMesh` = 에셋(모두 공유), `material`/`mesh` = 첫 접근 때 복제한 내 것. 에디터에서 `sharedMaterial` 을 런타임에 고치면 플레이를 멈춰도 돌아오지 않는다. `git status` 에 `.mat` 이 뜨면 이 버그를 의심하자.
+
+## Lab 37 — renderer.material 복제본이 누수됨
+```
+틀린 결과:     웨이브마다 Material 객체 +100, 상자를 다 지운 뒤에도 +200
+도구:          Paint 전후 sharedMaterial.name: "Crate" → "Crate (Instance)". Memory Profiler 스냅샷 비교: Material "Crate (Instance)" 200개
+진짜 원인:     renderer.material 은 머티리얼을 복제한다. 복제본은 게임 오브젝트를 지워도 함께 지워지지 않는다(씬 언로드나 UnloadUnusedAssets 까지 남음).
+              게다가 상자마다 머티리얼이 달라 배칭도 깨진다(Frame Debugger 에서 드로 콜 수 확인).
+```
+**수정:**
+```csharp
+public class SupplyCrate : MonoBehaviour
+{
+    public Color Tint;
+    static MaterialPropertyBlock block;
+    static readonly int ColorId = Shader.PropertyToID("_Color");
+
+    public void Paint(Color tint)
+    {
+        Tint = tint;
+        block ??= new MaterialPropertyBlock();
+        var body = GetComponent<Renderer>();
+        body.GetPropertyBlock(block);
+        block.SetColor(ColorId, tint);
+        body.SetPropertyBlock(block);
+    }
+}
+```
+(복제본을 꼭 써야 한다면 `OnDestroy` 에서 `Destroy(GetComponent<Renderer>().material)`. 단 `OnDestroy` 에서 `.material` 에 처음 접근하면 그 자리에서 또 복제하므로 Paint 때 받아 둔 참조를 지운다.)
+**교훈:** 렌더러마다 값만 다르면 **MaterialPropertyBlock**. 머티리얼 복제 없이 렌더러별 값을 준다. 참고: URP/HDRP 의 SRP Batcher 는 MaterialPropertyBlock 을 쓰면 그 렌더러를 배칭에서 뺀다. SRP 프로젝트라면 머티리얼 변형을 미리 만들어 두거나 GPU 인스턴싱/셰이더 속성(`[PerRendererData]`, `UNITY_INSTANCING_BUFFER`)을 쓴다.
+
+## Lab 38 — 늦게 도착한 비동기 로드 결과가 재사용된 칸을 덮어씀
+```
+틀린 결과:     칸의 아이템 potion, 아이콘 icon_sword
+멈춘 위치:     람다 texture => Icon = texture → 두 번 멈춤: 같은 프레임에 potion(캐시, 즉시), 다음 프레임 이후 sword(LoadAsync 완료)
+기대 → 실제:   요청 순서 sword → potion, 도착 순서 potion → sword
+진짜 원인:     콜백은 "도착한 때의 칸"에 아이콘을 넣는다. 그 사이 칸이 물약으로 재사용됐는데 확인하지 않았다.
+```
+**수정:**
+```csharp
+public void Show(string itemId)
+{
+    ItemId = itemId;
+    Icon = null;
+    Loader.Request(itemId, texture =>
+    {
+        if (ItemId == itemId)   // 아직도 그 아이템을 보여 주는 칸인가?
+        {
+            Icon = texture;
+        }
+    });
+}
+```
+**교훈:** 비동기 결과는 "요청한 때"가 아니라 "도착한 때"의 세상에 떨어진다. 도착했을 때 **아직 유효한지**(같은 아이템인가, 오브젝트가 살아 있나) 확인한다. `ResourceRequest.completed` 와 Addressables 의 `Completed` 는 이미 로드된 에셋이어도 같은 프레임에 불리지 않을 수 있다. 캐시 적중(즉시)과 미스(나중)가 섞이면 순서가 뒤집힌다.
+
+## Lab 39 — Linear 색 공간에서 색을 SetVector 로 넘김
+```
+틀린 결과:     깃발 픽셀 (255, 188, 137), 기대 (255, 128, 64)
+기록:          0x80/255 = 0.502 → 188 = sRGB 인코딩(0.502) ≈ 0.735. 0x40 → 137 도 같은 곡선. 0x00, 0xFF 는 곡선의 양 끝이라 그대로
+도구:          Frame Debugger → TeamBanner 드로 콜 → _Color 값 (1, 0.502, 0.251): sRGB 값이 선형 값 자리에 그대로 들어감
+진짜 원인:     Color Space = Linear. 셰이더는 선형 값을 기대하고, 화면에 쓸 때 sRGB 로 인코딩한다.
+              SetVector 는 숫자를 그대로 넘겨서 sRGB 색(기획서 hex)이 변환 없이 "선형 값"으로 쓰였다 → 한 번 더 밝아짐.
+```
+**수정:**
+```csharp
+block.SetColor(ColorId, teamColor);   // Linear 색 공간이면 sRGB → 선형 변환을 해 준다
+// 또는 block.SetVector(ColorId, teamColor.linear);
+```
+**교훈:** 사람이 고른 색(색상 선택기, hex, 텍스처의 색)은 sRGB, 셰이더 계산은 선형. 변환은 `SetColor`/`Color.linear`/텍스처의 **sRGB (Color Texture)** 체크가 해 준다. 노멀 맵, 마스크, 데이터 텍스처는 sRGB 를 **꺼야** 한다(켜면 반대로 값이 어두워진다). "0 과 255 는 맞는데 중간만 틀리다"면 감마 곡선을 의심하자.
+
+---
+
+# 8부: 애니메이션
+
+## Lab 40 — Animator 파라미터 이름의 대소문자
+```
+틀린 결과:     Attack 상태에 들어가지 않음
+Console:        ⚠ Parameter 'Hash 1203776827' does not exist.
+Animator 창:   Parameters 탭의 이름은 "Attack". 코드는 Animator.StringToHash("attack")
+진짜 원인:     파라미터 이름은 대소문자를 구분한다. 틀리면 경고만 찍고 아무 일도 하지 않는다.
+```
+**수정:**
+```csharp
+static readonly int AttackId = Animator.StringToHash("Attack");
+```
+**교훈:** 문자열 파라미터는 컴파일러가 검사해 주지 않는다. 이름은 한 곳에 상수로 두고, 시작할 때 `animator.parameters` 로 필요한 이름이 있는지 검사하는 습관을 들이자. 경고 필터를 꺼 두면 이 버그는 몇 주씩 숨는다.
+
+## Lab 41 — Culling Mode = Cull Completely 라 화면 밖에서 이벤트가 사라짐
+```
+틀린 결과:     2.1초 동안 발소리 0번, Renderer.isVisible == false
+도구:          Inspector 의 Animator → Culling Mode: Cull Completely. Animator 창에서 Walk 진행 막대가 멈춰 있다.
+              Scene 뷰를 경비병 쪽으로 돌리면 진행 막대가 움직이고 Footstep 중단점이 걸린다.
+진짜 원인:     Cull Completely 는 렌더러가 하나도 안 보이면 애니메이션을 통째로 멈춘다. 애니메이션 이벤트도 불리지 않는다.
+```
+**수정:**
+```csharp
+GetComponent<Animator>().cullingMode = AnimatorCullingMode.CullUpdateTransforms;   // 또는 AlwaysAnimate
+```
+**교훈:** 화면 밖에서도 게임 로직이 애니메이션(이벤트, 루트 모션)에 기대는 캐릭터에 Cull Completely 를 쓰면 안 된다. Cull Update Transforms 는 상태 머신과 이벤트를 유지하면서 뼈 쓰기·IK 를 생략한다. 에디터에서는 **Scene 뷰 카메라도 "보는 것"** 이라서, 에디터에서는 되고 빌드에서는 안 되는(또는 반대) 버그로 신고되기 쉽다.
+
+## Lab 42 — 트랜지션이 이벤트보다 먼저 끝남
+```
+틀린 결과:     3번 휘둘러 Hit 0번
+도구:          Animation 창: Swordsman_Swing 길이 1초, Hit 이벤트 0.9초
+              Animator 창: Swing → Idle 트랜지션 Has Exit Time ✔, Exit Time 0.7, Transition Duration 0.1 (Fixed Duration 끔 = 클립 길이의 10%)
+처음 어긋난 곳: Swing 은 0.7 에 빠지기 시작해 0.8 에 완전히 끝난다. 0.9 의 이벤트는 재생되지 않는 구간
+진짜 원인:     애니메이션 에셋. 이벤트가 트랜지션 뒤에 있다.
+```
+**수정 (택1):** Animator 창에서 Swing → Idle 트랜지션의 **Exit Time 을 0.95** 로(이벤트 뒤에서 넘어가기 시작). 또는 Animation 창에서 **Hit 이벤트를 0.5초** 무렵(칼날이 실제로 닿는 지점)으로 옮기기.
+**교훈:** 트랜지션 도중에는 두 상태의 클립이 같이 재생되며 양쪽 이벤트가 불리지만, 트랜지션이 **끝난 뒤** 원래 클립은 더 진행되지 않는다. 판정용 이벤트는 트랜지션 시작 전에 둔다. 피격·회피 같은 인터럽트로 공격이 끊길 때 판정이 빠지는 것도 같은 원리이고, 그건 의도된 동작일 수도 있다(기획과 정하자).
+
+## Lab 43 — 애니메이션 결과를 Update 에서 읽음
+```
+틀린 결과:     거의 모든 프레임에서 손과 횃불이 어긋남
+도구:          Update 와 LateUpdate 의 추적점 → 같은 프레임인데 손의 x 가 다르다
+              Profiler Timeline: Update.ScriptRunBehaviourUpdate → PreLateUpdate.DirectorUpdateAnimationBegin/End → PreLateUpdate.ScriptRunBehaviourLateUpdate
+진짜 원인:     Animator 는 Update 뒤, LateUpdate 앞에서 뼈(Transform)를 쓴다. Update 에서 읽은 손 위치는 지난 프레임 것이다.
+```
+**수정:**
+```csharp
+void LateUpdate()
+{
+    transform.SetPositionAndRotation(Hand.position, Hand.rotation);
+}
+```
+(가장 간단하게는 횃불을 손의 자식으로: `transform.SetParent(Hand, false)`.)
+**교훈:** 애니메이션이 움직인 뼈를 따라가는 모든 것(무기 붙이기, 카메라, 조준선, IK 보정, 이펙트 위치)은 LateUpdate. 한 프레임 늦음은 화면에서 "흔들림/떨림"으로 보이고, 판정에 쓰이면 진짜 버그가 된다.
+
+---
+
+# 9부: 동시성과 멈춤
+
+## Lab 44 — 재고 확인과 차감 사이에 다른 스레드가 끼어듦
+```
+틀린 결과:     팔린 수 2(기대 1), 남은 재고 -1(기대 0), 구매자 명단 2명
+도구:          TryBuy 의 if 줄에 중단점 → 스레드 창: 워커 두 개가 같은 줄에 있고 둘 다 Stock == 1
+              추적점 "{Environment.CurrentManagedThreadId} Stock={Stock}" → 두 스레드 모두 1 을 보고 통과
+진짜 원인:     "Stock > 0 확인 → 결제 → Stock--" 이 한 덩어리가 아니다. 결제가 끝나기 전에 두 번째 요청도 확인을 통과한다
+```
+**수정:**
+```csharp
+readonly object gate = new object();
+
+public bool TryBuy(string buyer)
+{
+    lock (gate)
+    {
+        if (Stock > 0) { Payment(buyer); Stock--; Buyers.Add(buyer); return true; }
+        return false;
+    }
+}
+```
+**교훈:** 공유 상태를 "확인하고 → 행동" 하는 코드는 둘 사이에 끼어들 틈이 없게 한 덩어리로 묶는다(`lock`). 결제처럼 오래 걸리는 일을 lock 안에 두기 싫다면 lock 안에서 재고를 먼저 예약(Stock--)하고 실패 시 되돌린다. `Stock--` 와 `List.Add` 자체도 원자적이지 않다(`Interlocked.Decrement`, `ConcurrentQueue`). Job System 안전 시스템은 NativeContainer 만 감시하므로 이런 C# 객체 레이스는 아무도 알려 주지 않는다.
+
+## Lab 45 — Task.Run 안에서 transform 을 씀
+```
+틀린 결과:     길 찾기는 워커 스레드에서 했지만 도착 false, 위치 그대로. Console 은 조용하다
+도구:          transform.position 줄에서 F10 → 다음 줄로 가지 않고 사라진다
+              조사식 task.Status == Faulted, task.Exception.InnerException: UnityException "get_transform can only be called from the main thread"
+진짜 원인:     Unity API 는 메인 스레드 전용이다. Task 안에서 난 예외는 Task 에 담기고, 아무도 await 하지 않아 Console 에 나오지 않는다
+```
+**수정:**
+```csharp
+public async Task GoTo(Vector3 from, Vector3 goal)
+{
+    List<Vector3> path = await Task.Run(() => FindPath(from, goal));   // 계산만 워커에서
+    transform.position = path[path.Count - 1];                          // await 뒤는 메인 스레드
+    Arrived = true;
+}
+```
+**교훈:** 워커 스레드에는 계산만 보내고, Unity 오브젝트를 만지는 일은 메인 스레드로 돌아와서 한다. 메인 스레드에서 시작한 `await` 는 UnitySynchronizationContext 가 다음 줄을 메인 스레드로 돌려보낸다. 돌려받은 Task 를 버리면(fire-and-forget) 예외도 함께 버려지므로, await 하거나 `ContinueWith` 로 `Exception` 을 로그로 남긴다. Task 안에서는 `transform.position` 을 **읽는 것**도 안 된다(값을 미리 꺼내 넘긴다).
+
+## Lab 46 — BackgroundThreadAsync 뒤에 메인 스레드로 돌아오지 않음
+```
+증상:          불러오기 시 UnityException: get_gameObject can only be called from the main thread
+도구:          Load 첫 줄과 gameObject.name 줄에서 조사식 Thread.CurrentThread.ManagedThreadId → 1 에서 다른 번호로 바뀌었다
+진짜 원인:     await Awaitable.BackgroundThreadAsync() 다음 줄부터는 스레드 풀이다. 돌아오라고 하기 전까지 계속 백그라운드다
+```
+**수정:**
+```csharp
+await Awaitable.BackgroundThreadAsync();
+SaveData data = Parse(json);
+await Awaitable.MainThreadAsync();      // 여기부터 메인 스레드
+gameObject.name = data.Name;
+transform.localScale = Vector3.one * data.Scale;
+```
+**교훈:** await 다음 줄의 스레드는 "무엇을 await 했나" 가 정한다. 보통의 `await Task`(메인 스레드에서 시작)는 메인으로 돌아오고, `Awaitable.BackgroundThreadAsync()` 와 `ConfigureAwait(false)` 는 돌아오지 않는다. 백그라운드 구간은 `MainThreadAsync()` 로 닫는 짝을 만든다. 돌아온 뒤 오브젝트가 이미 파괴됐을 수 있으니 `if (this == null) return;` 이나 `destroyCancellationToken` 을 쓴다.
+
+## Lab 47 — 메인 스레드에서 .Result 로 기다려 데드락
+```
+증상:          상점을 여는 순간 응답 없음. CPU 는 0% 근처(데드락)
+모두 중단:      Main Thread 호출 스택: ShopWindow.Open → (HangGuard.Wait =) Task.Wait → Monitor.Wait. 자고 있다
+              작업(Tasks) 창 / 병렬 스택: LoadGoldAsync 는 "대기 중", await Task.Delay 다음 줄을 실행할 차례를 기다린다
+처음 어긋난 곳: Task.Delay 는 200ms 뒤에 끝났다. 그런데 await 다음 줄(return Gold)은 UnitySynchronizationContext 를 통해 "메인 스레드, 다음 프레임" 에 예약됐다
+진짜 원인:     메인 스레드는 그 Task 가 끝나기를 막고 기다리고, Task 는 메인 스레드가 비기를 기다린다. 서로 기다린다
+              (콘솔 앱은 SynchronizationContext 가 없어 스레드 풀에서 이어 가므로 멀쩡했다)
+```
+**수정:**
+```csharp
+public async void Open(SaveFile save)
+{
+    ShownGold = await save.LoadGoldAsync();
+}
+```
+(코루틴이라면 `var task = save.LoadGoldAsync(); while (!task.IsCompleted) yield return null; ShownGold = task.Result;`)
+**교훈:** 메인 스레드에서 `Task` 를 막고 기다리지 말 것(`.Result`, `.Wait()`, `.GetAwaiter().GetResult()`). 끝까지 `await` 로 잇는다. 라이브러리 쪽에 `ConfigureAwait(false)` 를 붙이면 데드락은 풀리지만 `Open` 은 여전히 디스크를 읽는 200ms 동안 게임을 멈춘다(이 랩의 두 번째 `[FAIL]`). 그리고 `ConfigureAwait(false)` 다음 줄은 워커 스레드에서 돌기 때문에 거기서 Unity API(`transform`, `GetComponent`)를 부르면 "can only be called from the main thread" 예외가 난다. 데드락은 CPU 0%, 무한루프는 CPU 100% 라는 지문을 기억하자.
+
+## Lab 48 — Update 가 바꿔 줄 값을 yield 없이 while 로 기다림
+```
+증상:          엘리베이터를 부르는 순간 응답 없음. 작업 관리자에서 Unity 가 CPU 한 코어를 꽉 씀(무한루프)
+모두 중단:      스레드 창의 Main Thread 호출 스택 맨 위 = Passenger.RideTo 의 첫 while (HangGuard 의 예외 스택 트레이스도 같은 곳)
+이상한 값:      F10 을 계속 눌러도 Elevator.Floor 가 5 에서 바뀌지 않는다
+처음 어긋난 곳: Floor 를 바꾸는 것은 Elevator.Update. 그런데 Update 는 이 코루틴이 yield 해야 다음 프레임에 불린다
+진짜 원인:     코루틴은 스레드가 아니다. yield 를 만나기 전까지는 메인 스레드의 보통 함수다. while 안에 yield 가 없으니 이 프레임에서 영원히 돈다
+```
+**수정:**
+```csharp
+while (!Elevator.IsAt(Floor))
+{
+    HangGuard.Tick("Passenger.RideTo: 엘리베이터가 오기를 기다림");
+    yield return null;   // 한 프레임 양보 → 그동안 Elevator.Update 가 돈다
+}
 ...
-yield return new WaitForSecondsRealtime(1f);
+while (!Elevator.IsAt(destination))
+{
+    HangGuard.Tick("Passenger.RideTo: 목표 층에 닿기를 기다림");
+    yield return null;
+}
 ```
-**교훈:** 일시정지 중에도 움직여야 하는 것(메뉴, 카운트다운, 일시정지 화면의 애니메이션·파티클)은 진짜 시간을 쓴다: `unscaledDeltaTime`, `WaitForSecondsRealtime`, Animator 의 Update Mode = Unscaled Time, 파티클의 Use Unscaled Time. 반대로 게임 안의 것은 일부러 `deltaTime` 을 써서 함께 멈추게 한다. "멈춘 동안 무엇이 움직여야 하나" 를 먼저 정하자.
+(또는 `yield return new WaitUntil(() => Elevator.IsAt(Floor));`)
+**교훈:** "다른 무언가가 바꿔 줄 값" 을 기다리는 반복문은 반드시 그 무언가에게 차례를 넘겨야 한다. Unity 에서는 `yield return null`(코루틴), `await Awaitable.NextFrameAsync()`(async), 아니면 Update 에서 상태를 확인하는 방식. Update/Start/버튼 처리기 안의 `while (!loaded) {}` 도 똑같이 에디터를 굳힌다. 굳었을 때는 **모두 중단 → 스레드 창 → Main Thread** 가 첫 수다.
 
-# 11부: 성능 (GC 할당과 반복 탐색)
+## Lab 49 — BFS 에 방문 체크가 없음
+```
+증상:          길이 이어져 있을 때는 정답(5). 3-6 문을 잠근 뒤 응답 없음, 메모리 급증
+도구:          while 첫 줄 조건부 중단점 queue.Count > 100 → 방이 8개뿐인데 걸린다. queue 를 펼치면 1, 2, 4, 5 가 수십 번씩
+처음 어긋난 곳: 0 → 1 → (0, 2, 4) 에서 다시 0 을 넣는다. 양방향 문과 1-2-5-4 고리를 따라 같은 방을 끝없이 다시 넣는다
+진짜 원인:     목표에 닿을 수 있으면 BFS 는 언젠가 목표를 꺼내 return 하므로 버그가 숨어 있었다. 닿을 수 없으면 큐가 비지 않는다
+```
+**수정:**
+```csharp
+var queue = new Queue<(int Room, int Doors)>();
+queue.Enqueue((start, 0));
+var visited = new bool[dungeon.Doors.Length];
+visited[start] = true;
+while (queue.Count > 0)
+{
+    ...
+    foreach (int next in dungeon.Doors[room])
+    {
+        if (!visited[next])
+        {
+            visited[next] = true;
+            queue.Enqueue((next, doors + 1));
+        }
+    }
+}
+```
+**교훈:** 그래프(방, 웨이포인트, 대화 노드, 전선, 아이템 조합)를 순회하는 코드는 **방문 기록**이 기본이다. 테스트 데이터에 고리나 끊긴 길이 없으면 영영 드러나지 않다가, 레벨 디자이너가 문 하나를 잠그는 순간 터진다. "멈춤 + 메모리 증가" 면 무한루프 안에서 무언가를 쌓고 있다는 뜻이다. 재귀 DFS 에서 같은 실수를 하면 멈춤 대신 StackOverflowException(에디터 크래시)으로 나타난다.
 
-## Lab 48 — 값이 그대로인데 매 프레임 문자열·LINQ·박싱
+## Lab 50 — float 시간에 작은 틱을 누적
+```
+증상:          막 켠 서버(90초)는 128틱으로 정상. 켠 지 7일(604800초) 된 서버는 응답 없음
+도구:          while 안 조건부 중단점 Ticks > 1000 → 조사식 SimTime == 604800, SimTime + TickSeconds == SimTime 이 true
+진짜 원인:     float 의 유효 숫자는 24비트. 2^19 = 524288 이상에서 이웃한 float 의 간격은 1/16. 1/64 를 더하면 반올림되어 그대로다.
+              SimTime < target 이 영원히 참이다
+```
+**수정 (택1):**
+```csharp
+public double SimTime;                       // ① double: 1/64 는 2 의 거듭제곱이라 double 에서 정확하다
+...
+double target = SimTime + seconds;
+
+// ② 정수 틱으로 세고 시간은 계산한다 (가장 튼튼하다)
+public long TickCount;
+public double SimTime => TickCount * (double)TickSeconds;
+public void FastForward(float seconds)
+{
+    int steps = Mathf.RoundToInt(seconds / TickSeconds);
+    for (int i = 0; i < steps; ++i) { ... ++TickCount; }
+}
+```
+**교훈:** 반복문의 종료 조건을 **float 누적 결과**에 걸지 말자. 큰 값에 작은 값을 더하면 그대로일 수 있고(멈춤), 작은 값끼리 더해도 `0.1f` 열 번이 `1f` 가 아니다(`!=` 로 끝내면 멈춤). Unity 의 `Time.time` 도 float 이라 며칠 켜 둔 서버·키오스크·스트리밍 빌드에서 같은 일이 생긴다(`Time.timeAsDouble`, `Time.frameCount` 를 쓴다). 개발 중에는 절대 재현되지 않는 "오래 켜 두면" 류 버그의 대표다.
+
+---
+
+# 10부: 성능 (GC 할당과 반복 탐색)
+
+## Lab 51 — 값이 그대로인데 매 프레임 문자열·LINQ·박싱
 ```
 틀린 결과:     값이 그대로인 프레임의 GC 할당 프레임당 약 5600바이트, 표시줄 20개 (기대 128바이트 이하)
 도구:          Profiler → CPU → Hierarchy → GC Alloc 열 → HealthBar.Update
@@ -980,7 +1045,7 @@ void Update()
 ```
 **교훈:** 매 프레임 도는 코드에서는 "값이 바뀔 때만 만든다". 문자열 연결·보간, LINQ, `IEnumerable<T>` 로 받은 foreach(박싱), 람다가 지역 변수를 캡처하는 클로저, `new List` 는 모두 힙 할당이다. 한 번에 수십 바이트라도 컴포넌트 수 × 매 프레임이면 GC 를 부른다. UI 텍스트는 TextMeshPro 의 `SetText(format, number)` 가 할당 없이 숫자를 넣는다.
 
-## Lab 49 — Update 에서 GameObject.Find 와 FindObjectsByType
+## Lab 52 — Update 에서 GameObject.Find 와 FindObjectsByType
 ```
 틀린 결과:     표적 찾기의 GC 할당 프레임당 약 98KB (기대 256바이트 이하)
 도구:          Profiler → Hierarchy → Turret.Update 아래 GameObject.Find, FindObjectsByType: Calls 40, Time ms 가 오브젝트 수에 비례
@@ -998,9 +1063,9 @@ public class Enemy : MonoBehaviour
 void Start() { Player = GameObject.Find("Player").transform; }   // 한 번만
 void Update() { foreach (Enemy enemy in Enemy.All) { ... } }      // List 를 직접 돌면 할당 없음
 ```
-**교훈:** 바뀌지 않는 참조는 한 번 찾아 두고(인스펙터 연결이 가장 좋다), 바뀌는 집합은 OnEnable/OnDisable 로 등록부를 관리한다. 등록부는 새로 나타난 적, 사라진 적을 바로 반영한다(한 번 찾고 끝내면 랩의 두 번째 판정에서 FAIL). `Camera.main` 은 2020.2 부터 내부 캐시라 예전처럼 비싸지 않다. 정적 등록부는 Domain Reload 를 끈 Play 에서 비워 줘야 한다(랩 27).
+**교훈:** 바뀌지 않는 참조는 한 번 찾아 두고(인스펙터 연결이 가장 좋다), 바뀌는 집합은 OnEnable/OnDisable 로 등록부를 관리한다. 등록부는 새로 나타난 적, 사라진 적을 바로 반영한다(한 번 찾고 끝내면 랩의 두 번째 판정에서 FAIL). `Camera.main` 은 2020.2 부터 내부 캐시라 예전처럼 비싸지 않다. 정적 등록부는 Domain Reload 를 끈 Play 에서 비워 줘야 한다(랩 26).
 
-## Lab 50 — 풀을 만들고 돌려주지 않음
+## Lab 53 — 풀을 만들고 돌려주지 않음
 ```
 틀린 결과:     만든 탄환 수 60(기대 ≤ 13), 풀로 돌아온 탄환 0
 도구:          BulletPool.Release 에 중단점 → 한 번도 멈추지 않는다
@@ -1013,7 +1078,7 @@ if (Life <= 0f) { Pool.Release(this); }
 ```
 **교훈:** 풀은 "꺼내기" 보다 "돌려주기" 가 버그가 잘 난다. 돌려줄 때 끄고(SetActive(false)), 꺼낼 때 위치·속도·수명·트레일 같은 상태를 모두 초기화한다. `UnityEngine.Pool.ObjectPool<T>` 는 createFunc/actionOnGet/actionOnRelease 를 받아 이 짝을 강제하고, 같은 것을 두 번 돌려주면 에러를 낸다(collectionCheck).
 
-## Lab 51 — SendMessage 이름 오타와 박싱
+## Lab 54 — SendMessage 이름 오타와 박싱
 ```
 틀린 결과:     받은 피해 0. 이름을 TakeDamage 로 고쳐도 GC 할당이 프레임당 약 500바이트(적 30마리)
 도구:          Enemy.TakeDamage 중단점이 걸리지 않는다. RequireReceiver 로 바꾸면 "SendMessage TakeDamge has no receiver!"
@@ -1029,7 +1094,7 @@ if (InFlame[i].TryGetComponent(out IDamageable target)) { target.TakeDamage(Dama
 ```
 **교훈:** `SendMessage`/`BroadcastMessage`/`SendMessageUpwards` 는 오타가 조용하고, 매번 모든 컴포넌트를 리플렉션으로 훑으며, 인자를 박싱한다. 인터페이스(`IDamageable`), C# event, UnityEvent 는 이름을 컴파일 시간에 확인한다. 매 프레임 `TryGetComponent` 도 아끼려면 들어올 때 한 번 찾아 목록에 담는다.
 
-## Lab 52 — 매 프레임 배열을 돌려주는 OverlapSphere
+## Lab 55 — 매 프레임 배열을 돌려주는 OverlapSphere
 ```
 틀린 결과:     치유는 맞지만 GC 할당 프레임당 1792바이트 = 사제 8명 × (아군 24명 × 8 + 배열 머리 32) (기대 128바이트 이하)
 도구:          Profiler → GC Alloc 열 → HealingAura.Update → Physics.OverlapSphere
@@ -1045,62 +1110,4 @@ void Update()
     for (int i = 0; i < count; ++i) { ... }
 }
 ```
-**교훈:** 배열을 돌려주는 API(`OverlapSphere`, `RaycastAll`, `GetComponents<T>()`, `GetComponentsInChildren<T>()`, `FindObjectsByType`, `Mesh.vertices`)에는 대개 버퍼를 채우는 짝(`NonAlloc`, `List<T>` 를 받는 오버로드, `GetVertices(List)`)이 있다. 버퍼가 작으면 넘친 결과가 **조용히 버려지므로** 돌려받은 개수가 버퍼 크기와 같을 때 경고를 남긴다(숨은 케이스는 아군 30명). 버퍼를 함수 밖으로 내보내면 랩 36 의 공유 버그가 된다.
-
-# 12부: 데이터 레이스와 스레드
-
-## Lab 53 — 재고 확인과 차감 사이에 다른 스레드가 끼어듦
-```
-틀린 결과:     팔린 수 2(기대 1), 남은 재고 -1(기대 0), 구매자 명단 2명
-도구:          TryBuy 의 if 줄에 중단점 → 스레드 창: 워커 두 개가 같은 줄에 있고 둘 다 Stock == 1
-              추적점 "{Environment.CurrentManagedThreadId} Stock={Stock}" → 두 스레드 모두 1 을 보고 통과
-진짜 원인:     "Stock > 0 확인 → 결제 → Stock--" 이 한 덩어리가 아니다. 결제가 끝나기 전에 두 번째 요청도 확인을 통과한다
-```
-**수정:**
-```csharp
-readonly object gate = new object();
-
-public bool TryBuy(string buyer)
-{
-    lock (gate)
-    {
-        if (Stock > 0) { Payment(buyer); Stock--; Buyers.Add(buyer); return true; }
-        return false;
-    }
-}
-```
-**교훈:** 공유 상태를 "확인하고 → 행동" 하는 코드는 둘 사이에 끼어들 틈이 없게 한 덩어리로 묶는다(`lock`). 결제처럼 오래 걸리는 일을 lock 안에 두기 싫다면 lock 안에서 재고를 먼저 예약(Stock--)하고 실패 시 되돌린다. `Stock--` 와 `List.Add` 자체도 원자적이지 않다(`Interlocked.Decrement`, `ConcurrentQueue`). Job System 안전 시스템은 NativeContainer 만 감시하므로 이런 C# 객체 레이스는 아무도 알려 주지 않는다.
-
-## Lab 54 — Task.Run 안에서 transform 을 씀
-```
-틀린 결과:     길 찾기는 워커 스레드에서 했지만 도착 false, 위치 그대로. Console 은 조용하다
-도구:          transform.position 줄에서 F10 → 다음 줄로 가지 않고 사라진다
-              조사식 task.Status == Faulted, task.Exception.InnerException: UnityException "get_transform can only be called from the main thread"
-진짜 원인:     Unity API 는 메인 스레드 전용이다. Task 안에서 난 예외는 Task 에 담기고, 아무도 await 하지 않아 Console 에 나오지 않는다
-```
-**수정:**
-```csharp
-public async Task GoTo(Vector3 from, Vector3 goal)
-{
-    List<Vector3> path = await Task.Run(() => FindPath(from, goal));   // 계산만 워커에서
-    transform.position = path[path.Count - 1];                          // await 뒤는 메인 스레드
-    Arrived = true;
-}
-```
-**교훈:** 워커 스레드에는 계산만 보내고, Unity 오브젝트를 만지는 일은 메인 스레드로 돌아와서 한다. 메인 스레드에서 시작한 `await` 는 UnitySynchronizationContext 가 다음 줄을 메인 스레드로 돌려보낸다. 돌려받은 Task 를 버리면(fire-and-forget) 예외도 함께 버려지므로, await 하거나 `ContinueWith` 로 `Exception` 을 로그로 남긴다. Task 안에서는 `transform.position` 을 **읽는 것**도 안 된다(값을 미리 꺼내 넘긴다).
-
-## Lab 55 — BackgroundThreadAsync 뒤에 메인 스레드로 돌아오지 않음
-```
-증상:          불러오기 시 UnityException: get_gameObject can only be called from the main thread
-도구:          Load 첫 줄과 gameObject.name 줄에서 조사식 Thread.CurrentThread.ManagedThreadId → 1 에서 다른 번호로 바뀌었다
-진짜 원인:     await Awaitable.BackgroundThreadAsync() 다음 줄부터는 스레드 풀이다. 돌아오라고 하기 전까지 계속 백그라운드다
-```
-**수정:**
-```csharp
-await Awaitable.BackgroundThreadAsync();
-SaveData data = Parse(json);
-await Awaitable.MainThreadAsync();      // 여기부터 메인 스레드
-gameObject.name = data.Name;
-transform.localScale = Vector3.one * data.Scale;
-```
-**교훈:** await 다음 줄의 스레드는 "무엇을 await 했나" 가 정한다. 보통의 `await Task`(메인 스레드에서 시작)는 메인으로 돌아오고, `Awaitable.BackgroundThreadAsync()` 와 `ConfigureAwait(false)` 는 돌아오지 않는다. 백그라운드 구간은 `MainThreadAsync()` 로 닫는 짝을 만든다. 돌아온 뒤 오브젝트가 이미 파괴됐을 수 있으니 `if (this == null) return;` 이나 `destroyCancellationToken` 을 쓴다.
+**교훈:** 배열을 돌려주는 API(`OverlapSphere`, `RaycastAll`, `GetComponents<T>()`, `GetComponentsInChildren<T>()`, `FindObjectsByType`, `Mesh.vertices`)에는 대개 버퍼를 채우는 짝(`NonAlloc`, `List<T>` 를 받는 오버로드, `GetVertices(List)`)이 있다. 버퍼가 작으면 넘친 결과가 **조용히 버려지므로** 돌려받은 개수가 버퍼 크기와 같을 때 경고를 남긴다(숨은 케이스는 아군 30명). 버퍼를 함수 밖으로 내보내면 랩 20 의 공유 버그가 된다.

@@ -11,7 +11,7 @@ namespace BugHunt
         public HangException(string message) : base(message) { }
     }
 
-    // 7부(멈춤) 랩의 안전장치. 여기에는 버그가 없다.
+    // 9부(멈춤) 랩의 안전장치. 여기에는 버그가 없다.
     //
     // 진짜 무한루프나 데드락은 메인 스레드를 영영 붙잡아서 에디터 전체가 굳는다(작업 관리자로 끄는 수밖에 없다).
     // 그래서 랩의 반복문 안에 HangGuard.Tick() 한 줄을, 막히는 대기에는 HangGuard.Wait(task) 를 넣어 두었다.

@@ -79,7 +79,7 @@ namespace BugHunt.Editor
 
         // 명령줄 진입점. 인자(모두 선택):
         //   -bugHuntReport <경로>   결과 JSON 경로 (기본: 프로젝트 폴더의 grade-report.json)
-        //   -bugHuntLabs 24,25,31   이 랩만 채점
+        //   -bugHuntLabs 23,24,50   이 랩만 채점
         // -quit 을 붙이지 마세요. 채점이 끝나면 채점기가 직접 에디터를 끄고, 만점이면 0, 아니면 1 을 종료 코드로 돌려준다.
         public static void RunFromCommandLine()
         {

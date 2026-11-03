@@ -9,8 +9,8 @@ using UnityEngine;
 namespace BugHunt.Editor
 {
     // 랩이 쓰는 에셋(소리, 아이콘, 머티리얼, 프리팹, 애니메이션, 씬)을 코드로 만든다.
-    // 저장소에는 결과물이 이미 들어 있으므로 평소에는 실행할 필요가 없다. 버그가 심어진 값(랩 10 프리팹의 100, 랩 12 의 Preload 끔,
-    // 랩 22 의 Exit Time 0.7)도 여기서 정해진다. 학습자가 고친 에셋을 원래대로 되돌리려면 git restore 를 쓰는 편이 낫다.
+    // 저장소에는 결과물이 이미 들어 있으므로 평소에는 실행할 필요가 없다. 버그가 심어진 값(랩 10 프리팹의 100, 랩 32 의 Preload 끔,
+    // 랩 42 의 Exit Time 0.7)도 여기서 정해진다. 학습자가 고친 에셋을 원래대로 되돌리려면 git restore 를 쓰는 편이 낫다.
     public static class BugHuntAssetBuilder
     {
         const string Root = "Assets/BugHunt/Resources/BugHunt";
@@ -48,19 +48,19 @@ namespace BugHunt.Editor
 
         // ---------------------------------------------------------------- 소리
         // 소리만 다시 만들기: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildAudio
-        // 파일마다 음 높이를 달리해 소리끼리 구분된다. 길이는 판정에 쓰인다(랩 14: 0.2초 뒤, 랩 15: 1초 뒤 재생 중이어야 함).
+        // 파일마다 음 높이를 달리해 소리끼리 구분된다. 길이는 판정에 쓰인다(랩 34: 0.2초 뒤, 랩 35: 1초 뒤 재생 중이어야 함).
         public static void BuildAudio()
         {
-            WriteTone("lab12_blaster", 0.3f, 880f);
-            WriteTone("lab13_footsteps", 0.4f, 220f);
-            WriteTone("lab13_boss", 3f, 330f);
-            WriteTone("lab14_explosion", 1.5f, 110f);
-            WriteTone("lab15_briefing", 3f, 440f);
-            WriteTone("lab15_grunt", 0.3f, 660f);
+            WriteTone("blaster", 0.3f, 880f);
+            WriteTone("footsteps", 0.4f, 220f);
+            WriteTone("boss", 3f, 330f);
+            WriteTone("explosion", 1.5f, 110f);
+            WriteTone("briefing", 3f, 440f);
+            WriteTone("grunt", 0.3f, 660f);
             AssetDatabase.Refresh();
 
-            // 랩 12 의 버그: 메모리를 아끼려고 미리 로드를 껐다.
-            var importer = (AudioImporter)AssetImporter.GetAtPath($"{Root}/Audio/lab12_blaster.wav");
+            // 랩 32 의 버그: 메모리를 아끼려고 미리 로드를 껐다.
+            var importer = (AudioImporter)AssetImporter.GetAtPath($"{Root}/Audio/blaster.wav");
             importer.loadInBackground = true;
             AudioImporterSampleSettings settings = importer.defaultSampleSettings;
             settings.loadType = AudioClipLoadType.DecompressOnLoad;
@@ -155,7 +155,7 @@ namespace BugHunt.Editor
         {
             string dir = $"{Root}/Animation";
 
-            // 랩 20: Idle --(Attack 트리거)--> Attack --(끝나면)--> Idle
+            // 랩 40: Idle --(Attack 트리거)--> Attack --(끝나면)--> Idle
             AnimationClip knightIdle = Clip($"{dir}/Knight_Idle.anim", "Body", 1f, true, 0f, 0.05f);
             AnimationClip knightAttack = Clip($"{dir}/Knight_Attack.anim", "Body", 0.6f, false, 0f, 0.5f);
             var knight = AnimatorController.CreateAnimatorControllerAtPath($"{dir}/Knight.controller");
@@ -175,7 +175,7 @@ namespace BugHunt.Editor
             attackDone.exitTime = 1f;
             attackDone.duration = 0.1f;
 
-            // 랩 21: 걷기 1초, 발소리 이벤트 0.25초·0.75초
+            // 랩 41: 걷기 1초, 발소리 이벤트 0.25초·0.75초
             AnimationClip walk = Clip($"{dir}/Guard_Walk.anim", "Body", 1f, true, 0f, 0.1f);
             AnimationUtility.SetAnimationEvents(walk, new[]
             {
@@ -185,7 +185,7 @@ namespace BugHunt.Editor
             var guard = AnimatorController.CreateAnimatorControllerAtPath($"{dir}/Guard.controller");
             guard.layers[0].stateMachine.AddState("Walk").motion = walk;
 
-            // 랩 22: Swing 1초, Hit 이벤트 0.9초. 버그: Swing → Idle 이 0.7 에 시작해 0.8 에 끝난다.
+            // 랩 42: Swing 1초, Hit 이벤트 0.9초. 버그: Swing → Idle 이 0.7 에 시작해 0.8 에 끝난다.
             AnimationClip swordIdle = Clip($"{dir}/Swordsman_Idle.anim", "Blade", 1f, true, 0f, 0f);
             AnimationClip swing = Clip($"{dir}/Swordsman_Swing.anim", "Blade", 1f, false, 0f, 1f);
             AnimationUtility.SetAnimationEvents(swing, new[]
@@ -210,7 +210,7 @@ namespace BugHunt.Editor
             swingDone.hasFixedDuration = false;
             swingDone.duration = 0.1f;
 
-            // 랩 23: 손이 0.5초 주기로 좌우로 흔들린다
+            // 랩 43: 손이 0.5초 주기로 좌우로 흔들린다
             var wave = new AnimationClip { name = "Waver_Wave" };
             wave.SetCurve("Hand", typeof(Transform), "m_LocalPosition.x",
                 new AnimationCurve(new Keyframe(0f, -1f), new Keyframe(0.25f, 1f), new Keyframe(0.5f, -1f)));
