@@ -1,4 +1,5 @@
 // 랩 14: 폭발 통
+// ⚠ 이 랩은 소리를 냅니다. 실행 전에 시스템 볼륨을 낮추고, 헤드폰을 쓴다면 귀에서 떼고 시작하세요.
 // 통이 터지는 순간 폭발음이 "틱" 하고 끊긴다.
 // 기대: 터지고 0.2초 뒤에도 폭발음(1.5초짜리)이 재생 중이다. 통은 사라졌다.
 using System.Collections;
@@ -25,7 +26,7 @@ namespace BugHunt.Labs.Lab14
         }
     }
 
-    [Lab(14, "폭발 통")]
+    [Lab(14, "폭발 통", MakesSound = true)]
     public class Lab14_Barrel : Lab
     {
         public override IEnumerator Run()

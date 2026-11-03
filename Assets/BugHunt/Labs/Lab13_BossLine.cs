@@ -1,4 +1,5 @@
 // 랩 13: 보스 대사
+// ⚠ 이 랩은 소리를 냅니다. 실행 전에 시스템 볼륨을 낮추고, 헤드폰을 쓴다면 귀에서 떼고 시작하세요.
 // 병사 40명이 행진하는 장면에서 보스가 등장 대사를 하는데, 대사가 들리지 않는다. 병사 수를 줄이면 들린다.
 // 기대: 보스 대사가 실제로 소리를 내고 있다(가상 음성으로 밀려나지 않음).
 using System.Collections;
@@ -31,7 +32,7 @@ namespace BugHunt.Labs.Lab13
         }
     }
 
-    [Lab(13, "보스 대사")]
+    [Lab(13, "보스 대사", MakesSound = true)]
     public class Lab13_BossLine : Lab
     {
         public override IEnumerator Run()

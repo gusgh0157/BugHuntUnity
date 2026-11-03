@@ -31,8 +31,12 @@ namespace BugHunt
         {
             public int Number;
             public string Title;
+            public bool MakesSound;
             public Type Type;
         }
+
+        public const string SoundWarning = "[주의] 소리가 납니다. 볼륨을 낮추세요";
+        public const float SoundLabListenerVolume = 0.1f;   // 소리 랩 동안의 전체 볼륨. 클립 자체도 진폭 0.3 이하다
 
         public static readonly (int First, int Last, string Name)[] Parts =
         {
@@ -71,7 +75,7 @@ namespace BugHunt
                 .Where(t => !t.IsAbstract && typeof(Lab).IsAssignableFrom(t))
                 .Select(t => (Type: t, Info: t.GetCustomAttribute<LabAttribute>()))
                 .Where(x => x.Info != null)
-                .Select(x => new LabEntry { Number = x.Info.Number, Title = x.Info.Title, Type = x.Type })
+                .Select(x => new LabEntry { Number = x.Info.Number, Title = x.Info.Title, MakesSound = x.Info.MakesSound, Type = x.Type })
                 .OrderBy(e => e.Number)
                 .ToList();
         }
@@ -146,6 +150,12 @@ namespace BugHunt
             HangGuard.Reset();
             Lab.UsedCase = false;
 
+            float savedListenerVolume = AudioListener.volume;
+            if (entry.MakesSound)
+            {
+                Report.Print(SoundWarning, Color.yellow);
+                AudioListener.volume = SoundLabListenerVolume;   // 모든 소리를 같은 비율로 줄인다(가상 음성 순위는 그대로)
+            }
             Report.Print($"==== 랩 {number}: {entry.Title} ====", Color.cyan);
             if (Lab.HiddenCase)
             {
@@ -185,6 +195,7 @@ namespace BugHunt
 
             Destroy(root);
             yield return null;   // Destroy 는 프레임 끝에 일어난다. 랩의 OnDestroy 정리가 끝난 뒤 결과를 낸다.
+            AudioListener.volume = savedListenerVolume;
 
             string skipped = Report.Skipped > 0 ? $" / SKIP {Report.Skipped}" : "";
             Report.Print($"==== 랩 {number} 결과: PASS {Report.Passed} / FAIL {Report.Failed}{skipped} ====", Color.cyan);
@@ -250,7 +261,7 @@ namespace BugHunt
                     GUILayout.Label(part);
                 }
                 GUI.enabled = !IsRunning;
-                if (GUILayout.Button($"{entry.Number}. {entry.Title}"))
+                if (GUILayout.Button($"{entry.Number}. {entry.Title}{(entry.MakesSound ? " (소리 주의)" : "")}"))
                 {
                     StartCoroutine(RunLab(entry.Number));
                 }

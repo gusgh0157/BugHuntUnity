@@ -49,7 +49,7 @@ namespace BugHunt.Editor
                     EditorGUILayout.Space();
                     EditorGUILayout.LabelField(part, EditorStyles.boldLabel);
                 }
-                if (GUILayout.Button($"{entry.Number}. {entry.Title}", GUILayout.Height(22)))
+                if (GUILayout.Button($"{entry.Number}. {entry.Title}{(entry.MakesSound ? "  (소리 주의: 볼륨을 낮추세요)" : "")}", GUILayout.Height(22)))
                 {
                     Run(entry.Number);
                 }

@@ -1,4 +1,5 @@
 // 랩 15: 작전 브리핑
+// ⚠ 이 랩은 소리를 냅니다. 실행 전에 시스템 볼륨을 낮추고, 헤드폰을 쓴다면 귀에서 떼고 시작하세요.
 // 무전기로 3초짜리 작전 브리핑이 나오는 중에 플레이어가 맞아서 "윽!" 소리를 내면 브리핑이 끊긴다.
 // 기대: 맞는 소리는 겹쳐서 나고, 1초 뒤에도 브리핑은 계속 재생 중이다.
 using System.Collections;
@@ -30,7 +31,7 @@ namespace BugHunt.Labs.Lab15
         }
     }
 
-    [Lab(15, "작전 브리핑")]
+    [Lab(15, "작전 브리핑", MakesSound = true)]
     public class Lab15_Radio : Lab
     {
         public override IEnumerator Run()

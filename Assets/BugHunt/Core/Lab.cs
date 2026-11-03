@@ -10,6 +10,9 @@ namespace BugHunt
         public int Number { get; }
         public string Title { get; }
 
+        // 소리를 내는 랩. 랩 실행 창과 Console 첫 줄에 볼륨 주의를 띄운다.
+        public bool MakesSound { get; set; }
+
         public LabAttribute(int number, string title)
         {
             Number = number;

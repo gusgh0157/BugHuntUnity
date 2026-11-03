@@ -1,4 +1,5 @@
 // 랩 12: 블래스터 발사음
+// ⚠ 이 랩은 소리를 냅니다. 실행 전에 시스템 볼륨을 낮추고, 헤드폰을 쓴다면 귀에서 떼고 시작하세요.
 // 무기를 들고 0.5초 뒤 첫 발을 쏘면 발사음이 섬광보다 늦게 난다. 두 번째 발부터는 괜찮다.
 // 기대: 첫 발을 쏘는 순간 발사음 데이터가 이미 메모리에 올라와 있다(AudioDataLoadState.Loaded).
 using System.Collections;
@@ -26,7 +27,7 @@ namespace BugHunt.Labs.Lab12
         }
     }
 
-    [Lab(12, "블래스터 발사음")]
+    [Lab(12, "블래스터 발사음", MakesSound = true)]
     public class Lab12_BlasterSound : Lab
     {
         public override IEnumerator Run()
