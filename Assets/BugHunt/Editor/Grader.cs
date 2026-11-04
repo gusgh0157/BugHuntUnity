@@ -84,11 +84,11 @@ namespace BugHunt.Editor
 
         // 명령줄 진입점. 인자(모두 선택):
         //   -bugHuntReport <경로>   결과 JSON 경로 (기본: 프로젝트 폴더의 grade-report.json)
-        //   -bugHuntLabs 23,24,50   이 랩만 채점
+        //   -bugHuntLabs 31,32,58   이 랩만 채점
         //   -bughuntLang ja         출력 언어(ko / ja). 결과 JSON 의 title·detail 도 이 언어로, result 값과 키는 그대로
         // コマンドラインの入口。引数 (すべて任意):
         //   -bugHuntReport <パス>    結果 JSON のパス (既定: プロジェクトフォルダーの grade-report.json)
-        //   -bugHuntLabs 23,24,50   このラボだけ採点
+        //   -bugHuntLabs 31,32,58   このラボだけ採点
         //   -bughuntLang ja         出力言語 (ko / ja)。結果 JSON の title・detail もこの言語で、result の値とキーはそのまま
         // -quit 을 붙이지 마세요. 채점이 끝나면 채점기가 직접 에디터를 끄고, 만점이면 0, 아니면 1 을 종료 코드로 돌려준다.
         // -quit を付けないでください。採点が終わると採点ツールが自分でエディターを終了し、満点なら 0、そうでなければ 1 を終了コードとして返します。

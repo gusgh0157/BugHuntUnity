@@ -9,11 +9,11 @@ using UnityEngine;
 namespace BugHunt.Editor
 {
     // 랩이 쓰는 에셋(소리, 아이콘, 머티리얼, 프리팹, 애니메이션, 모델 메시, 씬)을 코드로 만든다.
-    // 저장소에는 결과물이 이미 들어 있으므로 평소에는 실행할 필요가 없다. 버그가 심어진 값(랩 10 프리팹의 100, 랩 32 의 Preload 끔,
-    // 랩 42 의 Exit Time 0.7)도 여기서 정해진다. 학습자가 고친 에셋을 원래대로 되돌리려면 git restore 를 쓰는 편이 낫다.
+    // 저장소에는 결과물이 이미 들어 있으므로 평소에는 실행할 필요가 없다. 버그가 심어진 값(랩 10 프리팹의 100, 랩 40 의 Preload 끔,
+    // 랩 50 의 Exit Time 0.7)도 여기서 정해진다. 학습자가 고친 에셋을 원래대로 되돌리려면 git restore 를 쓰는 편이 낫다.
     // ラボが使うアセット (音、アイコン、マテリアル、プレハブ、アニメーション、モデルのメッシュ、シーン) をコードで作ります。
-    // リポジトリには生成物がすでに入っているので、普段は実行する必要はありません。バグが仕込まれた値 (ラボ 10 のプレハブの 100、ラボ 32 の Preload オフ、
-    // ラボ 42 の 終了時間 0.7) もここで決まります。学習者が直したアセットを元に戻すには git restore を使うほうがよいです。
+    // リポジトリには生成物がすでに入っているので、普段は実行する必要はありません。バグが仕込まれた値 (ラボ 10 のプレハブの 100、ラボ 40 の Preload オフ、
+    // ラボ 50 の 終了時間 0.7) もここで決まります。学習者が直したアセットを元に戻すには git restore を使うほうがよいです。
     public static class BugHuntAssetBuilder
     {
         const string Root = "Assets/BugHunt/Resources/BugHunt";
@@ -53,9 +53,9 @@ namespace BugHunt.Editor
 
         // ---------------------------------------------------------------- 소리 / 音
         // 소리만 다시 만들기: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildAudio
-        // 파일마다 음 높이를 달리해 소리끼리 구분된다. 길이는 판정에 쓰인다(랩 34: 0.2초 뒤, 랩 35: 1초 뒤 재생 중이어야 함).
+        // 파일마다 음 높이를 달리해 소리끼리 구분된다. 길이는 판정에 쓰인다(랩 42: 0.2초 뒤, 랩 43: 1초 뒤 재생 중이어야 함).
         // 音だけ作り直す: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildAudio
-        // ファイルごとに音の高さを変えてあるので、音同士を聞き分けられます。長さは判定に使われます (ラボ 34: 0.2 秒後、ラボ 35: 1 秒後に再生中であること)。
+        // ファイルごとに音の高さを変えてあるので、音同士を聞き分けられます。長さは判定に使われます (ラボ 42: 0.2 秒後、ラボ 43: 1 秒後に再生中であること)。
         public static void BuildAudio()
         {
             WriteTone("blaster", 0.3f, 880f);
@@ -66,8 +66,8 @@ namespace BugHunt.Editor
             WriteTone("grunt", 0.3f, 660f);
             AssetDatabase.Refresh();
 
-            // 랩 32 의 버그: 메모리를 아끼려고 미리 로드를 껐다.
-            // ラボ 32 のバグ: メモリを節約しようとして事前ロードをオフにした。
+            // 랩 40 의 버그: 메모리를 아끼려고 미리 로드를 껐다.
+            // ラボ 40 のバグ: メモリを節約しようとして事前ロードをオフにした。
             var importer = (AudioImporter)AssetImporter.GetAtPath($"{Root}/Audio/blaster.wav");
             importer.loadInBackground = true;
             AudioImporterSampleSettings settings = importer.defaultSampleSettings;
@@ -140,11 +140,11 @@ namespace BugHunt.Editor
             AssetDatabase.CreateAsset(crate, $"{Root}/Materials/Crate.mat");
         }
 
-        // ---------------------------------------------------------------- 랩 63: 피벗이 가운데인 모델 / ラボ 63: ピボットが真ん中のモデル
+        // ---------------------------------------------------------------- 랩 23: 피벗이 가운데인 모델 / ラボ 23: ピボットが真ん中のモデル
         // 모델만 다시 만들기: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildModels
-        // 랩 63 의 버그 재료: 외주 모델처럼 피벗(메시 원점)이 경첩이나 발이 아니라 메시 한가운데에 있다.
+        // 랩 23 의 버그 재료: 외주 모델처럼 피벗(메시 원점)이 경첩이나 발이 아니라 메시 한가운데에 있다.
         // モデルだけ作り直す: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildModels
-        // ラボ 63 のバグの材料: 外注のモデルのように、ピボット (メッシュの原点) がちょうつがいや足ではなくメッシュの真ん中にある。
+        // ラボ 23 のバグの材料: 外注のモデルのように、ピボット (メッシュの原点) がちょうつがいや足ではなくメッシュの真ん中にある。
         public static void BuildModels()
         {
             Directory.CreateDirectory($"{Root}/Models");
@@ -209,8 +209,8 @@ namespace BugHunt.Editor
         {
             string dir = $"{Root}/Animation";
 
-            // 랩 40: Idle --(Attack 트리거)--> Attack --(끝나면)--> Idle
-            // ラボ 40: Idle --(Attack トリガー)--> Attack --(終わったら)--> Idle
+            // 랩 48: Idle --(Attack 트리거)--> Attack --(끝나면)--> Idle
+            // ラボ 48: Idle --(Attack トリガー)--> Attack --(終わったら)--> Idle
             AnimationClip knightIdle = Clip($"{dir}/Knight_Idle.anim", "Body", 1f, true, 0f, 0.05f);
             AnimationClip knightAttack = Clip($"{dir}/Knight_Attack.anim", "Body", 0.6f, false, 0f, 0.5f);
             var knight = AnimatorController.CreateAnimatorControllerAtPath($"{dir}/Knight.controller");
@@ -230,8 +230,8 @@ namespace BugHunt.Editor
             attackDone.exitTime = 1f;
             attackDone.duration = 0.1f;
 
-            // 랩 41: 걷기 1초, 발소리 이벤트 0.25초·0.75초
-            // ラボ 41: 歩き 1 秒、足音イベント 0.25 秒・0.75 秒
+            // 랩 49: 걷기 1초, 발소리 이벤트 0.25초·0.75초
+            // ラボ 49: 歩き 1 秒、足音イベント 0.25 秒・0.75 秒
             AnimationClip walk = Clip($"{dir}/Guard_Walk.anim", "Body", 1f, true, 0f, 0.1f);
             AnimationUtility.SetAnimationEvents(walk, new[]
             {
@@ -241,8 +241,8 @@ namespace BugHunt.Editor
             var guard = AnimatorController.CreateAnimatorControllerAtPath($"{dir}/Guard.controller");
             guard.layers[0].stateMachine.AddState("Walk").motion = walk;
 
-            // 랩 42: Swing 1초, Hit 이벤트 0.9초. 버그: Swing → Idle 이 0.7 에 시작해 0.8 에 끝난다.
-            // ラボ 42: Swing 1 秒、Hit イベント 0.9 秒。バグ: Swing → Idle が 0.7 で始まり 0.8 で終わる。
+            // 랩 50: Swing 1초, Hit 이벤트 0.9초. 버그: Swing → Idle 이 0.7 에 시작해 0.8 에 끝난다.
+            // ラボ 50: Swing 1 秒、Hit イベント 0.9 秒。バグ: Swing → Idle が 0.7 で始まり 0.8 で終わる。
             AnimationClip swordIdle = Clip($"{dir}/Swordsman_Idle.anim", "Blade", 1f, true, 0f, 0f);
             AnimationClip swing = Clip($"{dir}/Swordsman_Swing.anim", "Blade", 1f, false, 0f, 1f);
             AnimationUtility.SetAnimationEvents(swing, new[]
@@ -267,8 +267,8 @@ namespace BugHunt.Editor
             swingDone.hasFixedDuration = false;
             swingDone.duration = 0.1f;
 
-            // 랩 43: 손이 0.5초 주기로 좌우로 흔들린다
-            // ラボ 43: 手が 0.5 秒周期で左右に揺れる
+            // 랩 51: 손이 0.5초 주기로 좌우로 흔들린다
+            // ラボ 51: 手が 0.5 秒周期で左右に揺れる
             var wave = new AnimationClip { name = "Waver_Wave" };
             wave.SetCurve("Hand", typeof(Transform), "m_LocalPosition.x",
                 new AnimationCurve(new Keyframe(0f, -1f), new Keyframe(0.25f, 1f), new Keyframe(0.5f, -1f)));
