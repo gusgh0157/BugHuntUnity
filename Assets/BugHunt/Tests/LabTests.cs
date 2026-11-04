@@ -86,5 +86,13 @@ namespace BugHunt.Tests
         [UnityTest] public IEnumerator Lab53_BulletPool() => Run(53);
         [UnityTest] public IEnumerator Lab54_FlameThrower() => Run(54);
         [UnityTest] public IEnumerator Lab55_HealingAura() => Run(55);
+        [UnityTest] public IEnumerator Lab56_CartRide() => Run(56);
+        [UnityTest] public IEnumerator Lab57_SwordPickup() => Run(57);
+        [UnityTest] public IEnumerator Lab58_Windmill() => Run(58);
+        [UnityTest] public IEnumerator Lab59_CannonAim() => Run(59);
+        [UnityTest] public IEnumerator Lab60_TurnAndShoot() => Run(60);
+        [UnityTest] public IEnumerator Lab61_DroneSearchlight() => Run(61);
+        [UnityTest] public IEnumerator Lab62_StretchedBridge() => Run(62);
+        [UnityTest] public IEnumerator Lab63_GateAndStatue() => Run(63);
     }
 }

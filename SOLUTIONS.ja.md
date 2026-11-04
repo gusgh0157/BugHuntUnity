@@ -1116,3 +1116,153 @@ void Update()
 }
 ```
 **教訓:** 配列を返す API (`OverlapSphere`、`RaycastAll`、`GetComponents<T>()`、`GetComponentsInChildren<T>()`、`FindObjectsByType`、`Mesh.vertices`) には、たいていバッファを埋める対 (`NonAlloc`、`List<T>` を受け取るオーバーロード、`GetVertices(List)`) があります。バッファが小さいとあふれた結果は **黙って捨てられる** ので、返ってきた個数がバッファサイズと同じときは警告を残します (隠しケースは味方 30 人)。バッファを関数の外に出すと、ラボ 20 の共有バグになります。
+
+---
+
+# 第11部: トランスフォームと空間
+
+## ラボ 56 — ワールド座標を localPosition に入れた
+```
+間違った結果:   乗った直後の商人と席の距離 7.211m (荷車が進んだ後も 7.211m)
+止まった位置:   Cart.Board の最後 → ウォッチ式 Seat.position (6, 1, 3.5)、rider.localPosition (6, 1, 3.5)、rider.position (12, 1, 7.5)
+最初にずれた所: rider.position - Seat.position = (6, 0, 4) = 荷車の位置。ワールド座標に親の位置がもう一度足された
+本当の原因:     Seat.position はワールド座標なのに、親 (荷車) 基準の localPosition に入れた。荷車が原点にあるときだけ 2 つが同じになる
+```
+**修正:**
+```csharp
+public void Board(Transform rider)
+{
+    rider.SetParent(transform);
+    rider.position = Seat.position;   // ワールド = ワールド
+}
+```
+**教訓:** `position`/`rotation`/`lossyScale` はワールド、`localPosition`/`localRotation`/`localScale` は親基準です。インスペクターのトランスフォーム (Transform) が表示しているのは **ローカル** の値です。親が原点・回転なし・スケール 1 だと 2 つが同じなのでテストで隠れます。親を動かし、回してからテストします。席そのものを親にして (`SetParent(Seat, false)` + `localPosition = Vector3.zero`) 座標系を 1 つに減らしても構いません。
+
+## ラボ 57 — SetParent の worldPositionStays を逆に使った
+```
+間違った結果:   拾った直後の剣と手の距離 3.496m、向きの差 96.7 度。置いた剣は手があった場所から 4.258m、見た目の大きさ 0.5 (期待 2)
+止まった位置:   Hand.PickUp の SetParent の次 → item.position はそのまま (床)、item.localPosition だけが変わる
+              Hand.Drop の SetParent の次 → item.localPosition はそのまま、item.position が原点付近に、lossyScale 2 → 0.5
+本当の原因:     SetParent(p) は worldPositionStays = true: ワールドの値を保つようにローカルの値を計算し直す (剣が床に残る)
+              SetParent(null, false) はローカルの値を保つ: 手を基準にしたローカルの値がワールドの値になり、親 (騎士の 2 倍 × 手) のスケールが抜ける
+```
+**修正:**
+```csharp
+public void PickUp(Transform item)
+{
+    item.SetParent(transform, false);   // 手のローカルの場所にはめる
+    item.localPosition = Vector3.zero;
+    item.localRotation = Quaternion.identity;
+    Held = item;
+}
+
+public void Drop()
+{
+    Held.SetParent(null);               // 見えている位置・回転・大きさのままにする
+    Held = null;
+}
+```
+**教訓:** 「付けるときはローカルの場所にはめ (`false` + ローカルの値を指定)、外すときは見えるままにする (`true`)」。スケールが 1 でない親の下に入る・出るとき、`worldPositionStays = true` は見た目の大きさを保つために localScale を変えます。シーンのルートに切り離したオブジェクトは親と一緒には破棄されないので、自分で片付ける必要があります (このラボの `OnDestroy`)。
+
+## ラボ 58 — eulerAngles を読んで足し、また書き込んだ
+```
+間違った結果:   120 フレーム (180 度) 後の羽根の向きの差 90 度。羽根が 90 度付近で震える
+止まった位置:   Windmill.Update に条件付きブレークポイント transform.eulerAngles.x > 85
+              → 88.5 に 1.5 を足して 90 を入れた次のフレーム、91.5 を入れたのに読んだ値は (88.5, 180, 180)
+本当の原因:     eulerAngles はクォータニオンから毎回計算し直した値で、X は -90~90 の範囲で返ってくる。X が 90 を超えると同じ回転 (180-x, y+180, z+180) として読まれ、
+              足し直した値が 90 のほうへ戻る (X = ±90 は Y と Z が同じ軸になるジンバルロックの場所)
+```
+**修正:**
+```csharp
+void Update()
+{
+    transform.Rotate(DegreesPerSecond * Time.deltaTime, 0f, 0f);   // rotation *= Quaternion.Euler(...)
+}
+```
+**教訓:** 回転を積み重ねるときは、オイラー値を読んで書き換えるのではなくクォータニオンを掛けます (`Rotate`、`rotation * Quaternion.AngleAxis(...)`)。角度 1 つだけを動かす演出なら、角度を自分の変数で持って毎回 `baseRotation * Quaternion.Euler(angle, 0, 0)` で作ります。インスペクターの回転 (Rotation) 欄はエディターが別に覚えている値なので、スクリプトの `eulerAngles` と違うことがあります。
+
+## ラボ 59 — クォータニオンの積の順序を逆にした
+```
+間違った結果:   標的 1 (軸 1 つだけが違う) は 0 度、標的 2 (横の高い所) は 9.131 度ずれる
+止まった位置:   Cannon.AimAt の最後 → yaw、pitch は正しい。ウォッチ式 Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(pitch, 0, 0) * Vector3.forward は direction と同じ
+本当の原因:     A * B は B を先に適用する。Euler(pitch) * Euler(yaw) は先に左右に回してからワールドの X 軸で上げるので、横を向いた砲身が上ではなく横に傾く
+              pitch か yaw が 0 なら順序は関係ないので、正面・同じ高さの標的では隠れる
+```
+**修正:**
+```csharp
+transform.rotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(pitch, 0f, 0f);
+// 同じ結果: Quaternion.Euler(pitch, yaw, 0f)  (Unity の Euler は Z → X → Y の順 = Ry * Rx * Rz)
+// 角度が要らなければ: Quaternion.LookRotation(direction)
+```
+**教訓:** クォータニオンの積は交換できません。`親側 (ワールド) の回転 * 子側 (ローカル) の回転` と読むと順序を合わせやすくなります。`Quaternion.Euler(x, y, z)` は Z、X、Y の順に回した結果なので、ほかのエンジン・ツール (例: XYZ の順) から持ってきた角度をそのまま入れてはいけません。
+
+## ラボ 60 — Vector3.forward で前へ動かした
+```
+間違った結果:   矢が飛んだ方向と敵の方向の差 123.69 度 (敵は南東なのに矢は北、+Z)
+止まった位置:   Arrow.Update → ウォッチ式 Vector3.forward (0, 0, 1)、transform.forward (0.83, 0, -0.55)
+本当の原因:     Vector3.forward は定数のワールド +Z。矢の回転は正しく入っているが、移動に使っていなかった
+```
+**修正:**
+```csharp
+transform.position += transform.forward * Speed * Time.deltaTime;
+// または transform.Translate(0f, 0f, Speed * Time.deltaTime);   // 既定は Space.Self
+```
+**教訓:** `Vector3.forward/right/up` はワールドの軸、`transform.forward/right/up` はそのオブジェクトの軸です。`Translate` の既定は自分の軸 (Space.Self) で、ワールドで動かすなら `Space.World`。シーンビューの ローカル / グローバル (Local / Global) トグルをローカルにすると、ギズモがオブジェクトの軸を表示します。敵をいつも +Z 側に置いてテストすると 2 つが同じなので隠れます。
+
+## ラボ 61 — 方向に TransformPoint、位置に InverseTransformDirection
+```
+間違った結果:   サーチライトの向きの差 81.994 度。ドローンの左前の侵入者を右と判定 (隠しケースでは右の侵入者を左と判定)
+止まった位置:   Drone.BeamDirection → ウォッチ式 transform.TransformPoint(LocalBeam) はドローンの位置付近の点、TransformDirection(LocalBeam) が欲しい方向
+              Drone.IsOnLeft → InverseTransformDirection(worldPoint).x には、ドローンの位置を回した値が混ざっている
+本当の原因:     Point は移動 (位置) まで適用し、Direction は回転だけを適用する。方向と位置に逆の関数を使った。ドローンが原点にあれば 2 つは同じ
+```
+**修正:**
+```csharp
+public Vector3 BeamDirection()
+{
+    return transform.TransformDirection(LocalBeam);
+}
+
+public bool IsOnLeft(Vector3 worldPoint)
+{
+    return transform.InverseTransformPoint(worldPoint).x < 0f;
+}
+```
+**教訓:** 位置は `TransformPoint`/`InverseTransformPoint` (回転・スケール・移動)、方向は `TransformDirection` (回転だけ、長さは保つ)、大きさを持つベクトル (オフセット、速度) は `TransformVector` (回転・スケール、移動なし)。名前に `worldPoint`、`localDirection` のように何なのかを残しておくと、組み合わせの合わない呼び出しが見えます。
+
+## ラボ 62 — スケールが均一でない親の下にローカルの値で置いた
+```
+間違った結果:   罠が期待する位置から 33.003m、見た目の大きさと 1m の立方体の差 11.196 (lossyScale (12, 0.4, 3))、底が橋の上面より 0.12m 下
+止まった位置:   Bridge.PlaceTrap の return → trap.localPosition (3, 0.7, 0)、trap.position は橋の中心から x 方向に 36m、trap.lossyScale (12, 0.4, 3)
+本当の原因:     子の localPosition と localScale は、親のスケール (12, 0.4, 3) を経由してワールドになる。メートル単位の値をそのままローカルに入れた
+```
+**修正:**
+```csharp
+trap.SetParent(transform, false);
+trap.position = transform.position + transform.rotation * new Vector3(offset, transform.localScale.y * 0.5f + 0.5f, 0f);
+trap.localScale = new Vector3(1f / transform.lossyScale.x, 1f / transform.lossyScale.y, 1f / transform.lossyScale.z);
+```
+**教訓:** 引き伸ばしたオブジェクト (スケール ≠ 1) の子は、位置もスケールも親のスケールが掛かります。スケールが均一でない親の下で子を回すと形がゆがみ (そのため `lossyScale` は近似値)、コライダーもおかしくなります。根本的には、ルート (スケール 1) の下に **見た目だけを受け持つ子** を置いて、その子だけを伸ばします。
+
+## ラボ 63 — ピボットがメッシュの真ん中にあるモデル
+```
+間違った結果:   開いた後のちょうつがい側の端がちょうつがいから 2.121m (= 1.5 × √2)。石像の足が床より 1m 下
+止まった位置:   Gate.Open → Rotate は transform.position (扉の真ん中) を軸に回る。ウォッチ式 gateMesh.bounds: center (0, 0, 0)、min (-1.5, -2, -0.15)
+              Plaza.PlaceOnFloor → statueMesh.bounds.min.y = -1
+ツール:         シーンビューの ピボット / 中心 (Pivot / Center) トグル: このモデルでは 2 つの位置が同じ (ピボットが真ん中)
+本当の原因:     Transform の回転・位置はピボット (メッシュの原点) 基準。コードはピボットがちょうつがい・足にあると仮定していたが、モデルは真ん中にピボットがある
+```
+**修正:**
+```csharp
+public void Open(float degrees)
+{
+    transform.RotateAround(Hinge, Vector3.up, degrees);
+}
+
+public static void PlaceOnFloor(Transform statue, Vector3 floorPoint)
+{
+    float bottom = statue.GetComponent<MeshFilter>().sharedMesh.bounds.min.y * statue.lossyScale.y;
+    statue.position = floorPoint - Vector3.up * bottom;
+}
+```
+**教訓:** モデルのピボットがどこにあるかは、コードではなくアセットが決めます。扉・レバー・石像のように「どの点を基準に」扱うモデルは、モデリングツールで原点を合わせるか、空の親 (ちょうつがいの位置、足の位置) を作ってモデルをその子にします。グラフィックスデバイスがないときや無効なレンダラーの `Renderer.bounds` は空のことがあるので、判定にはメッシュの bounds を使います。

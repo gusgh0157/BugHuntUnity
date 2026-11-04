@@ -8,10 +8,10 @@ using UnityEngine;
 
 namespace BugHunt.Editor
 {
-    // 랩이 쓰는 에셋(소리, 아이콘, 머티리얼, 프리팹, 애니메이션, 씬)을 코드로 만든다.
+    // 랩이 쓰는 에셋(소리, 아이콘, 머티리얼, 프리팹, 애니메이션, 모델 메시, 씬)을 코드로 만든다.
     // 저장소에는 결과물이 이미 들어 있으므로 평소에는 실행할 필요가 없다. 버그가 심어진 값(랩 10 프리팹의 100, 랩 32 의 Preload 끔,
     // 랩 42 의 Exit Time 0.7)도 여기서 정해진다. 학습자가 고친 에셋을 원래대로 되돌리려면 git restore 를 쓰는 편이 낫다.
-    // ラボが使うアセット (音、アイコン、マテリアル、プレハブ、アニメーション、シーン) をコードで作ります。
+    // ラボが使うアセット (音、アイコン、マテリアル、プレハブ、アニメーション、モデルのメッシュ、シーン) をコードで作ります。
     // リポジトリには生成物がすでに入っているので、普段は実行する必要はありません。バグが仕込まれた値 (ラボ 10 のプレハブの 100、ラボ 32 の Preload オフ、
     // ラボ 42 の 終了時間 0.7) もここで決まります。学習者が直したアセットを元に戻すには git restore を使うほうがよいです。
     public static class BugHuntAssetBuilder
@@ -34,7 +34,7 @@ namespace BugHunt.Editor
             PlayerSettings.colorSpace = ColorSpace.Linear;
             EditorSettings.serializationMode = SerializationMode.ForceText;
 
-            foreach (string folder in new[] { Root, $"{Root}/Audio", $"{Root}/Icons", $"{Root}/Materials", $"{Root}/Animation", "Assets/Scenes" })
+            foreach (string folder in new[] { Root, $"{Root}/Audio", $"{Root}/Icons", $"{Root}/Materials", $"{Root}/Animation", $"{Root}/Models", "Assets/Scenes" })
             {
                 Directory.CreateDirectory(folder);
             }
@@ -45,6 +45,7 @@ namespace BugHunt.Editor
             BuildSlimePrefab();
             BuildWeaponData();
             BuildAnimation();
+            BuildModels();
             BuildScene();
             AssetDatabase.SaveAssets();
             Debug.Log($"{Report.Tag} {Loc.T("랩 에셋을 만들었습니다.")}");
@@ -137,6 +138,51 @@ namespace BugHunt.Editor
         {
             var crate = new Material(Shader.Find("Standard")) { color = Color.white };
             AssetDatabase.CreateAsset(crate, $"{Root}/Materials/Crate.mat");
+        }
+
+        // ---------------------------------------------------------------- 랩 63: 피벗이 가운데인 모델 / ラボ 63: ピボットが真ん中のモデル
+        // 모델만 다시 만들기: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildModels
+        // 랩 63 의 버그 재료: 외주 모델처럼 피벗(메시 원점)이 경첩이나 발이 아니라 메시 한가운데에 있다.
+        // モデルだけ作り直す: Unity.exe -batchmode -quit -projectPath . -executeMethod BugHunt.Editor.BugHuntAssetBuilder.BuildModels
+        // ラボ 63 のバグの材料: 外注のモデルのように、ピボット (メッシュの原点) がちょうつがいや足ではなくメッシュの真ん中にある。
+        public static void BuildModels()
+        {
+            Directory.CreateDirectory($"{Root}/Models");
+            AssetDatabase.Refresh();
+            WriteBoxMesh("Gate", new Vector3(3f, 4f, 0.3f));
+            WriteBoxMesh("Statue", new Vector3(1f, 2f, 1f));
+            AssetDatabase.SaveAssets();
+        }
+
+        // 원점이 가운데인 상자. 면마다 정점을 따로 두어 법선이 면을 향한다.
+        // 原点が真ん中の箱。面ごとに頂点を別に持たせて、法線が面を向くようにする。
+        static void WriteBoxMesh(string name, Vector3 size)
+        {
+            Vector3 h = size * 0.5f;
+            Vector3[] normals = { Vector3.right, Vector3.left, Vector3.up, Vector3.down, Vector3.forward, Vector3.back };
+            var vertices = new System.Collections.Generic.List<Vector3>();
+            var faceNormals = new System.Collections.Generic.List<Vector3>();
+            var triangles = new System.Collections.Generic.List<int>();
+            foreach (Vector3 n in normals)
+            {
+                Vector3 u = Mathf.Abs(n.y) > 0.5f ? Vector3.right : Vector3.up;
+                Vector3 v = Vector3.Cross(n, u);
+                int start = vertices.Count;
+                foreach (var (a, b) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
+                {
+                    vertices.Add(Vector3.Scale(n + u * a + v * b, h));
+                    faceNormals.Add(n);
+                }
+                triangles.AddRange(new[] { start, start + 2, start + 1, start, start + 3, start + 2 });
+            }
+            var mesh = new Mesh { name = name };
+            mesh.SetVertices(vertices);
+            mesh.SetNormals(faceNormals);
+            mesh.SetTriangles(triangles, 0);
+            mesh.RecalculateBounds();
+            string path = $"{Root}/Models/{name}.asset";
+            AssetDatabase.DeleteAsset(path);
+            AssetDatabase.CreateAsset(mesh, path);
         }
 
         // ---------------------------------------------------------------- 랩 10: 패치 전 값이 저장된 프리팹 / ラボ 10: パッチ前の値が保存されたプレハブ

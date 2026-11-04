@@ -1116,3 +1116,153 @@ void Update()
 }
 ```
 **교훈:** 배열을 돌려주는 API(`OverlapSphere`, `RaycastAll`, `GetComponents<T>()`, `GetComponentsInChildren<T>()`, `FindObjectsByType`, `Mesh.vertices`)에는 대개 버퍼를 채우는 짝(`NonAlloc`, `List<T>` 를 받는 오버로드, `GetVertices(List)`)이 있다. 버퍼가 작으면 넘친 결과가 **조용히 버려지므로** 돌려받은 개수가 버퍼 크기와 같을 때 경고를 남긴다(숨은 케이스는 아군 30명). 버퍼를 함수 밖으로 내보내면 랩 20 의 공유 버그가 된다.
+
+---
+
+# 11부: 트랜스폼과 공간
+
+## Lab 56 — 월드 좌표를 localPosition 에 넣음
+```
+틀린 결과:     탄 직후 상인과 자리 사이 거리 7.211m (수레가 간 뒤에도 7.211m)
+멈춘 위치:     Cart.Board 끝 → 조사식 Seat.position (6, 1, 3.5), rider.localPosition (6, 1, 3.5), rider.position (12, 1, 7.5)
+처음 어긋난 곳: rider.position - Seat.position = (6, 0, 4) = 수레의 위치. 월드 좌표에 부모 위치가 한 번 더 더해졌다
+진짜 원인:     Seat.position 은 월드 좌표인데 부모(수레) 기준인 localPosition 에 넣었다. 수레가 원점에 있을 때만 둘이 같다
+```
+**수정:**
+```csharp
+public void Board(Transform rider)
+{
+    rider.SetParent(transform);
+    rider.position = Seat.position;   // 월드 = 월드
+}
+```
+**교훈:** `position`/`rotation`/`lossyScale` 은 월드, `localPosition`/`localRotation`/`localScale` 은 부모 기준이다. Inspector 의 Transform 이 보여 주는 것은 **로컬** 값이다. 부모가 원점·회전 없음·크기 1 이면 둘이 같아서 시험할 때 숨으므로, 부모를 옮기고 돌려 놓고 시험한다. 자리 자체를 부모로 삼아(`SetParent(Seat, false)` + `localPosition = Vector3.zero`) 좌표계를 하나로 줄여도 된다.
+
+## Lab 57 — SetParent 의 worldPositionStays 를 반대로 씀
+```
+틀린 결과:     주운 직후 검과 손 사이 3.496m, 방향 차이 96.7도. 내려놓은 검은 손이 있던 자리에서 4.258m, 보이는 크기 0.5 (기대 2)
+멈춘 위치:     Hand.PickUp 의 SetParent 다음 → item.position 은 그대로(바닥), item.localPosition 만 바뀜
+              Hand.Drop 의 SetParent 다음 → item.localPosition 은 그대로, item.position 이 원점 근처로, lossyScale 2 → 0.5
+진짜 원인:     SetParent(p) 는 worldPositionStays = true: 월드 값을 유지하도록 로컬 값을 다시 계산한다(검이 바닥에 남음)
+              SetParent(null, false) 는 로컬 값을 유지: 손 기준 로컬 값이 월드 값이 되고, 부모(기사 2배 × 손)의 크기가 빠진다
+```
+**수정:**
+```csharp
+public void PickUp(Transform item)
+{
+    item.SetParent(transform, false);   // 손의 로컬 자리에 끼운다
+    item.localPosition = Vector3.zero;
+    item.localRotation = Quaternion.identity;
+    Held = item;
+}
+
+public void Drop()
+{
+    Held.SetParent(null);               // 보이는 위치·회전·크기 그대로 둔다
+    Held = null;
+}
+```
+**교훈:** "붙일 때는 로컬 자리에 끼우고(`false` + 로컬 값 지정), 뗄 때는 보이는 그대로 둔다(`true`)". 크기가 1 이 아닌 부모 밑으로 들어가거나 나올 때 `worldPositionStays = true` 는 보이는 크기를 지키려고 localScale 을 바꾼다. 씬 루트로 뗀 오브젝트는 부모와 함께 파괴되지 않으므로 직접 정리해야 한다(이 랩의 `OnDestroy`).
+
+## Lab 58 — eulerAngles 를 읽어서 더하고 다시 씀
+```
+틀린 결과:     120 프레임(180도) 뒤 날개 방향 차이 90도. 날개가 90도 근처에서 떤다
+멈춘 위치:     Windmill.Update 에 조건부 중단점 transform.eulerAngles.x > 85
+              → 88.5 에 1.5 를 더해 90 을 넣은 다음 프레임, 91.5 를 넣었더니 읽은 값은 (88.5, 180, 180)
+진짜 원인:     eulerAngles 는 쿼터니언에서 매번 다시 계산한 값이고, X 는 -90~90 범위로 돌아온다. X 가 90 을 넘으면 같은 회전 (180-x, y+180, z+180) 으로 읽혀
+              다시 더한 값이 90 쪽으로 돌아간다 (X = ±90 은 Y 와 Z 가 같은 축이 되는 짐벌 락 자리)
+```
+**수정:**
+```csharp
+void Update()
+{
+    transform.Rotate(DegreesPerSecond * Time.deltaTime, 0f, 0f);   // rotation *= Quaternion.Euler(...)
+}
+```
+**교훈:** 회전을 누적할 때는 오일러 값을 읽어 고쳐 쓰지 말고 쿼터니언을 곱한다(`Rotate`, `rotation * Quaternion.AngleAxis(...)`). 각도 하나만 움직이는 연출이면 각도를 내 변수로 들고 매번 `baseRotation * Quaternion.Euler(angle, 0, 0)` 으로 만든다. Inspector 의 Rotation 칸은 에디터가 따로 기억하는 값이라 스크립트의 `eulerAngles` 와 다를 수 있다.
+
+## Lab 59 — 쿼터니언 곱의 순서를 거꾸로 씀
+```
+틀린 결과:     표적 1(축 하나만 다름)은 0도, 표적 2(옆쪽 높은 곳)는 9.131도 어긋남
+멈춘 위치:     Cannon.AimAt 끝 → yaw, pitch 는 맞다. 조사식 Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(pitch, 0, 0) * Vector3.forward 는 direction 과 같다
+진짜 원인:     A * B 는 B 를 먼저 적용한다. Euler(pitch) * Euler(yaw) 는 먼저 좌우로 돌린 뒤 월드 X 축으로 들어서, 옆을 보는 포신이 위가 아니라 옆으로 기운다
+              pitch 나 yaw 가 0 이면 순서가 상관없어 정면·같은 높이 표적에서는 숨는다
+```
+**수정:**
+```csharp
+transform.rotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(pitch, 0f, 0f);
+// 같은 결과: Quaternion.Euler(pitch, yaw, 0f)  (Unity 의 Euler 는 Z → X → Y 순서 = Ry * Rx * Rz)
+// 각도가 필요 없으면: Quaternion.LookRotation(direction)
+```
+**교훈:** 쿼터니언 곱은 교환되지 않는다. `부모 쪽(월드) 회전 * 자식 쪽(로컬) 회전` 으로 읽으면 순서를 맞추기 쉽다. `Quaternion.Euler(x, y, z)` 는 Z, X, Y 순서로 돌린 결과라, 다른 엔진·툴(예: XYZ 순서)에서 가져온 각도는 그대로 넣으면 안 된다.
+
+## Lab 60 — Vector3.forward 로 앞으로 움직임
+```
+틀린 결과:     화살이 날아간 방향과 적 방향 차이 123.69도 (적이 남동쪽인데 화살은 북쪽, +Z)
+멈춘 위치:     Arrow.Update → 조사식 Vector3.forward (0, 0, 1), transform.forward (0.83, 0, -0.55)
+진짜 원인:     Vector3.forward 는 상수 월드 +Z. 화살의 회전은 맞게 들어갔지만 이동에 쓰지 않았다
+```
+**수정:**
+```csharp
+transform.position += transform.forward * Speed * Time.deltaTime;
+// 또는 transform.Translate(0f, 0f, Speed * Time.deltaTime);   // 기본 Space.Self
+```
+**교훈:** `Vector3.forward/right/up` 은 월드 축, `transform.forward/right/up` 은 그 오브젝트의 축이다. `Translate` 는 기본이 자기 축(Space.Self), 월드로 움직이려면 `Space.World`. Scene 뷰의 Local / Global 토글을 Local 로 두면 기즈모가 오브젝트 축을 보여 준다. 적을 늘 +Z 쪽에 두고 시험하면 둘이 같아서 숨는다.
+
+## Lab 61 — 방향에 TransformPoint, 위치에 InverseTransformDirection
+```
+틀린 결과:     탐조등 방향 차이 81.994도. 드론 왼쪽 앞 침입자를 오른쪽으로 판정 (숨은 케이스에서는 오른쪽 침입자를 왼쪽으로)
+멈춘 위치:     Drone.BeamDirection → 조사식 transform.TransformPoint(LocalBeam) 은 드론 위치 근처의 점, TransformDirection(LocalBeam) 이 원하는 방향
+              Drone.IsOnLeft → InverseTransformDirection(worldPoint).x 에는 드론 위치를 돌린 값이 섞여 있다
+진짜 원인:     Point 는 이동(위치)까지 적용하고 Direction 은 회전만 적용한다. 방향과 위치에 반대 함수를 썼다. 드론이 원점에 있으면 둘이 같다
+```
+**수정:**
+```csharp
+public Vector3 BeamDirection()
+{
+    return transform.TransformDirection(LocalBeam);
+}
+
+public bool IsOnLeft(Vector3 worldPoint)
+{
+    return transform.InverseTransformPoint(worldPoint).x < 0f;
+}
+```
+**교훈:** 위치는 `TransformPoint`/`InverseTransformPoint`(회전·크기·이동), 방향은 `TransformDirection`(회전만, 길이 유지), 크기가 있는 벡터(오프셋, 속도)는 `TransformVector`(회전·크기, 이동 없음). 이름에 `worldPoint`, `localDirection` 처럼 무엇인지 남겨 두면 짝이 안 맞는 호출이 보인다.
+
+## Lab 62 — 크기가 고르지 않은 부모 밑에 로컬 값으로 놓음
+```
+틀린 결과:     함정이 기대 위치에서 33.003m, 보이는 크기와 1m 정육면체의 차이 11.196 (lossyScale (12, 0.4, 3)), 바닥이 다리 윗면보다 0.12m 아래
+멈춘 위치:     Bridge.PlaceTrap 의 return → trap.localPosition (3, 0.7, 0), trap.position 은 다리 중심에서 x 로 36m, trap.lossyScale (12, 0.4, 3)
+진짜 원인:     자식의 localPosition 과 localScale 은 부모 크기 (12, 0.4, 3) 를 거쳐 월드가 된다. 미터 단위 값을 그대로 로컬에 넣었다
+```
+**수정:**
+```csharp
+trap.SetParent(transform, false);
+trap.position = transform.position + transform.rotation * new Vector3(offset, transform.localScale.y * 0.5f + 0.5f, 0f);
+trap.localScale = new Vector3(1f / transform.lossyScale.x, 1f / transform.lossyScale.y, 1f / transform.lossyScale.z);
+```
+**교훈:** 늘린 오브젝트(크기 ≠ 1)의 자식은 위치·크기가 모두 부모 크기에 곱해진다. 크기가 고르지 않은 부모 밑에서 자식을 돌리면 모양이 찌그러지고(그래서 `lossyScale` 은 근삿값) 콜라이더도 이상해진다. 근본적으로는 루트(크기 1) 밑에 **보이는 모양만 맡는 자식**을 두고 그 자식만 늘린다.
+
+## Lab 63 — 피벗이 메시 가운데인 모델
+```
+틀린 결과:     연 뒤 경첩 쪽 끝이 경첩에서 2.121m (= 1.5 × √2). 석상 발이 바닥보다 1m 아래
+멈춘 위치:     Gate.Open → Rotate 는 transform.position(문짝 가운데)을 축으로 돈다. 조사식 gateMesh.bounds: center (0, 0, 0), min (-1.5, -2, -0.15)
+              Plaza.PlaceOnFloor → statueMesh.bounds.min.y = -1
+도구:          Scene 뷰 Pivot / Center 토글: 이 모델은 두 위치가 같다(피벗이 가운데)
+진짜 원인:     Transform 의 회전·위치는 피벗(메시 원점) 기준. 코드는 피벗이 경첩·발에 있다고 가정했지만 모델은 가운데에 피벗이 있다
+```
+**수정:**
+```csharp
+public void Open(float degrees)
+{
+    transform.RotateAround(Hinge, Vector3.up, degrees);
+}
+
+public static void PlaceOnFloor(Transform statue, Vector3 floorPoint)
+{
+    float bottom = statue.GetComponent<MeshFilter>().sharedMesh.bounds.min.y * statue.lossyScale.y;
+    statue.position = floorPoint - Vector3.up * bottom;
+}
+```
+**교훈:** 모델의 피벗이 어디인지는 코드가 아니라 에셋이 정한다. 문·레버·석상처럼 "어느 점을 기준으로" 다루는 모델은 모델링 툴에서 원점을 맞추거나, 빈 부모(경첩 위치, 발 위치)를 만들어 모델을 그 자식으로 둔다. 그래픽 장치가 없을 때나 꺼진 렌더러의 `Renderer.bounds` 는 비어 있을 수 있으니, 판정에는 메시 bounds 를 쓴다.
