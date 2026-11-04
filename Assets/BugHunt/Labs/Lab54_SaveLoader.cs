@@ -45,6 +45,8 @@ namespace BugHunt.Labs.Lab54
     [Lab(54, "세이브 불러오기", Symptom = "백그라운드 해석으로 바꾸자 \"can only be called from the main thread\"")]
     public class Lab54_SaveLoader : Lab
     {
+        Application.LogCallback onLog;
+
         public override IEnumerator Run()
         {
             int mainThreadId = Thread.CurrentThread.ManagedThreadId;
@@ -52,17 +54,27 @@ namespace BugHunt.Labs.Lab54
             var save = new SaveData { Name = Case("Knight_Ari", "Mage_Bom"), Scale = Case(1.5f, 0.8f) };
             yield return null;
 
+            // 시간이 아니라 "끝났거나 예외가 났거나" 로 기다린다(CPU 가 바쁘면 백그라운드 해석이 늦게 끝난다).
+            // 時間ではなく「終わったか、例外が出たか」で待つ (CPU が忙しいとバックグラウンドの解析が遅れて終わる)。
+            bool failed = false;
+            onLog = (message, stackTrace, type) => failed |= type == LogType.Exception || type == LogType.Error;
+            Application.logMessageReceivedThreaded += onLog;
             loader.Load(JsonUtility.ToJson(save));
-            float deadline = Time.realtimeSinceStartup + 3f;
-            while (!loader.Loaded && Time.realtimeSinceStartup < deadline)
+            while (!loader.Loaded && !failed)
             {
                 yield return null;
             }
+            Application.logMessageReceivedThreaded -= onLog;
 
             Report.ExpectTrue("해석을 백그라운드 스레드에서 함", loader.ParseThreadId != 0 && loader.ParseThreadId != mainThreadId);
             Report.ExpectTrue("불러오기 끝남", loader.Loaded);
             Report.Expect("캐릭터 이름", save.Name, loader.name);
             Report.ExpectNear("캐릭터 크기", save.Scale, loader.transform.localScale.x, 0.001f);
+        }
+
+        void OnDestroy()
+        {
+            Application.logMessageReceivedThreaded -= onLog;
         }
     }
 }

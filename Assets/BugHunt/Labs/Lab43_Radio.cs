@@ -46,6 +46,9 @@ namespace BugHunt.Labs.Lab43
             var voice = Spawn<PlayerVoice>("PlayerVoice");
 
             voice.PlayBriefing(briefing);
+            // 소리는 오디오 장치의 시계로 흐른다. 게임 시간(WaitForSeconds)은 프레임이 느리면 뒤처지므로 재생 위치는 이 시계와 비교한다.
+            // 音はオーディオデバイスの時計で進む。ゲーム時間 (WaitForSeconds) はフレームが遅いと遅れるので、再生位置はこの時計と比べる。
+            double started = AudioSettings.dspTime;
             yield return new WaitForSeconds(0.5f);
             bool audioWorks = voice.Source.isPlaying;   // 판정용 대조군: 맞기 전에는 재생 중이어야 한다 / 判定用の対照群: 被弾する前は再生中でなければならない
             voice.PlayHurt(grunt);
@@ -58,7 +61,9 @@ namespace BugHunt.Labs.Lab43
             }
             Report.Expect("1초 뒤 Source 에 걸린 클립", briefing, voice.Source.clip);
             Report.ExpectTrue("1초 뒤에도 브리핑 재생 중", voice.Source.isPlaying && voice.Source.clip == briefing);
-            Report.ExpectNear("브리핑 재생 위치(초)", 1f, voice.Source.time, 0.25f);
+            float elapsed = (float)(AudioSettings.dspTime - started);
+            Report.Note(Loc.F("재생을 시작한 뒤 오디오 시계로 {0:0.00}초", elapsed));
+            Report.ExpectNear("브리핑 재생 위치 - 재생을 시작한 뒤 흐른 시간(초)", 0f, voice.Source.time - elapsed, 0.25f);
         }
     }
 }

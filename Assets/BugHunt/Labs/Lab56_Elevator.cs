@@ -71,8 +71,15 @@ namespace BugHunt.Labs.Lab56
     [Lab(56, "엘리베이터", Symptom = "엘리베이터를 부르는 순간 게임 전체가 멈춘다(CPU 한 코어 100%)")]
     public class Lab56_Elevator : Lab
     {
+        float savedCaptureDeltaTime;
+
         public override IEnumerator Run()
         {
+            // 매 프레임 1/60 초가 흐르게 고정한다. CPU 가 바빠 프레임이 길어져도 엘리베이터가 움직이는 프레임 수가 늘 같다.
+            // 毎フレーム 1/60 秒が流れるよう固定する。CPU が忙しくてフレームが長くなっても、エレベーターが動くフレーム数はいつも同じ。
+            savedCaptureDeltaTime = Time.captureDeltaTime;
+            Time.captureDeltaTime = 1f / 60f;
+
             var elevator = Spawn<Elevator>("Elevator");
             elevator.Floor = Case(5, 8);
             elevator.TargetFloor = elevator.Floor;
@@ -93,6 +100,11 @@ namespace BugHunt.Labs.Lab56
             Report.ExpectTrue("승객이 도착함", passenger.Arrived);
             Report.Expect("승객이 있는 층", destination, passenger.Floor);
             Report.ExpectTrue(Loc.F("기다리는 동안 게임이 계속 돎 ({0}프레임)", Time.frameCount - startFrame), Time.frameCount - startFrame > 10);
+        }
+
+        void OnDestroy()
+        {
+            Time.captureDeltaTime = savedCaptureDeltaTime;
         }
     }
 }

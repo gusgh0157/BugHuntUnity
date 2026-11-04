@@ -10,7 +10,7 @@ namespace BugHunt
             ("ShopWindow.Open: 세이브에서 금화 읽기를 기다림", "ShopWindow.Open: セーブからの金貨の読み込みを待機"),
             ("메인 스레드의 SynchronizationContext: {0}", "メインスレッドの SynchronizationContext: {0}"),
             ("상점에 보이는 금화", "ショップに表示される金貨"),
-            ("Open 이 메인 스레드를 막은 시간 {0}ms (한 프레임 16ms 이하)", "Open がメインスレッドをブロックした時間 {0}ms (1 フレーム 16ms 以下)"),
+            ("Open 이 메인 스레드를 막은 시간 {0}ms (읽기 지연 {1}ms 의 절반 이하)", "Open がメインスレッドをブロックした時間 {0}ms (読み込みの遅延 {1}ms の半分以下)"),
         };
     }
 }

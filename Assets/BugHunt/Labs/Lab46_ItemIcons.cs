@@ -78,8 +78,7 @@ namespace BugHunt.Labs.Lab46
             // 늦게 오는 아이콘이 다 읽힐 때까지 기다린다(그래픽 장치가 있으면 텍스처 업로드로 몇 프레임 더 걸린다).
             // 遅れて届くアイコンが読み込み終わるまで待つ (グラフィックスデバイスがあると、テクスチャのアップロードで数フレーム余計にかかる)。
             ResourceRequest slowLoad = Resources.LoadAsync<Texture2D>($"BugHunt/Icons/icon_{slow}");
-            float deadline = Time.realtimeSinceStartup + 5f;
-            while (!slowLoad.isDone && Time.realtimeSinceStartup < deadline)
+            while (!slowLoad.isDone)
             {
                 yield return null;
             }

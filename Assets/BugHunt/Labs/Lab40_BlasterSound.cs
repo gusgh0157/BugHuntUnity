@@ -47,6 +47,12 @@ namespace BugHunt.Labs.Lab40
             var blaster = Spawn<Blaster>("Blaster");
             blaster.Equip(clip);
             yield return new WaitForSeconds(0.5f);   // 플레이어가 무기를 꺼내 조준하는 시간 / プレイヤーが武器を取り出して狙いを付ける時間
+            // 미리 올리는 중이면 끝날 때까지 조준을 더 한다(CPU 가 바쁘면 백그라운드 로드가 늦다). 미리 올리지 않았으면 Unloaded 그대로라 기다리지 않는다.
+            // 事前ロード中なら終わるまで狙い続ける (CPU が忙しいとバックグラウンドのロードが遅れる)。事前ロードしていなければ Unloaded のままなので待たない。
+            while (clip.loadState == AudioDataLoadState.Loading)
+            {
+                yield return null;
+            }
 
             AudioDataLoadState stateAtFire = clip.loadState;
             int fireFrame = Time.frameCount;

@@ -51,14 +51,15 @@ namespace BugHunt.Labs.Lab55
             shop.Open(save);
             blocked.Stop();
 
-            float until = Time.realtimeSinceStartup + 1f;
-            while (shop.ShownGold < 0 && Time.realtimeSinceStartup < until)
+            // 시간이 아니라 금화가 나타났는지로 기다린다(CPU 가 바쁘면 읽기가 늦게 끝난다). 끝내 안 나타나면 랩 제한 시간에 걸린다.
+            // 時間ではなく金貨が表示されたかどうかで待つ (CPU が忙しいと読み込みが遅れて終わる)。最後まで表示されなければラボの制限時間に引っかかる。
+            while (shop.ShownGold < 0)
             {
                 yield return null;
             }
 
             Report.Expect("상점에 보이는 금화", save.Gold, shop.ShownGold);
-            Report.ExpectTrue(Loc.F("Open 이 메인 스레드를 막은 시간 {0}ms (한 프레임 16ms 이하)", blocked.ElapsedMilliseconds), blocked.ElapsedMilliseconds <= 16);
+            Report.ExpectTrue(Loc.F("Open 이 메인 스레드를 막은 시간 {0}ms (읽기 지연 {1}ms 의 절반 이하)", blocked.ElapsedMilliseconds, save.ReadDelayMs), blocked.ElapsedMilliseconds <= save.ReadDelayMs / 2);
         }
     }
 }

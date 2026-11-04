@@ -58,15 +58,11 @@ namespace BugHunt.Labs.Lab52
 
             var tasks = buyers.Select(b => shop.BuyAsync(b)).ToArray();
             var all = Task.WhenAll(tasks);
-            float deadline = Time.realtimeSinceStartup + 10f;
-            while (!all.IsCompleted && Time.realtimeSinceStartup < deadline)
+            // 시간이 아니라 요청이 모두 끝났는지로 기다린다(CPU 가 바쁘면 워커 스레드가 늦게 돈다). 끝내 안 끝나면 랩 제한 시간에 걸린다.
+            // 時間ではなくリクエストがすべて終わったかどうかで待つ (CPU が忙しいとワーカースレッドの実行が遅れる)。最後まで終わらなければラボの制限時間に引っかかる。
+            while (!all.IsCompleted)
             {
                 yield return null;
-            }
-            Report.ExpectTrue("구매 요청이 모두 끝남", all.IsCompleted);
-            if (!all.IsCompleted)
-            {
-                yield break;
             }
 
             Report.Expect("팔린 수", stock, tasks.Count(t => t.Result));

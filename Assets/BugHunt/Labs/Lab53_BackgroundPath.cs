@@ -53,8 +53,13 @@ namespace BugHunt.Labs.Lab53
             yield return null;
 
             Task task = robot.GoTo(robot.transform.position, goal);
-            float deadline = Time.realtimeSinceStartup + 3f;
-            while (!robot.Arrived && Time.realtimeSinceStartup < deadline)
+            // 시간이 아니라 끝났는지로 기다린다(CPU 가 바쁘면 워커 스레드가 늦게 돈다). 끝난 뒤 메인 스레드로 넘긴 일이 돌 몇 프레임을 더 준다.
+            // 時間ではなく終わったかどうかで待つ (CPU が忙しいとワーカースレッドの実行が遅れる)。終わった後、メインスレッドに渡した処理が動く数フレームを追加で与える。
+            while (!task.IsCompleted && !robot.Arrived)
+            {
+                yield return null;
+            }
+            for (int i = 0; i < 10 && !robot.Arrived; ++i)
             {
                 yield return null;
             }
