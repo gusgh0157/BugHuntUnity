@@ -48,8 +48,8 @@ namespace BugHunt
             return false;
         }
 
-        // Project Settings → Editor → Enter Play Mode Settings 를 사람이 읽을 수 있게 (랩 26)
-        // プロジェクト設定 → エディター → 再生モード開始時設定 を人が読める形に (ラボ 26)
+        // Project Settings → Editor → Enter Play Mode Settings 를 사람이 읽을 수 있게 (랩 34)
+        // プロジェクト設定 → エディター → 再生モード開始時設定 を人が読める形に (ラボ 34)
         public static string EnterPlayModeDescription()
         {
 #if UNITY_EDITOR

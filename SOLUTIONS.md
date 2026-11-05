@@ -306,9 +306,159 @@ yield return new WaitForSecondsRealtime(1f);
 
 ---
 
-# 3부: 컨테이너
+# 3부: 트랜스폼과 공간
 
-## Lab 16 — 상수 길이로 배열을 돌고, 바깥 번호를 확인하지 않음
+## Lab 16 — 월드 좌표를 localPosition 에 넣음
+```
+틀린 결과:     탄 직후 상인과 자리 사이 거리 7.211m (수레가 간 뒤에도 7.211m)
+멈춘 위치:     Cart.Board 끝 → 조사식 Seat.position (6, 1, 3.5), rider.localPosition (6, 1, 3.5), rider.position (12, 1, 7.5)
+처음 어긋난 곳: rider.position - Seat.position = (6, 0, 4) = 수레의 위치. 월드 좌표에 부모 위치가 한 번 더 더해졌다
+진짜 원인:     Seat.position 은 월드 좌표인데 부모(수레) 기준인 localPosition 에 넣었다. 수레가 원점에 있을 때만 둘이 같다
+```
+**수정:**
+```csharp
+public void Board(Transform rider)
+{
+    rider.SetParent(transform);
+    rider.position = Seat.position;   // 월드 = 월드
+}
+```
+**교훈:** `position`/`rotation`/`lossyScale` 은 월드, `localPosition`/`localRotation`/`localScale` 은 부모 기준이다. Inspector 의 Transform 이 보여 주는 것은 **로컬** 값이다. 부모가 원점·회전 없음·크기 1 이면 둘이 같아서 시험할 때 숨으므로, 부모를 옮기고 돌려 놓고 시험한다. 자리 자체를 부모로 삼아(`SetParent(Seat, false)` + `localPosition = Vector3.zero`) 좌표계를 하나로 줄여도 된다.
+
+## Lab 17 — SetParent 의 worldPositionStays 를 반대로 씀
+```
+틀린 결과:     주운 직후 검과 손 사이 3.496m, 방향 차이 96.7도. 내려놓은 검은 손이 있던 자리에서 4.258m, 보이는 크기 0.5 (기대 2)
+멈춘 위치:     Hand.PickUp 의 SetParent 다음 → item.position 은 그대로(바닥), item.localPosition 만 바뀜
+              Hand.Drop 의 SetParent 다음 → item.localPosition 은 그대로, item.position 이 원점 근처로, lossyScale 2 → 0.5
+진짜 원인:     SetParent(p) 는 worldPositionStays = true: 월드 값을 유지하도록 로컬 값을 다시 계산한다(검이 바닥에 남음)
+              SetParent(null, false) 는 로컬 값을 유지: 손 기준 로컬 값이 월드 값이 되고, 부모(기사 2배 × 손)의 크기가 빠진다
+```
+**수정:**
+```csharp
+public void PickUp(Transform item)
+{
+    item.SetParent(transform, false);   // 손의 로컬 자리에 끼운다
+    item.localPosition = Vector3.zero;
+    item.localRotation = Quaternion.identity;
+    Held = item;
+}
+
+public void Drop()
+{
+    Held.SetParent(null);               // 보이는 위치·회전·크기 그대로 둔다
+    Held = null;
+}
+```
+**교훈:** "붙일 때는 로컬 자리에 끼우고(`false` + 로컬 값 지정), 뗄 때는 보이는 그대로 둔다(`true`)". 크기가 1 이 아닌 부모 밑으로 들어가거나 나올 때 `worldPositionStays = true` 는 보이는 크기를 지키려고 localScale 을 바꾼다. 씬 루트로 뗀 오브젝트는 부모와 함께 파괴되지 않으므로 직접 정리해야 한다(이 랩의 `OnDestroy`).
+
+## Lab 18 — eulerAngles 를 읽어서 더하고 다시 씀
+```
+틀린 결과:     120 프레임(180도) 뒤 날개 방향 차이 90도. 날개가 90도 근처에서 떤다
+멈춘 위치:     Windmill.Update 에 조건부 중단점 transform.eulerAngles.x > 85
+              → 88.5 에 1.5 를 더해 90 을 넣은 다음 프레임, 91.5 를 넣었더니 읽은 값은 (88.5, 180, 180)
+진짜 원인:     eulerAngles 는 쿼터니언에서 매번 다시 계산한 값이고, X 는 -90~90 범위로 돌아온다. X 가 90 을 넘으면 같은 회전 (180-x, y+180, z+180) 으로 읽혀
+              다시 더한 값이 90 쪽으로 돌아간다 (X = ±90 은 Y 와 Z 가 같은 축이 되는 짐벌 락 자리)
+```
+**수정:**
+```csharp
+void Update()
+{
+    transform.Rotate(DegreesPerSecond * Time.deltaTime, 0f, 0f);   // rotation *= Quaternion.Euler(...)
+}
+```
+**교훈:** 회전을 누적할 때는 오일러 값을 읽어 고쳐 쓰지 말고 쿼터니언을 곱한다(`Rotate`, `rotation * Quaternion.AngleAxis(...)`). 각도 하나만 움직이는 연출이면 각도를 내 변수로 들고 매번 `baseRotation * Quaternion.Euler(angle, 0, 0)` 으로 만든다. Inspector 의 Rotation 칸은 에디터가 따로 기억하는 값이라 스크립트의 `eulerAngles` 와 다를 수 있다.
+
+## Lab 19 — 쿼터니언 곱의 순서를 거꾸로 씀
+```
+틀린 결과:     표적 1(축 하나만 다름)은 0도, 표적 2(옆쪽 높은 곳)는 9.131도 어긋남
+멈춘 위치:     Cannon.AimAt 끝 → yaw, pitch 는 맞다. 조사식 Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(pitch, 0, 0) * Vector3.forward 는 direction 과 같다
+진짜 원인:     A * B 는 B 를 먼저 적용한다. Euler(pitch) * Euler(yaw) 는 먼저 좌우로 돌린 뒤 월드 X 축으로 들어서, 옆을 보는 포신이 위가 아니라 옆으로 기운다
+              pitch 나 yaw 가 0 이면 순서가 상관없어 정면·같은 높이 표적에서는 숨는다
+```
+**수정:**
+```csharp
+transform.rotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(pitch, 0f, 0f);
+// 같은 결과: Quaternion.Euler(pitch, yaw, 0f)  (Unity 의 Euler 는 Z → X → Y 순서 = Ry * Rx * Rz)
+// 각도가 필요 없으면: Quaternion.LookRotation(direction)
+```
+**교훈:** 쿼터니언 곱은 교환되지 않는다. `부모 쪽(월드) 회전 * 자식 쪽(로컬) 회전` 으로 읽으면 순서를 맞추기 쉽다. `Quaternion.Euler(x, y, z)` 는 Z, X, Y 순서로 돌린 결과라, 다른 엔진·툴(예: XYZ 순서)에서 가져온 각도는 그대로 넣으면 안 된다.
+
+## Lab 20 — Vector3.forward 로 앞으로 움직임
+```
+틀린 결과:     화살이 날아간 방향과 적 방향 차이 123.69도 (적이 남동쪽인데 화살은 북쪽, +Z)
+멈춘 위치:     Arrow.Update → 조사식 Vector3.forward (0, 0, 1), transform.forward (0.83, 0, -0.55)
+진짜 원인:     Vector3.forward 는 상수 월드 +Z. 화살의 회전은 맞게 들어갔지만 이동에 쓰지 않았다
+```
+**수정:**
+```csharp
+transform.position += transform.forward * Speed * Time.deltaTime;
+// 또는 transform.Translate(0f, 0f, Speed * Time.deltaTime);   // 기본 Space.Self
+```
+**교훈:** `Vector3.forward/right/up` 은 월드 축, `transform.forward/right/up` 은 그 오브젝트의 축이다. `Translate` 는 기본이 자기 축(Space.Self), 월드로 움직이려면 `Space.World`. Scene 뷰의 Local / Global 토글을 Local 로 두면 기즈모가 오브젝트 축을 보여 준다. 적을 늘 +Z 쪽에 두고 시험하면 둘이 같아서 숨는다.
+
+## Lab 21 — 방향에 TransformPoint, 위치에 InverseTransformDirection
+```
+틀린 결과:     탐조등 방향 차이 81.994도. 드론 왼쪽 앞 침입자를 오른쪽으로 판정 (숨은 케이스에서는 오른쪽 침입자를 왼쪽으로)
+멈춘 위치:     Drone.BeamDirection → 조사식 transform.TransformPoint(LocalBeam) 은 드론 위치 근처의 점, TransformDirection(LocalBeam) 이 원하는 방향
+              Drone.IsOnLeft → InverseTransformDirection(worldPoint).x 에는 드론 위치를 돌린 값이 섞여 있다
+진짜 원인:     Point 는 이동(위치)까지 적용하고 Direction 은 회전만 적용한다. 방향과 위치에 반대 함수를 썼다. 드론이 원점에 있으면 둘이 같다
+```
+**수정:**
+```csharp
+public Vector3 BeamDirection()
+{
+    return transform.TransformDirection(LocalBeam);
+}
+
+public bool IsOnLeft(Vector3 worldPoint)
+{
+    return transform.InverseTransformPoint(worldPoint).x < 0f;
+}
+```
+**교훈:** 위치는 `TransformPoint`/`InverseTransformPoint`(회전·크기·이동), 방향은 `TransformDirection`(회전만, 길이 유지), 크기가 있는 벡터(오프셋, 속도)는 `TransformVector`(회전·크기, 이동 없음). 이름에 `worldPoint`, `localDirection` 처럼 무엇인지 남겨 두면 짝이 안 맞는 호출이 보인다.
+
+## Lab 22 — 크기가 고르지 않은 부모 밑에 로컬 값으로 놓음
+```
+틀린 결과:     함정이 기대 위치에서 33.003m, 보이는 크기와 1m 정육면체의 차이 11.196 (lossyScale (12, 0.4, 3)), 바닥이 다리 윗면보다 0.12m 아래
+멈춘 위치:     Bridge.PlaceTrap 의 return → trap.localPosition (3, 0.7, 0), trap.position 은 다리 중심에서 x 로 36m, trap.lossyScale (12, 0.4, 3)
+진짜 원인:     자식의 localPosition 과 localScale 은 부모 크기 (12, 0.4, 3) 를 거쳐 월드가 된다. 미터 단위 값을 그대로 로컬에 넣었다
+```
+**수정:**
+```csharp
+trap.SetParent(transform, false);
+trap.position = transform.position + transform.rotation * new Vector3(offset, transform.localScale.y * 0.5f + 0.5f, 0f);
+trap.localScale = new Vector3(1f / transform.lossyScale.x, 1f / transform.lossyScale.y, 1f / transform.lossyScale.z);
+```
+**교훈:** 늘린 오브젝트(크기 ≠ 1)의 자식은 위치·크기가 모두 부모 크기에 곱해진다. 크기가 고르지 않은 부모 밑에서 자식을 돌리면 모양이 찌그러지고(그래서 `lossyScale` 은 근삿값) 콜라이더도 이상해진다. 근본적으로는 루트(크기 1) 밑에 **보이는 모양만 맡는 자식**을 두고 그 자식만 늘린다.
+
+## Lab 23 — 피벗이 메시 가운데인 모델
+```
+틀린 결과:     연 뒤 경첩 쪽 끝이 경첩에서 2.121m (= 1.5 × √2). 석상 발이 바닥보다 1m 아래
+멈춘 위치:     Gate.Open → Rotate 는 transform.position(문짝 가운데)을 축으로 돈다. 조사식 gateMesh.bounds: center (0, 0, 0), min (-1.5, -2, -0.15)
+              Plaza.PlaceOnFloor → statueMesh.bounds.min.y = -1
+도구:          Scene 뷰 Pivot / Center 토글: 이 모델은 두 위치가 같다(피벗이 가운데)
+진짜 원인:     Transform 의 회전·위치는 피벗(메시 원점) 기준. 코드는 피벗이 경첩·발에 있다고 가정했지만 모델은 가운데에 피벗이 있다
+```
+**수정:**
+```csharp
+public void Open(float degrees)
+{
+    transform.RotateAround(Hinge, Vector3.up, degrees);
+}
+
+public static void PlaceOnFloor(Transform statue, Vector3 floorPoint)
+{
+    float bottom = statue.GetComponent<MeshFilter>().sharedMesh.bounds.min.y * statue.lossyScale.y;
+    statue.position = floorPoint - Vector3.up * bottom;
+}
+```
+**교훈:** 모델의 피벗이 어디인지는 코드가 아니라 에셋이 정한다. 문·레버·석상처럼 "어느 점을 기준으로" 다루는 모델은 모델링 툴에서 원점을 맞추거나, 빈 부모(경첩 위치, 발 위치)를 만들어 모델을 그 자식으로 둔다. 그래픽 장치가 없을 때나 꺼진 렌더러의 `Renderer.bounds` 는 비어 있을 수 있으니, 판정에는 메시 bounds 를 쓴다.
+
+---
+
+# 4부: 컨테이너
+
+## Lab 24 — 상수 길이로 배열을 돌고, 바깥 번호를 확인하지 않음
 ```
 증상:          단축 바를 만드는 순간 IndexOutOfRangeException (Hotbar.Build)
 도구:          예외 설정에서 IndexOutOfRangeException 을 throw 될 때 중단 → 조사식 i == 3, Slots.Length == 3
@@ -327,7 +477,7 @@ public string Select(int key)
 ```
 **교훈:** 인스펙터에 보이는 배열의 크기는 코드가 정하지 않는다. 반복은 `Length`/`Count` 로, 입력·네트워크·세이브 파일에서 온 번호는 범위를 확인한 뒤 쓴다. 크기가 규칙이라면 `OnValidate` 에서 강제한다. 배열은 `IndexOutOfRangeException`, `List` 는 `ArgumentOutOfRangeException` 이라 메시지만 보고도 어느 쪽인지 안다.
 
-## Lab 17 — foreach 도중 다른 스크립트가 목록에서 자신을 지움
+## Lab 25 — foreach 도중 다른 스크립트가 목록에서 자신을 지움
 ```
 증상:          공습에 HP 10 인 적이 쓰러지는 순간 InvalidOperationException: Collection was modified
 도구:          Enemy.Die 의 Members.Remove 에 중단점 → 호출 스택: Die ← TakeDamage ← Squad.Airstrike(foreach)
@@ -338,9 +488,9 @@ public string Select(int key)
 foreach (Enemy enemy in Members.ToArray()) { enemy.TakeDamage(damage); }        // 복사본을 돈다
 for (int i = Members.Count - 1; i >= 0; --i) { Members[i].TakeDamage(damage); }  // 뒤에서부터 돈다
 ```
-**교훈:** 반복하는 동안 불리는 코드(이벤트, 콜백, 다른 컴포넌트의 함수)가 같은 목록을 고칠 수 있으면 복사본이나 역순으로 돈다. 앞에서부터 인덱스로 돌면서 지우면 예외 없이 **하나씩 건너뛰는** 더 조용한 버그가 된다. `Destroy` 가 부르는 `OnDestroy` 는 프레임 끝이라 이 예외 대신 랩 21 같은 "파괴된 원소가 남는" 문제가 된다.
+**교훈:** 반복하는 동안 불리는 코드(이벤트, 콜백, 다른 컴포넌트의 함수)가 같은 목록을 고칠 수 있으면 복사본이나 역순으로 돈다. 앞에서부터 인덱스로 돌면서 지우면 예외 없이 **하나씩 건너뛰는** 더 조용한 버그가 된다. `Destroy` 가 부르는 `OnDestroy` 는 프레임 끝이라 이 예외 대신 랩 29 같은 "파괴된 원소가 남는" 문제가 된다.
 
-## Lab 18 — Unity 직렬화가 Dictionary 와 List<List<T>> 를 버림
+## Lab 26 — Unity 직렬화가 Dictionary 와 List<List<T>> 를 버림
 ```
 틀린 결과:     복제본과 불러온 상점의 potion 가격 -1, 진열대 0개. 이름과 금화는 정상
 도구:          랩 출력 "저장된 JSON: {"ShopName":"대장간","Gold":500}" — Prices, Shelves 가 없다
@@ -377,7 +527,7 @@ public class Shop : MonoBehaviour, ISerializationCallbackReceiver
 ```
 **교훈:** 인스펙터에 안 보이는 필드는 프리팹, 씬 저장, Instantiate, Undo, `JsonUtility` 에서도 빠진다. `Dictionary`, `T[,]`, `T[][]`, `List<List<T>>` 는 `[Serializable]` 래퍼나 `ISerializationCallbackReceiver` 로 직렬화 가능한 모양으로 바꾼다. 콜백은 직렬화 스레드에서 불릴 수 있으니 그 안에서 Unity API 를 부르지 않는다.
 
-## Lab 19 — FindObjectsByType 의 순서를 게임 순서로 씀
+## Lab 27 — FindObjectsByType 의 순서를 게임 순서로 씀
 ```
 틀린 결과:     세 맵 모두 틀린다(2,1,0, 1,3,0,2 처럼. 틀린 순서는 실행 환경마다 다르다). 랩은 놓는 순서를 어떤 단조 순서와도 안 맞게 골라 두었다.
                실제 게임에서는 "어떤 맵은 맞다"로 나타나는 버그다
@@ -390,7 +540,7 @@ Route = FindObjectsByType<RoutePoint>(FindObjectsSortMode.None).OrderBy(p => p.O
 ```
 **교훈:** `FindObjectsByType`, `GetComponents`, `GetComponentsInChildren`, `Dictionary` 열거, 이벤트 호출 순서는 게임 규칙의 순서가 아니다. 의미 있는 순서는 데이터(번호)로 갖고 직접 정렬하거나, 인스펙터 배열에 순서대로 넣어 씬 파일에 저장한다. 이 버그는 "에디터에선 되는데 빌드에선 순서가 다름" 으로 나타나기 쉽다.
 
-## Lab 20 — 돌려쓰는 결과 버퍼를 그대로 반환
+## Lab 28 — 돌려쓰는 결과 버퍼를 그대로 반환
 ```
 틀린 결과:     Alpha 명단 2명(기대 3), Alpha 명단에 Bravo 병사. alphaRoster == bravoRoster 가 true
 도구:          조사식 참조 비교. alphaRoster 줄 뒤 Count 3 → bravoRoster 줄 뒤 Count 2 로 바뀐다
@@ -404,7 +554,7 @@ return new List<Soldier>(results);
 ```
 **교훈:** 할당을 줄이는 API(`GetComponents(List)`, `GetComponentsInChildren(List)`, `Physics.RaycastNonAlloc`, `OverlapSphereNonAlloc`)의 버퍼는 **다음 호출이 덮어쓴다**. 버퍼는 함수 안에서만 쓰고 밖으로 내보낼 때는 복사하거나, 호출하는 쪽이 버퍼를 갖게 한다.
 
-## Lab 21 — 파괴된 오브젝트가 Dictionary 키로 남음
+## Lab 29 — 파괴된 오브젝트가 Dictionary 키로 남음
 ```
 틀린 결과:     위협 목록 3명(기대 2). AttackTop 에서 MissingReferenceException
 도구:          AttackTop 에 중단점 → 조사식 top == null 은 true, (object)top == null 은 false
@@ -423,7 +573,7 @@ public void AttackTop() { Prune(); ... }
 
 **교훈:** `UnityEngine.Object` 를 담은 컨테이너(`Dictionary` 키, `HashSet`, `List`)는 `Destroy` 를 모른다. 꺼낼 때 `== null`(Unity 재정의)로 걸러 치우거나, 죽을 때 알려서 지운다. 치우지 않은 항목은 C# 객체를 붙잡아 작은 누수도 된다. 1부 랩 1·8 의 fake null 이 컨테이너 안에 숨은 모양이다.
 
-## Lab 22 — 길이가 바뀐 NativeList 의 AsArray 를 캐시해 둠
+## Lab 30 — 길이가 바뀐 NativeList 의 AsArray 를 캐시해 둠
 ```
 증상:          출발점을 읽는 줄에서 ObjectDisposedException: NativeList ... has been deallocated
 도구:          Step 에 중단점, 조사식 view[0] → 첫 Step(첫 Add) 을 지나자마자 읽을 수 없다. Capacity 4 를 넘기 전인데도
@@ -438,9 +588,9 @@ public Vector3 StartPoint() { return Points[0]; }   // view 를 캐시하지 않
 
 ---
 
-# 4부: 잘못된 참조와 네이티브 메모리
+# 5부: 잘못된 참조와 네이티브 메모리
 
-## Lab 23 — NativeArray 를 Dispose 하지 않음
+## Lab 31 — NativeArray 를 Dispose 하지 않음
 ```
 틀린 결과:     목표를 5번 바꾼 뒤 살아 있는 버퍼 5개(기대 1), 순찰병을 없앤 뒤에도 5개(기대 0). 예외는 없다
 도구:          플레이를 멈추면 Console: "Leak Detected : Persistent allocates 5 individual allocations"
@@ -470,7 +620,7 @@ void OnDestroy()
 ```
 **교훈:** `new NativeArray(..., Allocator.Persistent)` 는 `new` 보다 `malloc` 에 가깝다. 만든 곳과 짝이 되는 `Dispose` 를 같이 적는다(필드라면 `OnDestroy`/`OnDisable`). 누수는 예외 없이 메모리만 늘기 때문에 Leak Detection 메시지와 Memory Profiler 로 찾는다. `IsCreated` 는 "이 변수가" 버퍼를 들고 있는지일 뿐이다. 구조체 복사본은 원본이 Dispose 된 뒤에도 `IsCreated == true` 이고, 접근하면 안전 시스템이 `ObjectDisposedException` 을 던진다(랩은 이것으로 살아 있는 버퍼를 센다).
 
-## Lab 24 — 앞 잡만 Complete 하고 뒤 잡의 출력을 읽음
+## Lab 32 — 앞 잡만 Complete 하고 뒤 잡의 출력을 읽음
 ```
 멈춘 곳:        Watchtower.Scan 의 count[0]
 예외:          InvalidOperationException: The previously scheduled job CountInRangeJob writes to the NativeArray CountInRangeJob.Count.
@@ -486,7 +636,7 @@ EnemiesInRange = count[0];
 ```
 **교훈:** 메인 스레드가 버퍼를 읽거나 쓰거나 Dispose 하려면, 그 버퍼를 쓰는 **모든** 잡의 핸들이 Complete 되어 있어야 한다. 실제로 잡이 끝났는지와 상관없이 안전 시스템이 막는다(그래서 타이밍에 따라 가끔 터지는 버그가 아니라 항상 터지는 버그가 된다. 고마운 일이다). 의존 사슬은 끝 핸들 하나를 Complete 하면 되고, 여러 갈래는 `JobHandle.CombineDependencies` 로 묶는다. 메시지는 **잡 이름.필드 이름**까지 알려 주니 끝까지 읽자.
 
-## Lab 25 — Allocator.Temp 버퍼를 다음 프레임에 읽음
+## Lab 33 — Allocator.Temp 버퍼를 다음 프레임에 읽음
 ```
 멈춘 곳:        SpawnDirector.Update 의 plan[next] (StartWave 다음 프레임, next == 0)
 예외:          ObjectDisposedException: The NativeArray has been deallocated, it is not allowed to access it
@@ -517,7 +667,7 @@ void OnDestroy()
 (잡에 넘기지 않는 데이터라면 그냥 `int[]` 로 바꾸는 것도 맞는 답이다.)
 **교훈:** Allocator 는 수명 약속이다. Temp = 이 프레임, 함수 안 지역 변수용. TempJob = 잡에 넘겨 4프레임 안에 Dispose. Persistent = 직접 Dispose 할 때까지. 필드에 넣는 순간 Temp 는 틀린 선택이다. 에디터에서는 안전 시스템이 바로 예외를 던져 주지만, 릴리스 빌드에서는 안전 검사가 없으니 다른 코드가 덮어쓴 메모리를 읽어 **엉뚱한 마릿수**가 나올 수 있다.
 
-## Lab 26 — Domain Reload 를 끈 Play 에서 정적 상태가 남음
+## Lab 34 — Domain Reload 를 끈 Play 에서 정적 상태가 남음
 ```
 틀린 결과:     2판 첫 웨이브 4 (기대 1), 레이더의 적 4 (기대 2), radar.Nearest() 에서 MissingReferenceException
 도구:          SimulateEnterPlayMode() 다음 줄에 중단점 → 조사식 Enemy.Alive: Count 4 인데 앞의 2개는 "null"(파괴된 1판의 적)
@@ -556,9 +706,9 @@ public static class WaveDirector
 
 ---
 
-# 5부: 물리
+# 6부: 물리
 
-## Lab 27 — 빠른 Rigidbody 가 Discrete 충돌 감지로 벽을 터널링
+## Lab 35 — 빠른 Rigidbody 가 Discrete 충돌 감지로 벽을 터널링
 ```
 틀린 결과:     벽에 맞은 횟수 0(기대 1), 탄환 x = 60 (벽 x = 10)
 도구:          FixedUpdate 에 추적점 "{transform.position.x}" → 0, 6, 12, 18 ... 벽(9.9 ~ 10.1) 안에 있었던 스텝이 없다
@@ -571,7 +721,7 @@ rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 ```
 **교훈:** "한 스텝에 가는 거리 > 부딪힐 것의 두께" 면 터널링을 의심한다. 빠른 것만 Continuous 계열로 켜고(비싸다), 아주 많은 총알은 Rigidbody 대신 스텝마다 레이캐스트로 판정한다. 벽을 두껍게 하거나 fixedDeltaTime 을 줄이는 것은 속도가 더 빨라지면 다시 터진다.
 
-## Lab 28 — 양쪽 다 Rigidbody 가 없어 트리거 메시지가 생기지 않음
+## Lab 36 — 양쪽 다 Rigidbody 가 없어 트리거 메시지가 생기지 않음
 ```
 틀린 결과:     함정 발동 0번, HP 100 그대로
 도구:          OnTriggerEnter 중단점이 한 번도 걸리지 않는다 → "조건이 틀렸다" 가 아니라 "안 불렸다"
@@ -587,7 +737,7 @@ void Awake()
 ```
 **교훈:** `OnTriggerEnter`/`OnCollisionEnter` 가 안 불리면 ① 둘 중 하나에 Rigidbody(또는 CharacterController)가 있나 ② Layer Collision Matrix 에서 두 레이어가 켜져 있나 ③ 트리거끼리라면 한쪽은 Rigidbody 가 있나 ④ 콜라이더가 꺼져 있지 않나를 차례로 본다. 움직이는 콜라이더에는 Rigidbody 를 붙이는 것이 성능에도 좋다(정적 콜라이더를 옮기면 물리 장면을 다시 만든다).
 
-## Lab 29 — 레이어 번호를 레이어 마스크로 넘김
+## Lab 37 — 레이어 번호를 레이어 마스크로 넘김
 ```
 틀린 결과:     포탑이 맞힌 것 Glass (기대 Enemy)
 도구:          조사식 Convert.ToString(EnemyLayer, 2) == "1000" → 3번 비트. 유리창이 3번 레이어
@@ -601,7 +751,7 @@ Physics.Raycast(transform.position, transform.forward, out RaycastHit hit, Range
 ```
 **교훈:** `gameObject.layer` 는 번호(0~31), Physics 쿼리·`Camera.cullingMask`·`LayerMask` 는 마스크(비트 묶음)다. 둘 다 int 라 컴파일러가 막지 않는다. 숫자 대신 `LayerMask` 필드나 `LayerMask.GetMask("Enemy")` 를 쓰면 이 혼동이 사라진다.
 
-## Lab 30 — Interpolate 를 켠 Rigidbody 를 Update 에서 transform 으로 움직임
+## Lab 38 — Interpolate 를 켠 Rigidbody 를 Update 에서 transform 으로 움직임
 ```
 틀린 결과:     발판이 1.5초 동안 1.03m(기대 3m). 상자는 0m
 도구:          Update 에 추적점 "{Time.frameCount} {transform.position.x}" → 더한 만큼 늘었다가 다음 프레임에 도로 줄어 있다
@@ -618,7 +768,7 @@ void FixedUpdate()
 ```
 **교훈:** Rigidbody 가 붙은 오브젝트는 transform 이 아니라 Rigidbody 로 움직인다. Kinematic 은 FixedUpdate 에서 `MovePosition`/`MoveRotation`, Dynamic 은 `linearVelocity`/`AddForce`. Interpolate 는 이렇게 움직일 때 화면을 부드럽게 해 주는 옵션이지, transform 으로 움직인 것을 부드럽게 해 주지 않는다.
 
-## Lab 31 — transform 을 옮긴 같은 프레임에 물리 쿼리
+## Lab 39 — transform 을 옮긴 같은 프레임에 물리 쿼리
 ```
 틀린 결과:     돌아간 자리에서 집은 것 null(기대 Crate), 옛 자리에서 집은 것 Crate(기대 null)
 도구:          ResetCrates 뒤 조사식: transform.position == (0,0,4), GetComponent<Collider>().bounds.center == (8,0,4)
@@ -635,9 +785,9 @@ Physics.SyncTransforms();
 
 ---
 
-# 6부: 사운드
+# 7부: 사운드
 
-## Lab 32 — Preload Audio Data 를 꺼 둔 클립을 미리 로드하지 않음
+## Lab 40 — Preload Audio Data 를 꺼 둔 클립을 미리 로드하지 않음
 ```
 틀린 결과:     첫 발을 쏜 순간 loadState == Unloaded. 발사 후 데이터가 올라오기까지 몇 프레임
 멈춘 위치:     Blaster.Fire → FireClip.loadState: Unloaded, preloadAudioData: false, loadInBackground: true
@@ -658,7 +808,7 @@ public void Equip(AudioClip fireClip)
 ② `blaster.wav` 임포트 설정에서 **Preload Audio Data** 를 켜고 Apply.
 **교훈:** 오디오 임포트 설정 셋의 의미: **Load Type**(메모리에 어떤 형태로: 풀어서/압축째/스트리밍), **Preload Audio Data**(씬·에셋이 로드될 때 데이터도 같이), **Load In Background**(로드를 기다리지 않고 미루기). 끄면 메모리를 아끼는 대신 "언제 올릴지"를 코드가 책임져야 한다. Load In Background 를 끄면 지연 대신 그 프레임이 멈칫한다(히치).
 
-## Lab 33 — 실제 음성 한도를 넘었고 보스 대사의 우선순위가 같음
+## Lab 41 — 실제 음성 한도를 넘었고 보스 대사의 우선순위가 같음
 ```
 틀린 결과:     boss.Voice.isPlaying == true 인데 isVirtual == true
 도구:          Profiler Audio 모듈 → 재생 41개, 실제 32개, 가상 9개
@@ -671,7 +821,7 @@ Voice.priority = 0;   // 0 이 가장 중요
 (발소리 쪽을 `priority = 200` 으로 낮춰도 된다. 근본적으로는 같은 소리를 수십 개 동시에 낼 필요가 없으니 발소리 수를 제한한다.)
 **교훈:** "소리가 안 들린다"의 큰 원인 하나가 **동시 재생 한도**. 가상 음성은 위치만 계속 계산하고 소리는 내지 않다가 자리가 나면 이어서 나온다. 중요한 소리(대사, UI, 경보)는 priority 로 보호한다.
 
-## Lab 34 — AudioSource 가 붙은 오브젝트를 바로 Destroy
+## Lab 42 — AudioSource 가 붙은 오브젝트를 바로 Destroy
 ```
 틀린 결과:     통은 사라졌고, 0.2초 뒤 폭발음을 재생 중인 AudioSource 가 없다
 도구:          Explode 끝에 Debug.Break() → 다음 프레임 Hierarchy 에서 ExplosiveBarrel 과 그 AudioSource 가 사라짐
@@ -687,7 +837,7 @@ public void Explode()
 ```
 **교훈:** 사라지는 것(총알, 적, 상자)이 내는 소리는 **다른 수명을 가진 곳**에서 낸다: `PlayClipAtPoint`(임시 "One shot audio" 오브젝트), 떼어 낸 자식 + `Destroy(go, clip.length)`, 사운드 매니저의 AudioSource 풀. `PlayClipAtPoint` 는 AudioSource 설정(믹서 그룹, 3D 설정)을 줄 수 없어서 큰 프로젝트에서는 풀이 일반적이다.
 
-## Lab 35 — 짧은 효과음을 Play() 로 내서 긴 소리를 끊음
+## Lab 43 — 짧은 효과음을 Play() 로 내서 긴 소리를 끊음
 ```
 틀린 결과:     1초 뒤 Source.clip == grunt, 브리핑 재생 안 함
 멈춘 위치:     PlayHurt → F10 전후: Source.clip briefing → grunt, Source.time 0.5 → 0
@@ -704,9 +854,9 @@ public void PlayHurt(AudioClip grunt)
 
 ---
 
-# 7부: 이미지 / 렌더링
+# 8부: 이미지 / 렌더링
 
-## Lab 36 — sharedMaterial 을 고쳐서 에셋 자체를 바꿈
+## Lab 44 — sharedMaterial 을 고쳐서 에셋 자체를 바꿈
 ```
 틀린 결과:     옆 상자도 빨강, Crate.mat 에셋도 빨강
 멈춘 위치:     OnHoverEnter → body.sharedMaterial.GetInstanceID() 가 모든 상자에서 같음 = Crate.mat 에셋
@@ -724,10 +874,10 @@ public void OnHoverExit()
     body.material.color = Color.white;
 }
 ```
-(사본의 정리는 랩 37 참고. 색만 바꾼다면 MaterialPropertyBlock 이 더 좋다.)
+(사본의 정리는 랩 45 참고. 색만 바꾼다면 MaterialPropertyBlock 이 더 좋다.)
 **교훈:** `sharedMaterial`/`sharedMesh` = 에셋(모두 공유), `material`/`mesh` = 첫 접근 때 복제한 내 것. 에디터에서 `sharedMaterial` 을 런타임에 고치면 플레이를 멈춰도 돌아오지 않는다. `git status` 에 `.mat` 이 뜨면 이 버그를 의심하자.
 
-## Lab 37 — renderer.material 복제본이 누수됨
+## Lab 45 — renderer.material 복제본이 누수됨
 ```
 틀린 결과:     웨이브마다 Material 객체 +100, 상자를 다 지운 뒤에도 +200
 도구:          Paint 전후 sharedMaterial.name: "Crate" → "Crate (Instance)". Memory Profiler 스냅샷 비교: Material "Crate (Instance)" 200개
@@ -756,7 +906,7 @@ public class SupplyCrate : MonoBehaviour
 (복제본을 꼭 써야 한다면 `OnDestroy` 에서 `Destroy(GetComponent<Renderer>().material)`. 단 `OnDestroy` 에서 `.material` 에 처음 접근하면 그 자리에서 또 복제하므로 Paint 때 받아 둔 참조를 지운다.)
 **교훈:** 렌더러마다 값만 다르면 **MaterialPropertyBlock**. 머티리얼 복제 없이 렌더러별 값을 준다. 참고: URP/HDRP 의 SRP Batcher 는 MaterialPropertyBlock 을 쓰면 그 렌더러를 배칭에서 뺀다. SRP 프로젝트라면 머티리얼 변형을 미리 만들어 두거나 GPU 인스턴싱/셰이더 속성(`[PerRendererData]`, `UNITY_INSTANCING_BUFFER`)을 쓴다.
 
-## Lab 38 — 늦게 도착한 비동기 로드 결과가 재사용된 칸을 덮어씀
+## Lab 46 — 늦게 도착한 비동기 로드 결과가 재사용된 칸을 덮어씀
 ```
 틀린 결과:     칸의 아이템 potion, 아이콘 icon_sword
 멈춘 위치:     람다 texture => Icon = texture → 두 번 멈춤: 같은 프레임에 potion(캐시, 즉시), 다음 프레임 이후 sword(LoadAsync 완료)
@@ -780,7 +930,7 @@ public void Show(string itemId)
 ```
 **교훈:** 비동기 결과는 "요청한 때"가 아니라 "도착한 때"의 세상에 떨어진다. 도착했을 때 **아직 유효한지**(같은 아이템인가, 오브젝트가 살아 있나) 확인한다. `ResourceRequest.completed` 와 Addressables 의 `Completed` 는 이미 로드된 에셋이어도 같은 프레임에 불리지 않을 수 있다. 캐시 적중(즉시)과 미스(나중)가 섞이면 순서가 뒤집힌다.
 
-## Lab 39 — Linear 색 공간에서 색을 SetVector 로 넘김
+## Lab 47 — Linear 색 공간에서 색을 SetVector 로 넘김
 ```
 틀린 결과:     깃발 픽셀 (255, 188, 137), 기대 (255, 128, 64)
 기록:          0x80/255 = 0.502 → 188 = sRGB 인코딩(0.502) ≈ 0.735. 0x40 → 137 도 같은 곡선. 0x00, 0xFF 는 곡선의 양 끝이라 그대로
@@ -797,9 +947,9 @@ block.SetColor(ColorId, teamColor);   // Linear 색 공간이면 sRGB → 선형
 
 ---
 
-# 8부: 애니메이션
+# 9부: 애니메이션
 
-## Lab 40 — Animator 파라미터 이름의 대소문자
+## Lab 48 — Animator 파라미터 이름의 대소문자
 ```
 틀린 결과:     Attack 상태에 들어가지 않음
 Console:        ⚠ Parameter 'Hash 1203776827' does not exist.
@@ -812,7 +962,7 @@ static readonly int AttackId = Animator.StringToHash("Attack");
 ```
 **교훈:** 문자열 파라미터는 컴파일러가 검사해 주지 않는다. 이름은 한 곳에 상수로 두고, 시작할 때 `animator.parameters` 로 필요한 이름이 있는지 검사하는 습관을 들이자. 경고 필터를 꺼 두면 이 버그는 몇 주씩 숨는다.
 
-## Lab 41 — Culling Mode = Cull Completely 라 화면 밖에서 이벤트가 사라짐
+## Lab 49 — Culling Mode = Cull Completely 라 화면 밖에서 이벤트가 사라짐
 ```
 틀린 결과:     2.1초 동안 발소리 0번, Renderer.isVisible == false
 도구:          Inspector 의 Animator → Culling Mode: Cull Completely. Animator 창에서 Walk 진행 막대가 멈춰 있다.
@@ -825,7 +975,7 @@ GetComponent<Animator>().cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 ```
 **교훈:** 화면 밖에서도 게임 로직이 애니메이션(이벤트, 루트 모션)에 기대는 캐릭터에 Cull Completely 를 쓰면 안 된다. Cull Update Transforms 는 상태 머신과 이벤트를 유지하면서 뼈 쓰기·IK 를 생략한다. 에디터에서는 **Scene 뷰 카메라도 "보는 것"** 이라서, 에디터에서는 되고 빌드에서는 안 되는(또는 반대) 버그로 신고되기 쉽다.
 
-## Lab 42 — 트랜지션이 이벤트보다 먼저 끝남
+## Lab 50 — 트랜지션이 이벤트보다 먼저 끝남
 ```
 틀린 결과:     3번 휘둘러 Hit 0번
 도구:          Animation 창: Swordsman_Swing 길이 1초, Hit 이벤트 0.9초
@@ -836,7 +986,7 @@ GetComponent<Animator>().cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 **수정 (택1):** Animator 창에서 Swing → Idle 트랜지션의 **Exit Time 을 0.95** 로(이벤트 뒤에서 넘어가기 시작). 또는 Animation 창에서 **Hit 이벤트를 0.5초** 무렵(칼날이 실제로 닿는 지점)으로 옮기기.
 **교훈:** 트랜지션 도중에는 두 상태의 클립이 같이 재생되며 양쪽 이벤트가 불리지만, 트랜지션이 **끝난 뒤** 원래 클립은 더 진행되지 않는다. 판정용 이벤트는 트랜지션 시작 전에 둔다. 피격·회피 같은 인터럽트로 공격이 끊길 때 판정이 빠지는 것도 같은 원리이고, 그건 의도된 동작일 수도 있다(기획과 정하자).
 
-## Lab 43 — 애니메이션 결과를 Update 에서 읽음
+## Lab 51 — 애니메이션 결과를 Update 에서 읽음
 ```
 틀린 결과:     거의 모든 프레임에서 손과 횃불이 어긋남
 도구:          Update 와 LateUpdate 의 추적점 → 같은 프레임인데 손의 x 가 다르다
@@ -855,9 +1005,9 @@ void LateUpdate()
 
 ---
 
-# 9부: 동시성과 멈춤
+# 10부: 동시성과 멈춤
 
-## Lab 44 — 재고 확인과 차감 사이에 다른 스레드가 끼어듦
+## Lab 52 — 재고 확인과 차감 사이에 다른 스레드가 끼어듦
 ```
 틀린 결과:     팔린 수 2(기대 1), 남은 재고 -1(기대 0), 구매자 명단 2명
 도구:          TryBuy 의 if 줄에 중단점 → 스레드 창: 워커 두 개가 같은 줄에 있고 둘 다 Stock == 1
@@ -879,7 +1029,7 @@ public bool TryBuy(string buyer)
 ```
 **교훈:** 공유 상태를 "확인하고 → 행동" 하는 코드는 둘 사이에 끼어들 틈이 없게 한 덩어리로 묶는다(`lock`). 결제처럼 오래 걸리는 일을 lock 안에 두기 싫다면 lock 안에서 재고를 먼저 예약(Stock--)하고 실패 시 되돌린다. `Stock--` 와 `List.Add` 자체도 원자적이지 않다(`Interlocked.Decrement`, `ConcurrentQueue`). Job System 안전 시스템은 NativeContainer 만 감시하므로 이런 C# 객체 레이스는 아무도 알려 주지 않는다.
 
-## Lab 45 — Task.Run 안에서 transform 을 씀
+## Lab 53 — Task.Run 안에서 transform 을 씀
 ```
 틀린 결과:     길 찾기는 워커 스레드에서 했지만 도착 false, 위치 그대로. Console 은 조용하다
 도구:          transform.position 줄에서 F10 → 다음 줄로 가지 않고 사라진다
@@ -897,7 +1047,7 @@ public async Task GoTo(Vector3 from, Vector3 goal)
 ```
 **교훈:** 워커 스레드에는 계산만 보내고, Unity 오브젝트를 만지는 일은 메인 스레드로 돌아와서 한다. 메인 스레드에서 시작한 `await` 는 UnitySynchronizationContext 가 다음 줄을 메인 스레드로 돌려보낸다. 돌려받은 Task 를 버리면(fire-and-forget) 예외도 함께 버려지므로, await 하거나 `ContinueWith` 로 `Exception` 을 로그로 남긴다. Task 안에서는 `transform.position` 을 **읽는 것**도 안 된다(값을 미리 꺼내 넘긴다).
 
-## Lab 46 — BackgroundThreadAsync 뒤에 메인 스레드로 돌아오지 않음
+## Lab 54 — BackgroundThreadAsync 뒤에 메인 스레드로 돌아오지 않음
 ```
 증상:          불러오기 시 UnityException: get_gameObject can only be called from the main thread
 도구:          Load 첫 줄과 gameObject.name 줄에서 조사식 Thread.CurrentThread.ManagedThreadId → 1 에서 다른 번호로 바뀌었다
@@ -913,7 +1063,7 @@ transform.localScale = Vector3.one * data.Scale;
 ```
 **교훈:** await 다음 줄의 스레드는 "무엇을 await 했나" 가 정한다. 보통의 `await Task`(메인 스레드에서 시작)는 메인으로 돌아오고, `Awaitable.BackgroundThreadAsync()` 와 `ConfigureAwait(false)` 는 돌아오지 않는다. 백그라운드 구간은 `MainThreadAsync()` 로 닫는 짝을 만든다. 돌아온 뒤 오브젝트가 이미 파괴됐을 수 있으니 `if (this == null) return;` 이나 `destroyCancellationToken` 을 쓴다.
 
-## Lab 47 — 메인 스레드에서 .Result 로 기다려 데드락
+## Lab 55 — 메인 스레드에서 .Result 로 기다려 데드락
 ```
 증상:          상점을 여는 순간 응답 없음. CPU 는 0% 근처(데드락)
 모두 중단:      Main Thread 호출 스택: ShopWindow.Open → (HangGuard.Wait =) Task.Wait → Monitor.Wait. 자고 있다
@@ -932,7 +1082,7 @@ public async void Open(SaveFile save)
 (코루틴이라면 `var task = save.LoadGoldAsync(); while (!task.IsCompleted) yield return null; ShownGold = task.Result;`)
 **교훈:** 메인 스레드에서 `Task` 를 막고 기다리지 말 것(`.Result`, `.Wait()`, `.GetAwaiter().GetResult()`). 끝까지 `await` 로 잇는다. 라이브러리 쪽에 `ConfigureAwait(false)` 를 붙이면 데드락은 풀리지만 `Open` 은 여전히 디스크를 읽는 200ms 동안 게임을 멈춘다(이 랩의 두 번째 `[FAIL]`). 그리고 `ConfigureAwait(false)` 다음 줄은 워커 스레드에서 돌기 때문에 거기서 Unity API(`transform`, `GetComponent`)를 부르면 "can only be called from the main thread" 예외가 난다. 데드락은 CPU 0%, 무한루프는 CPU 100% 라는 지문을 기억하자.
 
-## Lab 48 — Update 가 바꿔 줄 값을 yield 없이 while 로 기다림
+## Lab 56 — Update 가 바꿔 줄 값을 yield 없이 while 로 기다림
 ```
 증상:          엘리베이터를 부르는 순간 응답 없음. 작업 관리자에서 Unity 가 CPU 한 코어를 꽉 씀(무한루프)
 모두 중단:      스레드 창의 Main Thread 호출 스택 맨 위 = Passenger.RideTo 의 첫 while (HangGuard 의 예외 스택 트레이스도 같은 곳)
@@ -957,7 +1107,7 @@ while (!Elevator.IsAt(destination))
 (또는 `yield return new WaitUntil(() => Elevator.IsAt(Floor));`)
 **교훈:** "다른 무언가가 바꿔 줄 값" 을 기다리는 반복문은 반드시 그 무언가에게 차례를 넘겨야 한다. Unity 에서는 `yield return null`(코루틴), `await Awaitable.NextFrameAsync()`(async), 아니면 Update 에서 상태를 확인하는 방식. Update/Start/버튼 처리기 안의 `while (!loaded) {}` 도 똑같이 에디터를 굳힌다. 굳었을 때는 **모두 중단 → 스레드 창 → Main Thread** 가 첫 수다.
 
-## Lab 49 — BFS 에 방문 체크가 없음
+## Lab 57 — BFS 에 방문 체크가 없음
 ```
 증상:          길이 이어져 있을 때는 정답(5). 3-6 문을 잠근 뒤 응답 없음, 메모리 급증
 도구:          while 첫 줄 조건부 중단점 queue.Count > 100 → 방이 8개뿐인데 걸린다. queue 를 펼치면 1, 2, 4, 5 가 수십 번씩
@@ -985,7 +1135,7 @@ while (queue.Count > 0)
 ```
 **교훈:** 그래프(방, 웨이포인트, 대화 노드, 전선, 아이템 조합)를 순회하는 코드는 **방문 기록**이 기본이다. 테스트 데이터에 고리나 끊긴 길이 없으면 영영 드러나지 않다가, 레벨 디자이너가 문 하나를 잠그는 순간 터진다. "멈춤 + 메모리 증가" 면 무한루프 안에서 무언가를 쌓고 있다는 뜻이다. 재귀 DFS 에서 같은 실수를 하면 멈춤 대신 StackOverflowException(에디터 크래시)으로 나타난다.
 
-## Lab 50 — float 시간에 작은 틱을 누적
+## Lab 58 — float 시간에 작은 틱을 누적
 ```
 증상:          막 켠 서버(90초)는 128틱으로 정상. 켠 지 7일(604800초) 된 서버는 응답 없음
 도구:          while 안 조건부 중단점 Ticks > 1000 → 조사식 SimTime == 604800, SimTime + TickSeconds == SimTime 이 true
@@ -1011,9 +1161,9 @@ public void FastForward(float seconds)
 
 ---
 
-# 10부: 성능 (GC 할당과 반복 탐색)
+# 11부: 성능 (GC 할당과 반복 탐색)
 
-## Lab 51 — 값이 그대로인데 매 프레임 문자열·LINQ·박싱
+## Lab 59 — 값이 그대로인데 매 프레임 문자열·LINQ·박싱
 ```
 틀린 결과:     값이 그대로인 프레임의 GC 할당 프레임당 약 5600바이트, 표시줄 20개 (기대 128바이트 이하)
 도구:          Profiler → CPU → Hierarchy → GC Alloc 열 → HealthBar.Update
@@ -1050,7 +1200,7 @@ void Update()
 ```
 **교훈:** 매 프레임 도는 코드에서는 "값이 바뀔 때만 만든다". 문자열 연결·보간, LINQ, `IEnumerable<T>` 로 받은 foreach(박싱), 람다가 지역 변수를 캡처하는 클로저, `new List` 는 모두 힙 할당이다. 한 번에 수십 바이트라도 컴포넌트 수 × 매 프레임이면 GC 를 부른다. UI 텍스트는 TextMeshPro 의 `SetText(format, number)` 가 할당 없이 숫자를 넣는다.
 
-## Lab 52 — Update 에서 GameObject.Find 와 FindObjectsByType
+## Lab 60 — Update 에서 GameObject.Find 와 FindObjectsByType
 ```
 틀린 결과:     표적 찾기의 GC 할당 프레임당 약 98KB (기대 256바이트 이하)
 도구:          Profiler → Hierarchy → Turret.Update 아래 GameObject.Find, FindObjectsByType: Calls 40, Time ms 가 오브젝트 수에 비례
@@ -1068,9 +1218,9 @@ public class Enemy : MonoBehaviour
 void Start() { Player = GameObject.Find("Player").transform; }   // 한 번만
 void Update() { foreach (Enemy enemy in Enemy.All) { ... } }      // List 를 직접 돌면 할당 없음
 ```
-**교훈:** 바뀌지 않는 참조는 한 번 찾아 두고(인스펙터 연결이 가장 좋다), 바뀌는 집합은 OnEnable/OnDisable 로 등록부를 관리한다. 등록부는 새로 나타난 적, 사라진 적을 바로 반영한다(한 번 찾고 끝내면 랩의 두 번째 판정에서 FAIL). `Camera.main` 은 2020.2 부터 내부 캐시라 예전처럼 비싸지 않다. 정적 등록부는 Domain Reload 를 끈 Play 에서 비워 줘야 한다(랩 26).
+**교훈:** 바뀌지 않는 참조는 한 번 찾아 두고(인스펙터 연결이 가장 좋다), 바뀌는 집합은 OnEnable/OnDisable 로 등록부를 관리한다. 등록부는 새로 나타난 적, 사라진 적을 바로 반영한다(한 번 찾고 끝내면 랩의 두 번째 판정에서 FAIL). `Camera.main` 은 2020.2 부터 내부 캐시라 예전처럼 비싸지 않다. 정적 등록부는 Domain Reload 를 끈 Play 에서 비워 줘야 한다(랩 34).
 
-## Lab 53 — 풀을 만들고 돌려주지 않음
+## Lab 61 — 풀을 만들고 돌려주지 않음
 ```
 틀린 결과:     만든 탄환 수 60(기대 ≤ 13), 풀로 돌아온 탄환 0
 도구:          BulletPool.Release 에 중단점 → 한 번도 멈추지 않는다
@@ -1083,7 +1233,7 @@ if (Life <= 0f) { Pool.Release(this); }
 ```
 **교훈:** 풀은 "꺼내기" 보다 "돌려주기" 가 버그가 잘 난다. 돌려줄 때 끄고(SetActive(false)), 꺼낼 때 위치·속도·수명·트레일 같은 상태를 모두 초기화한다. `UnityEngine.Pool.ObjectPool<T>` 는 createFunc/actionOnGet/actionOnRelease 를 받아 이 짝을 강제하고, 같은 것을 두 번 돌려주면 에러를 낸다(collectionCheck).
 
-## Lab 54 — SendMessage 이름 오타와 박싱
+## Lab 62 — SendMessage 이름 오타와 박싱
 ```
 틀린 결과:     받은 피해 0. 이름을 TakeDamage 로 고쳐도 GC 할당이 프레임당 약 500바이트(적 30마리)
 도구:          Enemy.TakeDamage 중단점이 걸리지 않는다. RequireReceiver 로 바꾸면 "SendMessage TakeDamge has no receiver!"
@@ -1099,7 +1249,7 @@ if (InFlame[i].TryGetComponent(out IDamageable target)) { target.TakeDamage(Dama
 ```
 **교훈:** `SendMessage`/`BroadcastMessage`/`SendMessageUpwards` 는 오타가 조용하고, 매번 모든 컴포넌트를 리플렉션으로 훑으며, 인자를 박싱한다. 인터페이스(`IDamageable`), C# event, UnityEvent 는 이름을 컴파일 시간에 확인한다. 매 프레임 `TryGetComponent` 도 아끼려면 들어올 때 한 번 찾아 목록에 담는다.
 
-## Lab 55 — 매 프레임 배열을 돌려주는 OverlapSphere
+## Lab 63 — 매 프레임 배열을 돌려주는 OverlapSphere
 ```
 틀린 결과:     치유는 맞지만 GC 할당 프레임당 1792바이트 = 사제 8명 × (아군 24명 × 8 + 배열 머리 32) (기대 128바이트 이하)
 도구:          Profiler → GC Alloc 열 → HealingAura.Update → Physics.OverlapSphere
@@ -1115,4 +1265,5 @@ void Update()
     for (int i = 0; i < count; ++i) { ... }
 }
 ```
-**교훈:** 배열을 돌려주는 API(`OverlapSphere`, `RaycastAll`, `GetComponents<T>()`, `GetComponentsInChildren<T>()`, `FindObjectsByType`, `Mesh.vertices`)에는 대개 버퍼를 채우는 짝(`NonAlloc`, `List<T>` 를 받는 오버로드, `GetVertices(List)`)이 있다. 버퍼가 작으면 넘친 결과가 **조용히 버려지므로** 돌려받은 개수가 버퍼 크기와 같을 때 경고를 남긴다(숨은 케이스는 아군 30명). 버퍼를 함수 밖으로 내보내면 랩 20 의 공유 버그가 된다.
+**교훈:** 배열을 돌려주는 API(`OverlapSphere`, `RaycastAll`, `GetComponents<T>()`, `GetComponentsInChildren<T>()`, `FindObjectsByType`, `Mesh.vertices`)에는 대개 버퍼를 채우는 짝(`NonAlloc`, `List<T>` 를 받는 오버로드, `GetVertices(List)`)이 있다. 버퍼가 작으면 넘친 결과가 **조용히 버려지므로** 돌려받은 개수가 버퍼 크기와 같을 때 경고를 남긴다(숨은 케이스는 아군 30명). 버퍼를 함수 밖으로 내보내면 랩 28 의 공유 버그가 된다.
+

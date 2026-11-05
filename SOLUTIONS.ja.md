@@ -306,9 +306,159 @@ yield return new WaitForSecondsRealtime(1f);
 
 ---
 
-# 第3部: コンテナ
+# 第3部: トランスフォームと空間
 
-## ラボ 16 — 定数の長さで配列を回し、外から来た番号を確認しない
+## ラボ 16 — ワールド座標を localPosition に入れた
+```
+間違った結果:   乗った直後の商人と席の距離 7.211m (荷車が進んだ後も 7.211m)
+止まった位置:   Cart.Board の最後 → ウォッチ式 Seat.position (6, 1, 3.5)、rider.localPosition (6, 1, 3.5)、rider.position (12, 1, 7.5)
+最初にずれた所: rider.position - Seat.position = (6, 0, 4) = 荷車の位置。ワールド座標に親の位置がもう一度足された
+本当の原因:     Seat.position はワールド座標なのに、親 (荷車) 基準の localPosition に入れた。荷車が原点にあるときだけ 2 つが同じになる
+```
+**修正:**
+```csharp
+public void Board(Transform rider)
+{
+    rider.SetParent(transform);
+    rider.position = Seat.position;   // ワールド = ワールド
+}
+```
+**教訓:** `position`/`rotation`/`lossyScale` はワールド、`localPosition`/`localRotation`/`localScale` は親基準です。インスペクターのトランスフォーム (Transform) が表示しているのは **ローカル** の値です。親が原点・回転なし・スケール 1 だと 2 つが同じなのでテストで隠れます。親を動かし、回してからテストします。席そのものを親にして (`SetParent(Seat, false)` + `localPosition = Vector3.zero`) 座標系を 1 つに減らしても構いません。
+
+## ラボ 17 — SetParent の worldPositionStays を逆に使った
+```
+間違った結果:   拾った直後の剣と手の距離 3.496m、向きの差 96.7 度。置いた剣は手があった場所から 4.258m、見た目の大きさ 0.5 (期待 2)
+止まった位置:   Hand.PickUp の SetParent の次 → item.position はそのまま (床)、item.localPosition だけが変わる
+              Hand.Drop の SetParent の次 → item.localPosition はそのまま、item.position が原点付近に、lossyScale 2 → 0.5
+本当の原因:     SetParent(p) は worldPositionStays = true: ワールドの値を保つようにローカルの値を計算し直す (剣が床に残る)
+              SetParent(null, false) はローカルの値を保つ: 手を基準にしたローカルの値がワールドの値になり、親 (騎士の 2 倍 × 手) のスケールが抜ける
+```
+**修正:**
+```csharp
+public void PickUp(Transform item)
+{
+    item.SetParent(transform, false);   // 手のローカルの場所にはめる
+    item.localPosition = Vector3.zero;
+    item.localRotation = Quaternion.identity;
+    Held = item;
+}
+
+public void Drop()
+{
+    Held.SetParent(null);               // 見えている位置・回転・大きさのままにする
+    Held = null;
+}
+```
+**教訓:** 「付けるときはローカルの場所にはめ (`false` + ローカルの値を指定)、外すときは見えるままにする (`true`)」。スケールが 1 でない親の下に入る・出るとき、`worldPositionStays = true` は見た目の大きさを保つために localScale を変えます。シーンのルートに切り離したオブジェクトは親と一緒には破棄されないので、自分で片付ける必要があります (このラボの `OnDestroy`)。
+
+## ラボ 18 — eulerAngles を読んで足し、また書き込んだ
+```
+間違った結果:   120 フレーム (180 度) 後の羽根の向きの差 90 度。羽根が 90 度付近で震える
+止まった位置:   Windmill.Update に条件付きブレークポイント transform.eulerAngles.x > 85
+              → 88.5 に 1.5 を足して 90 を入れた次のフレーム、91.5 を入れたのに読んだ値は (88.5, 180, 180)
+本当の原因:     eulerAngles はクォータニオンから毎回計算し直した値で、X は -90~90 の範囲で返ってくる。X が 90 を超えると同じ回転 (180-x, y+180, z+180) として読まれ、
+              足し直した値が 90 のほうへ戻る (X = ±90 は Y と Z が同じ軸になるジンバルロックの場所)
+```
+**修正:**
+```csharp
+void Update()
+{
+    transform.Rotate(DegreesPerSecond * Time.deltaTime, 0f, 0f);   // rotation *= Quaternion.Euler(...)
+}
+```
+**教訓:** 回転を積み重ねるときは、オイラー値を読んで書き換えるのではなくクォータニオンを掛けます (`Rotate`、`rotation * Quaternion.AngleAxis(...)`)。角度 1 つだけを動かす演出なら、角度を自分の変数で持って毎回 `baseRotation * Quaternion.Euler(angle, 0, 0)` で作ります。インスペクターの回転 (Rotation) 欄はエディターが別に覚えている値なので、スクリプトの `eulerAngles` と違うことがあります。
+
+## ラボ 19 — クォータニオンの積の順序を逆にした
+```
+間違った結果:   標的 1 (軸 1 つだけが違う) は 0 度、標的 2 (横の高い所) は 9.131 度ずれる
+止まった位置:   Cannon.AimAt の最後 → yaw、pitch は正しい。ウォッチ式 Quaternion.Euler(0, yaw, 0) * Quaternion.Euler(pitch, 0, 0) * Vector3.forward は direction と同じ
+本当の原因:     A * B は B を先に適用する。Euler(pitch) * Euler(yaw) は先に左右に回してからワールドの X 軸で上げるので、横を向いた砲身が上ではなく横に傾く
+              pitch か yaw が 0 なら順序は関係ないので、正面・同じ高さの標的では隠れる
+```
+**修正:**
+```csharp
+transform.rotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(pitch, 0f, 0f);
+// 同じ結果: Quaternion.Euler(pitch, yaw, 0f)  (Unity の Euler は Z → X → Y の順 = Ry * Rx * Rz)
+// 角度が要らなければ: Quaternion.LookRotation(direction)
+```
+**教訓:** クォータニオンの積は交換できません。`親側 (ワールド) の回転 * 子側 (ローカル) の回転` と読むと順序を合わせやすくなります。`Quaternion.Euler(x, y, z)` は Z、X、Y の順に回した結果なので、ほかのエンジン・ツール (例: XYZ の順) から持ってきた角度をそのまま入れてはいけません。
+
+## ラボ 20 — Vector3.forward で前へ動かした
+```
+間違った結果:   矢が飛んだ方向と敵の方向の差 123.69 度 (敵は南東なのに矢は北、+Z)
+止まった位置:   Arrow.Update → ウォッチ式 Vector3.forward (0, 0, 1)、transform.forward (0.83, 0, -0.55)
+本当の原因:     Vector3.forward は定数のワールド +Z。矢の回転は正しく入っているが、移動に使っていなかった
+```
+**修正:**
+```csharp
+transform.position += transform.forward * Speed * Time.deltaTime;
+// または transform.Translate(0f, 0f, Speed * Time.deltaTime);   // 既定は Space.Self
+```
+**教訓:** `Vector3.forward/right/up` はワールドの軸、`transform.forward/right/up` はそのオブジェクトの軸です。`Translate` の既定は自分の軸 (Space.Self) で、ワールドで動かすなら `Space.World`。シーンビューの ローカル / グローバル (Local / Global) トグルをローカルにすると、ギズモがオブジェクトの軸を表示します。敵をいつも +Z 側に置いてテストすると 2 つが同じなので隠れます。
+
+## ラボ 21 — 方向に TransformPoint、位置に InverseTransformDirection
+```
+間違った結果:   サーチライトの向きの差 81.994 度。ドローンの左前の侵入者を右と判定 (隠しケースでは右の侵入者を左と判定)
+止まった位置:   Drone.BeamDirection → ウォッチ式 transform.TransformPoint(LocalBeam) はドローンの位置付近の点、TransformDirection(LocalBeam) が欲しい方向
+              Drone.IsOnLeft → InverseTransformDirection(worldPoint).x には、ドローンの位置を回した値が混ざっている
+本当の原因:     Point は移動 (位置) まで適用し、Direction は回転だけを適用する。方向と位置に逆の関数を使った。ドローンが原点にあれば 2 つは同じ
+```
+**修正:**
+```csharp
+public Vector3 BeamDirection()
+{
+    return transform.TransformDirection(LocalBeam);
+}
+
+public bool IsOnLeft(Vector3 worldPoint)
+{
+    return transform.InverseTransformPoint(worldPoint).x < 0f;
+}
+```
+**教訓:** 位置は `TransformPoint`/`InverseTransformPoint` (回転・スケール・移動)、方向は `TransformDirection` (回転だけ、長さは保つ)、大きさを持つベクトル (オフセット、速度) は `TransformVector` (回転・スケール、移動なし)。名前に `worldPoint`、`localDirection` のように何なのかを残しておくと、組み合わせの合わない呼び出しが見えます。
+
+## ラボ 22 — スケールが均一でない親の下にローカルの値で置いた
+```
+間違った結果:   罠が期待する位置から 33.003m、見た目の大きさと 1m の立方体の差 11.196 (lossyScale (12, 0.4, 3))、底が橋の上面より 0.12m 下
+止まった位置:   Bridge.PlaceTrap の return → trap.localPosition (3, 0.7, 0)、trap.position は橋の中心から x 方向に 36m、trap.lossyScale (12, 0.4, 3)
+本当の原因:     子の localPosition と localScale は、親のスケール (12, 0.4, 3) を経由してワールドになる。メートル単位の値をそのままローカルに入れた
+```
+**修正:**
+```csharp
+trap.SetParent(transform, false);
+trap.position = transform.position + transform.rotation * new Vector3(offset, transform.localScale.y * 0.5f + 0.5f, 0f);
+trap.localScale = new Vector3(1f / transform.lossyScale.x, 1f / transform.lossyScale.y, 1f / transform.lossyScale.z);
+```
+**教訓:** 引き伸ばしたオブジェクト (スケール ≠ 1) の子は、位置もスケールも親のスケールが掛かります。スケールが均一でない親の下で子を回すと形がゆがみ (そのため `lossyScale` は近似値)、コライダーもおかしくなります。根本的には、ルート (スケール 1) の下に **見た目だけを受け持つ子** を置いて、その子だけを伸ばします。
+
+## ラボ 23 — ピボットがメッシュの真ん中にあるモデル
+```
+間違った結果:   開いた後のちょうつがい側の端がちょうつがいから 2.121m (= 1.5 × √2)。石像の足が床より 1m 下
+止まった位置:   Gate.Open → Rotate は transform.position (扉の真ん中) を軸に回る。ウォッチ式 gateMesh.bounds: center (0, 0, 0)、min (-1.5, -2, -0.15)
+              Plaza.PlaceOnFloor → statueMesh.bounds.min.y = -1
+ツール:         シーンビューの ピボット / 中心 (Pivot / Center) トグル: このモデルでは 2 つの位置が同じ (ピボットが真ん中)
+本当の原因:     Transform の回転・位置はピボット (メッシュの原点) 基準。コードはピボットがちょうつがい・足にあると仮定していたが、モデルは真ん中にピボットがある
+```
+**修正:**
+```csharp
+public void Open(float degrees)
+{
+    transform.RotateAround(Hinge, Vector3.up, degrees);
+}
+
+public static void PlaceOnFloor(Transform statue, Vector3 floorPoint)
+{
+    float bottom = statue.GetComponent<MeshFilter>().sharedMesh.bounds.min.y * statue.lossyScale.y;
+    statue.position = floorPoint - Vector3.up * bottom;
+}
+```
+**教訓:** モデルのピボットがどこにあるかは、コードではなくアセットが決めます。扉・レバー・石像のように「どの点を基準に」扱うモデルは、モデリングツールで原点を合わせるか、空の親 (ちょうつがいの位置、足の位置) を作ってモデルをその子にします。グラフィックスデバイスがないときや無効なレンダラーの `Renderer.bounds` は空のことがあるので、判定にはメッシュの bounds を使います。
+
+---
+
+# 第4部: コンテナ
+
+## ラボ 24 — 定数の長さで配列を回し、外から来た番号を確認しない
 ```
 症状:             ホットバーを作った瞬間に IndexOutOfRangeException (Hotbar.Build)
 ツール:           例外設定で IndexOutOfRangeException をスローされたときに中断 → ウォッチ式 i == 3、Slots.Length == 3
@@ -327,7 +477,7 @@ public string Select(int key)
 ```
 **教訓:** インスペクターに表示される配列のサイズはコードが決めるものではありません。ループは `Length`/`Count` で回し、入力・ネットワーク・セーブファイルから来た番号は範囲を確認してから使います。サイズがルールなら `OnValidate` で強制します。配列は `IndexOutOfRangeException`、`List` は `ArgumentOutOfRangeException` なので、メッセージを見ただけでどちらかわかります。
 
-## ラボ 17 — foreach の途中で別のスクリプトがリストから自分を削除する
+## ラボ 25 — foreach の途中で別のスクリプトがリストから自分を削除する
 ```
 症状:             空爆で HP 10 の敵が倒れた瞬間に InvalidOperationException: Collection was modified
 ツール:           Enemy.Die の Members.Remove にブレークポイント → コールスタック: Die ← TakeDamage ← Squad.Airstrike(foreach)
@@ -338,9 +488,9 @@ public string Select(int key)
 foreach (Enemy enemy in Members.ToArray()) { enemy.TakeDamage(damage); }        // コピーを回す
 for (int i = Members.Count - 1; i >= 0; --i) { Members[i].TakeDamage(damage); }  // 後ろから回す
 ```
-**教訓:** ループ中に呼ばれるコード (イベント、コールバック、他のコンポーネントの関数) が同じリストを変更しうるなら、コピーか逆順で回します。前からインデックスで回しながら削除すると、例外なしで **1 つずつ飛ばす** もっと静かなバグになります。`Destroy` が呼ぶ `OnDestroy` はフレームの最後なので、この例外ではなくラボ 21 のような「破壊された要素が残る」問題になります。
+**教訓:** ループ中に呼ばれるコード (イベント、コールバック、他のコンポーネントの関数) が同じリストを変更しうるなら、コピーか逆順で回します。前からインデックスで回しながら削除すると、例外なしで **1 つずつ飛ばす** もっと静かなバグになります。`Destroy` が呼ぶ `OnDestroy` はフレームの最後なので、この例外ではなくラボ 29 のような「破壊された要素が残る」問題になります。
 
-## ラボ 18 — Unity のシリアライズが Dictionary と List<List<T>> を捨てる
+## ラボ 26 — Unity のシリアライズが Dictionary と List<List<T>> を捨てる
 ```
 間違った結果:     複製した店と読み込んだ店の potion の価格 -1、陳列棚 0 個。名前とゴールドは正常
 ツール:           ラボの出力「保存された JSON: {"ShopName":"대장간","Gold":500}」— Prices、Shelves がない
@@ -377,7 +527,7 @@ public class Shop : MonoBehaviour, ISerializationCallbackReceiver
 ```
 **教訓:** インスペクターに表示されないフィールドは、プレハブ、シーンの保存、Instantiate、Undo、`JsonUtility` でも抜け落ちます。`Dictionary`、`T[,]`、`T[][]`、`List<List<T>>` は `[Serializable]` のラッパーや `ISerializationCallbackReceiver` でシリアライズ可能な形に変えます。コールバックはシリアライズ用のスレッドで呼ばれることがあるので、その中で Unity API を呼ばないでください。
 
-## ラボ 19 — FindObjectsByType の順序をゲームの順序として使う
+## ラボ 27 — FindObjectsByType の順序をゲームの順序として使う
 ```
 間違った結果:     3 つのマップすべてで間違う (2,1,0 や 1,3,0,2 のように。間違い方は実行環境ごとに違う)。ラボは置く順をどの単調な順序とも合わないように選んである。
                   実際のゲームでは「あるマップでは合う」という形で現れるバグだ
@@ -390,7 +540,7 @@ Route = FindObjectsByType<RoutePoint>(FindObjectsSortMode.None).OrderBy(p => p.O
 ```
 **教訓:** `FindObjectsByType`、`GetComponents`、`GetComponentsInChildren`、`Dictionary` の列挙、イベントの呼び出し順は、ゲームのルール上の順序ではありません。意味のある順序はデータ (番号) として持って自分でソートするか、インスペクターの配列に順番に入れてシーンファイルに保存します。このバグは「エディターでは動くのにビルドでは順序が違う」という形で現れがちです。
 
-## ラボ 20 — 使い回す結果バッファをそのまま返す
+## ラボ 28 — 使い回す結果バッファをそのまま返す
 ```
 間違った結果:     Alpha の名簿 2 人 (期待値 3)、Alpha の名簿に Bravo の兵士。alphaRoster == bravoRoster が true
 ツール:           ウォッチ式で参照を比較。alphaRoster の行の後 Count 3 → bravoRoster の行の後 Count 2 に変わる
@@ -404,7 +554,7 @@ return new List<Soldier>(results);
 ```
 **教訓:** アロケーションを減らす API (`GetComponents(List)`、`GetComponentsInChildren(List)`、`Physics.RaycastNonAlloc`、`OverlapSphereNonAlloc`) のバッファは **次の呼び出しで上書きされます**。バッファは関数の中だけで使い、外に出すときはコピーするか、呼び出す側にバッファを持たせます。
 
-## ラボ 21 — 破壊されたオブジェクトが Dictionary のキーとして残る
+## ラボ 29 — 破壊されたオブジェクトが Dictionary のキーとして残る
 ```
 間違った結果:     ヘイトリスト 3 人 (期待値 2)。AttackTop で MissingReferenceException
 ツール:           AttackTop にブレークポイント → ウォッチ式 top == null は true、(object)top == null は false
@@ -423,7 +573,7 @@ public void AttackTop() { Prune(); ... }
 
 **教訓:** `UnityEngine.Object` を入れたコンテナ (`Dictionary` のキー、`HashSet`、`List`) は `Destroy` を知りません。取り出すときに `== null` (Unity の再定義) で除外して片付けるか、死ぬときに通知して削除します。片付けていない項目は C# オブジェクトを掴んだままなので、小さなリークにもなります。第1部のラボ 1・8 の fake null がコンテナの中に隠れた形です。
 
-## ラボ 22 — 長さが変わった NativeList の AsArray をキャッシュしておく
+## ラボ 30 — 長さが変わった NativeList の AsArray をキャッシュしておく
 ```
 症状:             出発点を読む行で ObjectDisposedException: NativeList ... has been deallocated
 ツール:           Step にブレークポイント、ウォッチ式 view[0] → 最初の Step (最初の Add) を通った直後から読めない。Capacity 4 を超える前なのに
@@ -438,9 +588,9 @@ public Vector3 StartPoint() { return Points[0]; }   // view をキャッシュ�
 
 ---
 
-# 第4部: 不正な参照とネイティブメモリ
+# 第5部: 不正な参照とネイティブメモリ
 
-## ラボ 23 — NativeArray を Dispose しない
+## ラボ 31 — NativeArray を Dispose しない
 ```
 間違った結果:     目標を 5 回変えた後に生きているバッファ 5 個 (期待値 1)、巡回兵を消した後も 5 個 (期待値 0)。例外はない
 ツール:           再生を止めるとコンソールに "Leak Detected : Persistent allocates 5 individual allocations"
@@ -470,7 +620,7 @@ void OnDestroy()
 ```
 **教訓:** `new NativeArray(..., Allocator.Persistent)` は `new` より `malloc` に近いものです。作った場所と対になる `Dispose` を一緒に書きます (フィールドなら `OnDestroy`/`OnDisable`)。リークは例外なしでメモリだけが増えるので、Leak Detection のメッセージと Memory Profiler で探します。`IsCreated` は「この変数が」バッファを持っているかどうかにすぎません。構造体のコピーは元が Dispose された後も `IsCreated == true` で、アクセスすると安全システムが `ObjectDisposedException` を投げます (ラボはこれで生きているバッファを数えています)。
 
-## ラボ 24 — 前のジョブだけ Complete して後のジョブの出力を読む
+## ラボ 32 — 前のジョブだけ Complete して後のジョブの出力を読む
 ```
 止まった所:       Watchtower.Scan の count[0]
 例外:             InvalidOperationException: The previously scheduled job CountInRangeJob writes to the NativeArray CountInRangeJob.Count.
@@ -486,7 +636,7 @@ EnemiesInRange = count[0];
 ```
 **教訓:** メインスレッドがバッファを読む・書く・Dispose するには、そのバッファを使う **すべての** ジョブのハンドルが Complete されている必要があります。実際にジョブが終わっているかどうかに関係なく、安全システムが阻止します (だからタイミング次第でたまに起きるバグではなく、常に起きるバグになります。ありがたいことです)。依存チェーンは末尾のハンドル 1 つを Complete すればよく、複数の枝は `JobHandle.CombineDependencies` でまとめます。メッセージは **ジョブ名.フィールド名** まで教えてくれるので、最後まで読みましょう。
 
-## ラボ 25 — Allocator.Temp のバッファを次のフレームで読む
+## ラボ 33 — Allocator.Temp のバッファを次のフレームで読む
 ```
 止まった所:       SpawnDirector.Update の plan[next] (StartWave の次のフレーム、next == 0)
 例外:             ObjectDisposedException: The NativeArray has been deallocated, it is not allowed to access it
@@ -517,7 +667,7 @@ void OnDestroy()
 (ジョブに渡さないデータなら、単に `int[]` に変えるのも正しい答えです。)
 **教訓:** Allocator は寿命の約束です。Temp = このフレーム、関数内のローカル変数用。TempJob = ジョブに渡して 4 フレーム以内に Dispose。Persistent = 自分で Dispose するまで。フィールドに入れた瞬間に Temp は間違った選択です。エディターでは安全システムがすぐに例外を投げてくれますが、リリースビルドには安全チェックがないので、他のコードが上書きしたメモリを読んで **見当違いの匹数** が出ることがあります。
 
-## ラボ 26 — Domain Reload を切った再生で静的な状態が残る
+## ラボ 34 — Domain Reload を切った再生で静的な状態が残る
 ```
 間違った結果:     2 回目の最初のウェーブ 4 (期待値 1)、レーダーの敵 4 (期待値 2)、radar.Nearest() で MissingReferenceException
 ツール:           SimulateEnterPlayMode() の次の行にブレークポイント → ウォッチ式 Enemy.Alive: Count 4 なのに先頭の 2 つは "null" (破壊された 1 回目の敵)
@@ -556,9 +706,9 @@ public static class WaveDirector
 
 ---
 
-# 第5部: 物理
+# 第6部: 物理
 
-## ラボ 27 — 高速な Rigidbody が Discrete の衝突判定で壁をトンネリングする
+## ラボ 35 — 高速な Rigidbody が Discrete の衝突判定で壁をトンネリングする
 ```
 間違った結果:     壁に当たった回数 0 (期待値 1)、弾丸 x = 60 (壁 x = 10)
 ツール:           FixedUpdate にトレースポイント "{transform.position.x}" → 0, 6, 12, 18 ... 壁 (9.9 〜 10.1) の中にいたステップがない
@@ -571,7 +721,7 @@ rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 ```
 **教訓:** 「1 ステップで進む距離 > ぶつかる物の厚さ」ならトンネリングを疑います。速いものだけ Continuous 系 (連続的かつ動的など) をオンにし (高コストです)、非常に多い弾丸は Rigidbody の代わりにステップごとのレイキャストで判定します。壁を厚くしたり fixedDeltaTime を小さくしたりする方法は、速度がさらに上がるとまた問題になります。
 
-## ラボ 28 — 両方とも Rigidbody がなくトリガーメッセージが発生しない
+## ラボ 36 — 両方とも Rigidbody がなくトリガーメッセージが発生しない
 ```
 間違った結果:     罠の発動 0 回、HP 100 のまま
 ツール:           OnTriggerEnter のブレークポイントが一度も止まらない →「条件が間違っている」のではなく「呼ばれていない」
@@ -587,7 +737,7 @@ void Awake()
 ```
 **教訓:** `OnTriggerEnter`/`OnCollisionEnter` が呼ばれないなら、① どちらかに Rigidbody (または CharacterController) があるか ② レイヤーの衝突表 (Layer Collision Matrix) で 2 つのレイヤーがオンになっているか ③ トリガー同士なら片方に Rigidbody があるか ④ コライダーが無効になっていないか、を順に確認します。動くコライダーに Rigidbody を付けるのはパフォーマンスの面でも有利です (静的コライダーを動かすと物理シーンを作り直します)。
 
-## ラボ 29 — レイヤー番号をレイヤーマスクとして渡す
+## ラボ 37 — レイヤー番号をレイヤーマスクとして渡す
 ```
 間違った結果:     タレットが当てたもの Glass (期待値 Enemy)
 ツール:           ウォッチ式 Convert.ToString(EnemyLayer, 2) == "1000" → 3 番ビット。ガラス窓が 3 番レイヤー
@@ -601,7 +751,7 @@ Physics.Raycast(transform.position, transform.forward, out RaycastHit hit, Range
 ```
 **教訓:** `gameObject.layer` は番号 (0〜31)、Physics のクエリ・`Camera.cullingMask`・`LayerMask` はマスク (ビットの集まり) です。どちらも int なのでコンパイラーは防いでくれません。数値の代わりに `LayerMask` フィールドや `LayerMask.GetMask("Enemy")` を使えば、この混同はなくなります。
 
-## ラボ 30 — Interpolate をオンにした Rigidbody を Update で transform で動かす
+## ラボ 38 — Interpolate をオンにした Rigidbody を Update で transform で動かす
 ```
 間違った結果:     足場が 1.5 秒間で 1.03m (期待値 3m)。箱は 0m
 ツール:           Update にトレースポイント "{Time.frameCount} {transform.position.x}" → 足した分だけ増えて、次のフレームには元に戻っている
@@ -618,7 +768,7 @@ void FixedUpdate()
 ```
 **教訓:** Rigidbody が付いたオブジェクトは transform ではなく Rigidbody で動かします。Kinematic は FixedUpdate で `MovePosition`/`MoveRotation`、Dynamic は `linearVelocity`/`AddForce`。Interpolate はこのように動かしたときに画面を滑らかにするオプションであって、transform で動かしたものを滑らかにするものではありません。
 
-## ラボ 31 — transform を動かした同じフレームで物理クエリ
+## ラボ 39 — transform を動かした同じフレームで物理クエリ
 ```
 間違った結果:     戻した位置で拾ったもの null (期待値 Crate)、元の位置で拾ったもの Crate (期待値 null)
 ツール:           ResetCrates の後のウォッチ式: transform.position == (0,0,4)、GetComponent<Collider>().bounds.center == (8,0,4)
@@ -635,9 +785,9 @@ Physics.SyncTransforms();
 
 ---
 
-# 第6部: サウンド
+# 第7部: サウンド
 
-## ラボ 32 — オーディオデータをプリロード (Preload Audio Data) をオフにしたクリップを事前にロードしていない
+## ラボ 40 — オーディオデータをプリロード (Preload Audio Data) をオフにしたクリップを事前にロードしていない
 ```
 間違った結果:   最初の一発を撃った瞬間 loadState == Unloaded。発射後、データがロードされるまで数フレーム
 止めた位置:     Blaster.Fire → FireClip.loadState: Unloaded, preloadAudioData: false, loadInBackground: true
@@ -658,7 +808,7 @@ public void Equip(AudioClip fireClip)
 ② `blaster.wav` のインポート設定で **オーディオデータをプリロード** をオンにして「適用する」。
 **教訓:** オーディオインポート設定 3 つの意味: **ロードタイプ** (Load Type、メモリ上にどんな形で置くか: 展開済み / 圧縮のまま / ストリーミング)、**オーディオデータをプリロード** (シーンやアセットのロード時にデータも一緒に)、**バックグラウンドで実行** (ロードを待たずに後回しにする)。オフにするとメモリを節約できる代わりに「いつロードするか」をコードが責任を持つ必要があります。バックグラウンドで実行をオフにすると、遅延の代わりにそのフレームがカクつきます (ヒッチ)。
 
-## ラボ 33 — 実ボイス数の上限を超え、ボスのセリフの優先度が同じ
+## ラボ 41 — 実ボイス数の上限を超え、ボスのセリフの優先度が同じ
 ```
 間違った結果:   boss.Voice.isPlaying == true なのに isVirtual == true
 ツール:         プロファイラーのオーディオモジュール → 再生 41、実 32、仮想 9
@@ -671,7 +821,7 @@ Voice.priority = 0;   // 0 が最も重要
 (足音の側を `priority = 200` に下げても構いません。根本的には同じ音を何十個も同時に鳴らす必要はないので、足音の数を制限します。)
 **教訓:** 「音が聞こえない」の大きな原因の 1 つが **同時再生数の上限** です。仮想ボイスは位置だけ計算し続けて音は出さず、空きができると続きから鳴ります。重要な音 (セリフ、UI、警報) は priority で保護します。
 
-## ラボ 34 — AudioSource が付いたオブジェクトをすぐに Destroy
+## ラボ 42 — AudioSource が付いたオブジェクトをすぐに Destroy
 ```
 間違った結果:   樽は消え、0.2 秒後に爆発音を再生中の AudioSource が存在しない
 ツール:         Explode の最後に Debug.Break() → 次のフレームのヒエラルキーで ExplosiveBarrel とその AudioSource が消えている
@@ -687,7 +837,7 @@ public void Explode()
 ```
 **教訓:** 消えるもの (弾、敵、箱) が出す音は **別の寿命を持つ場所** から鳴らします: `PlayClipAtPoint` (一時的な "One shot audio" オブジェクト)、切り離した子 + `Destroy(go, clip.length)`、サウンドマネージャーの AudioSource プール。`PlayClipAtPoint` は AudioSource の設定 (ミキサーグループ、3D 設定) を指定できないので、大きなプロジェクトではプールが一般的です。
 
-## ラボ 35 — 短い効果音を Play() で鳴らして長い音を切った
+## ラボ 43 — 短い効果音を Play() で鳴らして長い音を切った
 ```
 間違った結果:   1 秒後 Source.clip == grunt、ブリーフィングは再生されていない
 止めた位置:     PlayHurt → F10 の前後: Source.clip briefing → grunt、Source.time 0.5 → 0
@@ -704,9 +854,9 @@ public void PlayHurt(AudioClip grunt)
 
 ---
 
-# 第7部: 画像 / レンダリング
+# 第8部: 画像 / レンダリング
 
-## ラボ 36 — sharedMaterial を変更してアセット自体を変えてしまった
+## ラボ 44 — sharedMaterial を変更してアセット自体を変えてしまった
 ```
 間違った結果:   隣の箱も赤、Crate.mat アセットも赤
 止めた位置:     OnHoverEnter → body.sharedMaterial.GetInstanceID() がすべての箱で同じ = Crate.mat アセット
@@ -724,10 +874,10 @@ public void OnHoverExit()
     body.material.color = Color.white;
 }
 ```
-(コピーの後始末はラボ 37 を参照。色だけを変えるなら MaterialPropertyBlock のほうが適しています。)
+(コピーの後始末はラボ 45 を参照。色だけを変えるなら MaterialPropertyBlock のほうが適しています。)
 **教訓:** `sharedMaterial`/`sharedMesh` = アセット (全員で共有)、`material`/`mesh` = 最初のアクセス時に複製した自分専用のもの。エディターで `sharedMaterial` を実行時に変更すると、再生を止めても元に戻りません。`git status` に `.mat` が出てきたらこのバグを疑いましょう。
 
-## ラボ 37 — renderer.material の複製がリークする
+## ラボ 45 — renderer.material の複製がリークする
 ```
 間違った結果:   ウェーブごとに Material オブジェクト +100、箱をすべて消した後も +200
 ツール:         Paint の前後の sharedMaterial.name: "Crate" → "Crate (Instance)"。Memory Profiler のスナップショット比較: Material "Crate (Instance)" 200 個
@@ -756,7 +906,7 @@ public class SupplyCrate : MonoBehaviour
 (どうしても複製を使うなら `OnDestroy` で `Destroy(GetComponent<Renderer>().material)`。ただし `OnDestroy` で初めて `.material` にアクセスするとその場でまた複製されるので、Paint のときに受け取っておいた参照を破棄します。)
 **教訓:** レンダラーごとに値だけが違うなら **MaterialPropertyBlock**。マテリアルを複製せずにレンダラー別の値を与えられます。参考: URP/HDRP の SRP Batcher は、MaterialPropertyBlock を使うとそのレンダラーをバッチングから外します。SRP のプロジェクトなら、マテリアルのバリエーションを事前に作っておくか、GPU インスタンシング / シェーダープロパティ (`[PerRendererData]`、`UNITY_INSTANCING_BUFFER`) を使います。
 
-## ラボ 38 — 遅れて届いた非同期ロードの結果が再利用されたスロットを上書きする
+## ラボ 46 — 遅れて届いた非同期ロードの結果が再利用されたスロットを上書きする
 ```
 間違った結果:   スロットのアイテムは potion、アイコンは icon_sword
 止めた位置:     ラムダ texture => Icon = texture → 2 回止まる: 同じフレームに potion (キャッシュ、即時)、次のフレーム以降に sword (LoadAsync 完了)
@@ -780,7 +930,7 @@ public void Show(string itemId)
 ```
 **教訓:** 非同期の結果は「要求したとき」ではなく「到着したとき」の世界に落ちてきます。到着したときに **まだ有効か** (同じアイテムか、オブジェクトは生きているか) を確認します。`ResourceRequest.completed` や Addressables の `Completed` は、すでにロード済みのアセットでも同じフレームに呼ばれないことがあります。キャッシュヒット (即時) とミス (後で) が混ざると順序が逆転します。
 
-## ラボ 39 — Linear 色空間で色を SetVector で渡した
+## ラボ 47 — Linear 色空間で色を SetVector で渡した
 ```
 間違った結果:   旗のピクセル (255, 188, 137)、期待 (255, 128, 64)
 記録:          0x80/255 = 0.502 → 188 = sRGB エンコード(0.502) ≈ 0.735。0x40 → 137 も同じカーブ。0x00 と 0xFF はカーブの両端なのでそのまま
@@ -797,9 +947,9 @@ block.SetColor(ColorId, teamColor);   // Linear 色空間なら sRGB → リニ�
 
 ---
 
-# 第8部: アニメーション
+# 第9部: アニメーション
 
-## ラボ 40 — Animator パラメーター名の大文字・小文字
+## ラボ 48 — Animator パラメーター名の大文字・小文字
 ```
 間違った結果:   Attack ステートに入らない
 コンソール:     ⚠ Parameter 'Hash 1203776827' does not exist.
@@ -812,7 +962,7 @@ static readonly int AttackId = Animator.StringToHash("Attack");
 ```
 **教訓:** 文字列のパラメーターはコンパイラーがチェックしてくれません。名前は 1 か所に定数として置き、開始時に `animator.parameters` で必要な名前があるかを検査する習慣をつけましょう。警告フィルターをオフにしていると、このバグは何週間も隠れます。
 
-## ラボ 41 — カリングモード = 完全に除外 (Cull Completely) なので画面外でイベントが消える
+## ラボ 49 — カリングモード = 完全に除外 (Cull Completely) なので画面外でイベントが消える
 ```
 間違った結果:   2.1 秒間に足音 0 回、Renderer.isVisible == false
 ツール:         インスペクターの Animator → カリングモード (Culling Mode): 完全に除外 (Cull Completely)。アニメーターウィンドウで Walk の進行バーが止まっている。
@@ -825,7 +975,7 @@ GetComponent<Animator>().cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 ```
 **教訓:** 画面外でもゲームロジックがアニメーション (イベント、ルートモーション) に頼っているキャラクターに 完全に除外 (Cull Completely) を使ってはいけません。トランスフォーム更新を除外 (Cull Update Transforms) は、ステートマシンとイベントを維持しつつボーンの書き込みと IK を省略します。エディターでは **シーンビューのカメラも「見ている」** ことになるので、エディターでは動くのにビルドでは動かない (またはその逆の) バグとして報告されがちです。
 
-## ラボ 42 — トランジションがイベントより先に終わる
+## ラボ 50 — トランジションがイベントより先に終わる
 ```
 間違った結果:   3 回振って Hit 0 回
 ツール:         アニメーションウィンドウ: Swordsman_Swing の長さ 1 秒、Hit イベント 0.9 秒
@@ -836,7 +986,7 @@ GetComponent<Animator>().cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 **修正 (いずれか1つ):** アニメーターウィンドウで Swing → Idle トランジションの **終了時間を 0.95** に (イベントの後で遷移し始める)。またはアニメーションウィンドウで **Hit イベントを 0.5 秒** 付近 (刃が実際に当たる位置) に移動する。
 **教訓:** トランジションの途中では 2 つのステートのクリップが一緒に再生されて両方のイベントが呼ばれますが、トランジションが **終わった後** は元のクリップはそれ以上進みません。判定用のイベントはトランジション開始前に置きます。被弾や回避のような割り込みで攻撃が中断されたときに判定が抜けるのも同じ原理で、それは意図した動作の場合もあります (企画と決めましょう)。
 
-## ラボ 43 — アニメーションの結果を Update で読んでいる
+## ラボ 51 — アニメーションの結果を Update で読んでいる
 ```
 間違った結果:   ほぼすべてのフレームで手と松明がずれる
 ツール:         Update と LateUpdate のトレースポイント → 同じフレームなのに手の x が違う
@@ -855,9 +1005,9 @@ void LateUpdate()
 
 ---
 
-# 第9部: 並行処理とフリーズ
+# 第10部: 並行処理とフリーズ
 
-## ラボ 44 — 在庫の確認と減算の間に別のスレッドが割り込む
+## ラボ 52 — 在庫の確認と減算の間に別のスレッドが割り込む
 ```
 間違った結果:   販売数 2 (期待 1)、残り在庫 -1 (期待 0)、購入者リスト 2 人
 ツール:         TryBuy の if の行にブレークポイント → スレッドウィンドウ: ワーカー 2 つが同じ行にいて、どちらも Stock == 1
@@ -879,7 +1029,7 @@ public bool TryBuy(string buyer)
 ```
 **教訓:** 共有状態を「確認して → 行動する」コードは、その間に割り込む隙がないよう 1 つのまとまりにします (`lock`)。決済のように時間のかかる処理を lock の中に置きたくなければ、lock の中で先に在庫を予約 (Stock--) し、失敗したら戻します。`Stock--` や `List.Add` 自体もアトミックではありません (`Interlocked.Decrement`、`ConcurrentQueue`)。Job System の安全システムは NativeContainer しか監視しないので、このような C# オブジェクトのレースは誰も教えてくれません。
 
-## ラボ 45 — Task.Run の中で transform を使っている
+## ラボ 53 — Task.Run の中で transform を使っている
 ```
 間違った結果:   経路探索はワーカースレッドで行ったが、到着 false、位置もそのまま。コンソールは静か
 ツール:         transform.position の行で F10 → 次の行に進まずに消える
@@ -897,7 +1047,7 @@ public async Task GoTo(Vector3 from, Vector3 goal)
 ```
 **教訓:** ワーカースレッドには計算だけを送り、Unity オブジェクトに触れる処理はメインスレッドに戻ってから行います。メインスレッドで開始した `await` は、UnitySynchronizationContext が次の行をメインスレッドに戻してくれます。返された Task を捨てると (fire-and-forget) 例外も一緒に捨てられるので、await するか `ContinueWith` で `Exception` をログに残します。Task の中では `transform.position` を **読むこと** もできません (値を事前に取り出して渡します)。
 
-## ラボ 46 — BackgroundThreadAsync の後にメインスレッドへ戻っていない
+## ラボ 54 — BackgroundThreadAsync の後にメインスレッドへ戻っていない
 ```
 症状:          ロード時に UnityException: get_gameObject can only be called from the main thread
 ツール:         Load の最初の行と gameObject.name の行でウォッチ式 Thread.CurrentThread.ManagedThreadId → 1 から別の番号に変わった
@@ -913,7 +1063,7 @@ transform.localScale = Vector3.one * data.Scale;
 ```
 **教訓:** await の次の行のスレッドは「何を await したか」で決まります。普通の `await Task` (メインスレッドで開始) はメインに戻り、`Awaitable.BackgroundThreadAsync()` と `ConfigureAwait(false)` は戻りません。バックグラウンド区間は `MainThreadAsync()` で閉じる対を作ります。戻った後にはオブジェクトがすでに破棄されている可能性があるので、`if (this == null) return;` や `destroyCancellationToken` を使います。
 
-## ラボ 47 — メインスレッドで .Result で待ってデッドロック
+## ラボ 55 — メインスレッドで .Result で待ってデッドロック
 ```
 症状:          ショップを開いた瞬間に応答なし。CPU は 0% 付近 (デッドロック)
 すべて中断:     Main Thread のコールスタック: ShopWindow.Open → (HangGuard.Wait =) Task.Wait → Monitor.Wait。眠っている
@@ -932,7 +1082,7 @@ public async void Open(SaveFile save)
 (コルーチンなら `var task = save.LoadGoldAsync(); while (!task.IsCompleted) yield return null; ShownGold = task.Result;`)
 **教訓:** メインスレッドで `Task` をブロックして待たないこと (`.Result`、`.Wait()`、`.GetAwaiter().GetResult()`)。最後まで `await` でつなぎます。ライブラリ側に `ConfigureAwait(false)` を付けるとデッドロックは解けますが、`Open` はディスクを読む 200ms の間、依然としてゲームを止めます (このラボの 2 つ目の `[FAIL]`)。さらに `ConfigureAwait(false)` の次の行はワーカースレッドで動くので、そこで Unity API (`transform`、`GetComponent`) を呼ぶと "can only be called from the main thread" 例外が出ます。デッドロックは CPU 0%、無限ループは CPU 100% という特徴を覚えておきましょう。
 
-## ラボ 48 — Update が変えてくれる値を yield なしの while で待っている
+## ラボ 56 — Update が変えてくれる値を yield なしの while で待っている
 ```
 症状:          エレベーターを呼んだ瞬間に応答なし。タスクマネージャーで Unity が CPU 1 コアを使い切っている (無限ループ)
 すべて中断:     スレッドウィンドウの Main Thread のコールスタックの一番上 = Passenger.RideTo の最初の while (HangGuard の例外スタックトレースも同じ場所)
@@ -957,7 +1107,7 @@ while (!Elevator.IsAt(destination))
 (または `yield return new WaitUntil(() => Elevator.IsAt(Floor));`)
 **教訓:** 「ほかの何かが変えてくれる値」を待つループは、必ずその何かに順番を渡さなければなりません。Unity では `yield return null` (コルーチン)、`await Awaitable.NextFrameAsync()` (async)、あるいは Update で状態を確認する方法です。Update/Start/ボタンハンドラーの中の `while (!loaded) {}` も同じようにエディターを固まらせます。固まったときは **すべて中断 → スレッドウィンドウ → Main Thread** が最初の一手です。
 
-## ラボ 49 — BFS に訪問チェックがない
+## ラボ 57 — BFS に訪問チェックがない
 ```
 症状:          道がつながっているときは正解 (5)。3-6 の扉をロックした後に応答なし、メモリ急増
 ツール:         while の最初の行に条件付きブレークポイント queue.Count > 100 → 部屋が 8 つしかないのに止まる。queue を展開すると 1, 2, 4, 5 が何十回も
@@ -985,7 +1135,7 @@ while (queue.Count > 0)
 ```
 **教訓:** グラフ (部屋、ウェイポイント、会話ノード、電線、アイテム合成) を巡回するコードは **訪問記録** が基本です。テストデータにループや途切れた道がないと永遠に表に出ず、レベルデザイナーが扉を 1 つロックした瞬間に爆発します。「フリーズ + メモリ増加」なら、無限ループの中で何かを積み上げているということです。再帰 DFS で同じミスをすると、フリーズの代わりに StackOverflowException (エディターのクラッシュ) として現れます。
 
-## ラボ 50 — float の時間に小さなティックを累積
+## ラボ 58 — float の時間に小さなティックを累積
 ```
 症状:          起動したばかりのサーバー (90 秒) は 128 ティックで正常。起動から 7 日 (604800 秒) のサーバーは応答なし
 ツール:         while の中に条件付きブレークポイント Ticks > 1000 → ウォッチ式 SimTime == 604800、SimTime + TickSeconds == SimTime が true
@@ -1011,9 +1161,9 @@ public void FastForward(float seconds)
 
 ---
 
-# 第10部: パフォーマンス (GC アロケーションと繰り返し検索)
+# 第11部: パフォーマンス (GC アロケーションと繰り返し検索)
 
-## ラボ 51 — 値が変わらないのに毎フレーム文字列・LINQ・ボックス化
+## ラボ 59 — 値が変わらないのに毎フレーム文字列・LINQ・ボックス化
 ```
 間違った結果:   値が変わらないフレームの GC アロケーションがフレームあたり約 5600 バイト、表示行 20 (期待 128 バイト以下)
 ツール:         プロファイラー → CPU → ヒエラルキー → GC アロケーション列 → HealthBar.Update
@@ -1050,7 +1200,7 @@ void Update()
 ```
 **教訓:** 毎フレーム回るコードでは「値が変わったときだけ作る」。文字列の連結・補間、LINQ、`IEnumerable<T>` で受け取った foreach (ボックス化)、ラムダがローカル変数をキャプチャするクロージャ、`new List` はすべてヒープアロケーションです。1 回あたり数十バイトでも、コンポーネント数 × 毎フレームなら GC を呼びます。UI テキストは TextMeshPro の `SetText(format, number)` がアロケーションなしで数値を入れてくれます。
 
-## ラボ 52 — Update で GameObject.Find と FindObjectsByType
+## ラボ 60 — Update で GameObject.Find と FindObjectsByType
 ```
 間違った結果:   標的探しの GC アロケーションがフレームあたり約 98KB (期待 256 バイト以下)
 ツール:         プロファイラー → ヒエラルキー → Turret.Update の下に GameObject.Find、FindObjectsByType: 呼び出し (Calls) 40、時間 (ミリ秒) がオブジェクト数に比例
@@ -1068,9 +1218,9 @@ public class Enemy : MonoBehaviour
 void Start() { Player = GameObject.Find("Player").transform; }   // 1 回だけ
 void Update() { foreach (Enemy enemy in Enemy.All) { ... } }      // List を直接回せばアロケーションなし
 ```
-**教訓:** 変わらない参照は一度探して保持し (インスペクターでの接続が最善)、変わる集合は OnEnable/OnDisable で登録簿を管理します。登録簿は新しく現れた敵や消えた敵をすぐに反映します (一度探して終わりにすると、ラボの 2 つ目の判定で FAIL)。`Camera.main` は 2020.2 から内部キャッシュなので、以前ほど重くありません。静的な登録簿は、Domain Reload をオフにした再生では空にしてやる必要があります (ラボ 26)。
+**教訓:** 変わらない参照は一度探して保持し (インスペクターでの接続が最善)、変わる集合は OnEnable/OnDisable で登録簿を管理します。登録簿は新しく現れた敵や消えた敵をすぐに反映します (一度探して終わりにすると、ラボの 2 つ目の判定で FAIL)。`Camera.main` は 2020.2 から内部キャッシュなので、以前ほど重くありません。静的な登録簿は、Domain Reload をオフにした再生では空にしてやる必要があります (ラボ 34)。
 
-## ラボ 53 — プールを作ったのに返していない
+## ラボ 61 — プールを作ったのに返していない
 ```
 間違った結果:   作られた弾の数 60 (期待 ≤ 13)、プールに戻った弾 0
 ツール:         BulletPool.Release にブレークポイント → 一度も止まらない
@@ -1083,7 +1233,7 @@ if (Life <= 0f) { Pool.Release(this); }
 ```
 **教訓:** プールは「取り出し」より「返却」のほうがバグを生みやすいです。返すときに無効化し (SetActive(false))、取り出すときに位置・速度・寿命・トレイルなどの状態をすべて初期化します。`UnityEngine.Pool.ObjectPool<T>` は createFunc/actionOnGet/actionOnRelease を受け取ってこの対を強制し、同じものを 2 回返すとエラーを出します (collectionCheck)。
 
-## ラボ 54 — SendMessage の名前のタイプミスとボックス化
+## ラボ 62 — SendMessage の名前のタイプミスとボックス化
 ```
 間違った結果:   受けたダメージ 0。名前を TakeDamage に直しても GC アロケーションがフレームあたり約 500 バイト (敵 30 体)
 ツール:         Enemy.TakeDamage のブレークポイントで止まらない。RequireReceiver に変えると "SendMessage TakeDamge has no receiver!"
@@ -1099,7 +1249,7 @@ if (InFlame[i].TryGetComponent(out IDamageable target)) { target.TakeDamage(Dama
 ```
 **教訓:** `SendMessage`/`BroadcastMessage`/`SendMessageUpwards` はタイプミスが静かで、毎回すべてのコンポーネントをリフレクションでなめ、引数をボックス化します。インターフェース (`IDamageable`)、C# event、UnityEvent は名前をコンパイル時に確認します。毎フレームの `TryGetComponent` も節約したいなら、入ってきたときに一度探してリストに入れておきます。
 
-## ラボ 55 — 毎フレーム配列を返す OverlapSphere
+## ラボ 63 — 毎フレーム配列を返す OverlapSphere
 ```
 間違った結果:   回復は正しいが GC アロケーションがフレームあたり 1792 バイト = 司祭 8 人 × (味方 24 人 × 8 + 配列ヘッダー 32) (期待 128 バイト以下)
 ツール:         プロファイラー → GC アロケーション列 → HealingAura.Update → Physics.OverlapSphere
@@ -1115,4 +1265,5 @@ void Update()
     for (int i = 0; i < count; ++i) { ... }
 }
 ```
-**教訓:** 配列を返す API (`OverlapSphere`、`RaycastAll`、`GetComponents<T>()`、`GetComponentsInChildren<T>()`、`FindObjectsByType`、`Mesh.vertices`) には、たいていバッファを埋める対 (`NonAlloc`、`List<T>` を受け取るオーバーロード、`GetVertices(List)`) があります。バッファが小さいとあふれた結果は **黙って捨てられる** ので、返ってきた個数がバッファサイズと同じときは警告を残します (隠しケースは味方 30 人)。バッファを関数の外に出すと、ラボ 20 の共有バグになります。
+**教訓:** 配列を返す API (`OverlapSphere`、`RaycastAll`、`GetComponents<T>()`、`GetComponentsInChildren<T>()`、`FindObjectsByType`、`Mesh.vertices`) には、たいていバッファを埋める対 (`NonAlloc`、`List<T>` を受け取るオーバーロード、`GetVertices(List)`) があります。バッファが小さいとあふれた結果は **黙って捨てられる** ので、返ってきた個数がバッファサイズと同じときは警告を残します (隠しケースは味方 30 人)。バッファを関数の外に出すと、ラボ 28 の共有バグになります。
+

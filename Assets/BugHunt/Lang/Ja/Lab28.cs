@@ -5,10 +5,11 @@ namespace BugHunt
     {
         static readonly (string Ko, string Ja)[] Lab28 =
         {
-            ("가시 함정", "トゲの罠"),
-            ("함정 위를 지나가도 OnTriggerEnter 가 불리지 않는다", "罠の上を通り過ぎても OnTriggerEnter が呼ばれない"),
-            ("함정 발동 횟수", "罠の発動回数"),
-            ("플레이어 HP", "プレイヤーの HP"),
+            ("부대 편성", "部隊編成"),
+            ("두 부대의 명단이 똑같다", "2 つの部隊の名簿がまったく同じ"),
+            ("Alpha 명단 인원", "Alpha の名簿の人数"),
+            ("Bravo 명단 인원", "Bravo の名簿の人数"),
+            ("Alpha 명단이 모두 Alpha 소속", "Alpha の名簿が全員 Alpha 所属"),
         };
     }
 }

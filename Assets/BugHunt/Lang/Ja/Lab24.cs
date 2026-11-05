@@ -5,9 +5,19 @@ namespace BugHunt
     {
         static readonly (string Ko, string Ja)[] Lab24 =
         {
-            ("망루의 시야", "見張り塔の視界"),
-            ("잡을 붙이자마자 InvalidOperationException (\"분명히 Complete 했는데?\")", "ジョブを付けたとたんに InvalidOperationException (「確かに Complete したのに?」)"),
-            ("사거리 {0} 안의 적", "射程 {0} 内の敵"),
+            ("단축키 칸", "ショートカットスロット"),
+            ("디자이너가 칸 배열을 3칸으로 줄이자 IndexOutOfRangeException, 빈 단축키에서 ArgumentOutOfRangeException", "デザイナーがスロットの配列を 3 つに減らすと IndexOutOfRangeException、空のショートカットキーで ArgumentOutOfRangeException"),
+            ("단축 바 칸 수", "ホットバーのスロット数"),
+            ("단축키 {0}", "ショートカットキー {0}"),
+            ("빈 단축키 {0}", "空のショートカットキー {0}"),
+
+            // 게임 데이터(아이템 이름) / ゲームデータ (アイテム名)
+            ("검", "剣"),
+            ("활", "弓"),
+            ("물약", "ポーション"),
+            ("폭탄", "爆弾"),
+            ("창", "槍"),
+            ("방패", "盾"),
         };
     }
 }

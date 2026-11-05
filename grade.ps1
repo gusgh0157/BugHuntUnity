@@ -1,8 +1,8 @@
 ﻿# BugHunt Unity 채점 (명령줄). grade.bat 이 이 스크립트를 부른다. 사용법은 README 의 "채점" 을 보세요.
 # BugHunt Unity 採点 (コマンドライン)。grade.bat がこのスクリプトを呼びます。使い方は README.md (日本語) の「採点」を見てください。
 #   grade.bat                        모든 랩 채점 / 全ラボを採点
-#   grade.bat -NoGraphics            그래픽 장치 없이 (랩 39 는 SKIP) / グラフィックスデバイスなしで (ラボ 39 は SKIP)
-#   grade.bat -Labs 23,24,50         이 랩만 / このラボだけ
+#   grade.bat -NoGraphics            그래픽 장치 없이 (랩 47 은 SKIP) / グラフィックスデバイスなしで (ラボ 47 は SKIP)
+#   grade.bat -Labs 31,32,58         이 랩만 / このラボだけ
 #   grade.bat -Lang ja               출력 언어 ko / ja (없으면 랩 실행 창에서 고른 언어, 그다음 OS 언어) / 出力言語 ko / ja (なければラボ実行ウィンドウで選んだ言語、次に OS の言語)
 #   grade.bat -Unity "D:\Unity\6000.3.27f2\Editor\Unity.exe"
 # 결과: 콘솔 표, 프로젝트 폴더의 grade-report.json, Unity 로그 grade.log. 종료 코드: 만점 0, 아니면 1, 채점 실패 2.
