@@ -329,7 +329,7 @@ public void Board(Transform rider)
 ```
 間違った結果:   拾った直後の剣と手の距離 3.496m、向きの差 96.7 度。置いた剣は手があった場所から 4.258m、見た目の大きさ 0.5 (期待 2)
 止まった位置:   Hand.PickUp の SetParent の次 → item.position はそのまま (床)、item.localPosition だけが変わる
-              Hand.Drop の SetParent の次 → item.localPosition はそのまま、item.position が原点付近に、lossyScale 2 → 0.5
+              Hand.Drop の SetParent の次 → item.localPosition はそのまま、item.position が原点付近に、lossyScale 1 → 0.5
 本当の原因:     SetParent(p) は worldPositionStays = true: ワールドの値を保つようにローカルの値を計算し直す (剣が床に残る)
               SetParent(null, false) はローカルの値を保つ: 手を基準にしたローカルの値がワールドの値になり、親 (騎士の 2 倍 × 手) のスケールが抜ける
 ```
@@ -356,7 +356,7 @@ public void Drop()
 間違った結果:   120 フレーム (180 度) 後の羽根の向きの差 90 度。羽根が 90 度付近で震える
 止まった位置:   Windmill.Update に条件付きブレークポイント transform.eulerAngles.x > 85
               → 88.5 に 1.5 を足して 90 を入れた次のフレーム、91.5 を入れたのに読んだ値は (88.5, 180, 180)
-本当の原因:     eulerAngles はクォータニオンから毎回計算し直した値で、X は -90~90 の範囲で返ってくる。X が 90 を超えると同じ回転 (180-x, y+180, z+180) として読まれ、
+本当の原因:     eulerAngles はクォータニオンから毎回計算し直した値で、X は 90 を超えない値 (0~90 または 270~360) で返ってくる。X が 90 を超えると同じ回転 (180-x, y+180, z+180) として読まれ、
               足し直した値が 90 のほうへ戻る (X = ±90 は Y と Z が同じ軸になるジンバルロックの場所)
 ```
 **修正:**

@@ -329,7 +329,7 @@ public void Board(Transform rider)
 ```
 틀린 결과:     주운 직후 검과 손 사이 3.496m, 방향 차이 96.7도. 내려놓은 검은 손이 있던 자리에서 4.258m, 보이는 크기 0.5 (기대 2)
 멈춘 위치:     Hand.PickUp 의 SetParent 다음 → item.position 은 그대로(바닥), item.localPosition 만 바뀜
-              Hand.Drop 의 SetParent 다음 → item.localPosition 은 그대로, item.position 이 원점 근처로, lossyScale 2 → 0.5
+              Hand.Drop 의 SetParent 다음 → item.localPosition 은 그대로, item.position 이 원점 근처로, lossyScale 1 → 0.5
 진짜 원인:     SetParent(p) 는 worldPositionStays = true: 월드 값을 유지하도록 로컬 값을 다시 계산한다(검이 바닥에 남음)
               SetParent(null, false) 는 로컬 값을 유지: 손 기준 로컬 값이 월드 값이 되고, 부모(기사 2배 × 손)의 크기가 빠진다
 ```
@@ -356,7 +356,7 @@ public void Drop()
 틀린 결과:     120 프레임(180도) 뒤 날개 방향 차이 90도. 날개가 90도 근처에서 떤다
 멈춘 위치:     Windmill.Update 에 조건부 중단점 transform.eulerAngles.x > 85
               → 88.5 에 1.5 를 더해 90 을 넣은 다음 프레임, 91.5 를 넣었더니 읽은 값은 (88.5, 180, 180)
-진짜 원인:     eulerAngles 는 쿼터니언에서 매번 다시 계산한 값이고, X 는 -90~90 범위로 돌아온다. X 가 90 을 넘으면 같은 회전 (180-x, y+180, z+180) 으로 읽혀
+진짜 원인:     eulerAngles 는 쿼터니언에서 매번 다시 계산한 값이고, X 는 90 을 넘지 않는 값(0~90 또는 270~360)으로 돌아온다. X 가 90 을 넘으면 같은 회전 (180-x, y+180, z+180) 으로 읽혀
               다시 더한 값이 90 쪽으로 돌아간다 (X = ±90 은 Y 와 Z 가 같은 축이 되는 짐벌 락 자리)
 ```
 **수정:**

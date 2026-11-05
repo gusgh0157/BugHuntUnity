@@ -1,15 +1,14 @@
 // 랩 55: 상점의 금화
 // 상점 창을 열 때 세이브 파일에서 금화를 읽어 온다. 읽기는 async 로 만들어 두었고, 창을 여는 쪽은 결과를 .Result 로 기다린다.
 // 콘솔 앱에서 시험할 때는 잘 됐는데, 게임에서 상점을 여는 순간 영원히 멈춘다. CPU 는 0% 다(무한루프가 아니다).
-// 기대: 상점 창이 열리고 1초 안에 금화가 보인다. 창을 여는 동안 게임(메인 스레드)이 멈추지 않는다.
+// 기대: 상점 창이 열리고 읽기가 끝나면 금화가 보인다. 창을 여는 동안 게임(메인 스레드)이 멈추지 않는다.
 // (HangGuard.Wait 은 task.Result 와 같습니다. 단, 진짜로 굳는 대신 "응답 없음" 을 알리고 빠져나옵니다. Core/HangGuard.cs 참고)
 // ラボ 55: ショップの金貨
 // ショップウィンドウを開くときにセーブファイルから金貨を読み込む。読み込みは async で作ってあり、ウィンドウを開く側は結果を .Result で待つ。
 // コンソールアプリで試したときはうまくいったのに、ゲームでショップを開いた瞬間に永遠に止まる。CPU は 0% だ (無限ループではない)。
-// 期待: ショップウィンドウが開き、1 秒以内に金貨が表示される。ウィンドウを開く間、ゲーム (メインスレッド) が止まらない。
+// 期待: ショップウィンドウが開き、読み込みが終わると金貨が表示される。ウィンドウを開く間、ゲーム (メインスレッド) が止まらない。
 // (HangGuard.Wait は task.Result と同じです。ただし本当に固まる代わりに「応答なし」を知らせて抜け出します。Core/HangGuard.cs 参照)
 using System.Collections;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -47,9 +46,10 @@ namespace BugHunt.Labs.Lab55
             var shop = Spawn<ShopWindow>("ShopWindow");
             yield return null;
 
-            var blocked = Stopwatch.StartNew();
             shop.Open(save);
-            blocked.Stop();
+            // 막고 기다리지 않는 Open 은 읽기가 끝나기 전에 돌아온다. 돌아온 순간 금화가 이미 있으면 Open 이 메인 스레드를 막고 기다렸다는 뜻이다.
+            // ブロックせずに待つ Open は読み込みが終わる前に戻る。戻った瞬間に金貨がもうあれば、Open がメインスレッドをブロックして待ったということだ。
+            int goldWhenOpenReturned = shop.ShownGold;
 
             // 시간이 아니라 금화가 나타났는지로 기다린다(CPU 가 바쁘면 읽기가 늦게 끝난다). 끝내 안 나타나면 랩 제한 시간에 걸린다.
             // 時間ではなく金貨が表示されたかどうかで待つ (CPU が忙しいと読み込みが遅れて終わる)。最後まで表示されなければラボの制限時間に引っかかる。
@@ -59,7 +59,7 @@ namespace BugHunt.Labs.Lab55
             }
 
             Report.Expect("상점에 보이는 금화", save.Gold, shop.ShownGold);
-            Report.ExpectTrue(Loc.F("Open 이 메인 스레드를 막은 시간 {0}ms (읽기 지연 {1}ms 의 절반 이하)", blocked.ElapsedMilliseconds, save.ReadDelayMs), blocked.ElapsedMilliseconds <= save.ReadDelayMs / 2);
+            Report.ExpectTrue(Loc.F("Open 이 돌아온 순간 금화는 아직 읽는 중 (보인 값 {0}, 기대 -1). 메인 스레드를 막지 않음", goldWhenOpenReturned), goldWhenOpenReturned < 0);
         }
     }
 }
@@ -98,11 +98,11 @@ namespace BugHunt.Labs.Lab55
 //   public async void Open(SaveFile save) { ShownGold = await save.LoadGoldAsync(); }      // Unity 이벤트/버튼 처리기라면 async void 가 흔하다
 // 또는 코루틴에서:  var task = save.LoadGoldAsync(); while (!task.IsCompleted) yield return null; ShownGold = task.Result;
 // Unity 6 이라면 Awaitable 도 있습니다. 라이브러리 쪽에서 await Task.Delay(...).ConfigureAwait(false) 를 쓰면 데드락은 풀리지만,
-// Open 은 여전히 200ms 동안 메인 스레드를 막습니다(이 랩의 두 번째 [FAIL]). 진짜 해결은 "막고 기다리지 않기" 입니다.
+// Open 은 여전히 200ms 동안 메인 스레드를 막고 금화를 다 읽은 뒤에야 돌아옵니다(이 랩의 두 번째 [FAIL]). 진짜 해결은 "막고 기다리지 않기" 입니다.
 //
 // メインスレッドでは Task をブロックして待たないでください (.Result, .Wait(), .GetAwaiter().GetResult())。最後まで非同期でつなげてください。
 //   public async void Open(SaveFile save) { ShownGold = await save.LoadGoldAsync(); }      // Unity のイベント/ボタンのハンドラーなら async void がよくある
 // またはコルーチンで:  var task = save.LoadGoldAsync(); while (!task.IsCompleted) yield return null; ShownGold = task.Result;
 // Unity 6 なら Awaitable もあります。ライブラリ側で await Task.Delay(...).ConfigureAwait(false) を使うとデッドロックは解けますが、
-// Open は相変わらず 200ms の間メインスレッドをブロックします (このラボの 2 つ目の [FAIL])。本当の解決は「ブロックして待たないこと」です。
+// Open は相変わらず 200ms の間メインスレッドをブロックし、金貨を読み終えてから戻ります (このラボの 2 つ目の [FAIL])。本当の解決は「ブロックして待たないこと」です。
 #endregion
