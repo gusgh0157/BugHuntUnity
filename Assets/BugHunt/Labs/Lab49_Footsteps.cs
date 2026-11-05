@@ -67,13 +67,13 @@ namespace BugHunt.Labs.Lab49
 #endregion
 
 #region 힌트 2 / ヒント 2
-// 플레이 중 Hierarchy 에서 Lab21/Guard 를 고르고 Inspector 의 Animator 컴포넌트를 보세요. Culling Mode 는?
+// 플레이 중 Hierarchy 에서 Lab49/Guard 를 고르고 Inspector 의 Animator 컴포넌트를 보세요. Culling Mode 는?
 // 그리고 Animator 창(Window → Animation → Animator)에서 Walk 상태의 진행 막대가 움직이나요?
 // Culling Mode:  Always Animate      항상 계산
 //                Cull Update Transforms  안 보이면 뼈 위치 쓰기·IK 생략(상태 머신과 이벤트는 돈다)
 //                Cull Completely     안 보이면 전부 멈춤(이벤트도 없음)
 //
-// 再生中にヒエラルキーで Lab21/Guard を選び、インスペクターの Animator コンポーネントを見てください。カリングモード (Culling Mode) は?
+// 再生中にヒエラルキーで Lab49/Guard を選び、インスペクターの Animator コンポーネントを見てください。カリングモード (Culling Mode) は?
 // それから、アニメーターウィンドウ (ウィンドウ → アニメーション → アニメーター) で、Walk ステートの進行バーは動いていますか?
 // カリングモード:  常にアニメーション化 (Always Animate)               常に計算
 //                  トランスフォーム更新を除外 (Cull Update Transforms)  見えなければボーン位置の書き込み・IK を省略 (ステートマシンとイベントは動く)

@@ -61,14 +61,24 @@ namespace BugHunt.Labs.Lab15
             yield return null;
 
             menu.Pause();
-            // 진짜 시간으로 기다린다(WaitForSeconds 는 timeScale 0 에서 끝나지 않는다).
-            // 本当の時間で待つ (WaitForSeconds は timeScale 0 では終わらない)。
-            yield return new WaitForSecondsRealtime(menu.SlideSeconds + 0.3f);
+            // 메뉴가 다 들어올 때까지 프레임마다 확인한다. 진짜 시간은 "끝내 안 들어오면 [FAIL]" 로 넘어가는 상한으로만 쓴다
+            // (WaitForSeconds 는 timeScale 0 에서 끝나지 않는다).
+            // メニューが入りきるまでフレームごとに確認する。本当の時間は「最後まで入らなければ [FAIL]」へ進む上限としてだけ使う
+            // (WaitForSeconds は timeScale 0 では終わらない)。
+            float limit = Time.realtimeSinceStartup + menu.SlideSeconds + 2f;
+            while (menu.Shown < 1f && Time.realtimeSinceStartup < limit)
+            {
+                yield return null;
+            }
             Report.ExpectNear("멈춘 동안 메뉴가 들어온 정도", 1f, menu.Shown, 0.01f);
 
             int countdown = Case(2, 1);
             menu.Resume(countdown);
-            yield return new WaitForSecondsRealtime(countdown + 0.5f);
+            limit = Time.realtimeSinceStartup + countdown + 2f;
+            while (Time.timeScale != 1f && Time.realtimeSinceStartup < limit)
+            {
+                yield return null;
+            }
             Report.Expect("카운트다운이 끝난 뒤 timeScale", 1f, Time.timeScale);
             Report.Expect("카운트다운이 끝난 뒤 남은 숫자", 0, menu.CountdownLeft);
         }

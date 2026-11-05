@@ -66,11 +66,11 @@ namespace BugHunt.Labs.Lab48
 #endregion
 
 #region 힌트 2 / ヒント 2
-// Window → Animation → Animator 를 띄우고, 플레이 중에 Hierarchy 에서 Lab20/Knight 를 고르세요(랩이 끝나면 지워지니 OnAttackButton 에 중단점을 걸고 멈춘 상태에서).
+// Window → Animation → Animator 를 띄우고, 플레이 중에 Hierarchy 에서 Lab48/Knight 를 고르세요(랩이 끝나면 지워지니 OnAttackButton 에 중단점을 걸고 멈춘 상태에서).
 // 왼쪽 Parameters 탭에 어떤 이름의 파라미터가 있나요? 대소문자까지 비교하세요. 트리거가 눌리면 동그라미가 잠깐 켜집니다.
 // 조사식으로도 볼 수 있습니다: animator.parameters (펼쳐서 name), animator.GetParameter(0).nameHash 와 AttackId 비교.
 //
-// ウィンドウ → アニメーション → アニメーター を開き、再生中にヒエラルキーで Lab20/Knight を選んでください (ラボが終わると消えるので、OnAttackButton にブレークポイントを置いて止めた状態で)。
+// ウィンドウ → アニメーション → アニメーター を開き、再生中にヒエラルキーで Lab48/Knight を選んでください (ラボが終わると消えるので、OnAttackButton にブレークポイントを置いて止めた状態で)。
 // 左のパラメーター (Parameters) タブには、どんな名前のパラメーターがありますか? 大文字・小文字まで比べてください。トリガーが押されると丸が一瞬点灯します。
 // ウォッチ式でも見られます: animator.parameters (展開して name)、animator.GetParameter(0).nameHash と AttackId を比較。
 #endregion
