@@ -493,7 +493,7 @@ for (int i = Members.Count - 1; i >= 0; --i) { Members[i].TakeDamage(damage); } 
 ## ラボ 26 — Unity のシリアライズが Dictionary と List<List<T>> を捨てる
 ```
 間違った結果:     複製した店と読み込んだ店の potion の価格 -1、陳列棚 0 個。名前とゴールドは正常
-ツール:           ラボの出力「保存された JSON: {"ShopName":"대장간","Gold":500}」— Prices、Shelves がない
+ツール:           ラボの出力「保存された JSON: {"ShopName":"鍛冶屋","Gold":500}」— Prices、Shelves がない
                  インスペクターにも 2 つのフィールドが表示されない
 本当の原因:       Instantiate と JsonUtility は Unity のシリアライズで値を移す。Dictionary とネストした List はシリアライズ対象ではないので、警告なしに抜け落ちる
 ```
