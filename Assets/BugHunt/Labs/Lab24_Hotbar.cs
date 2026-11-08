@@ -43,7 +43,7 @@ namespace BugHunt.Labs.Lab24
             var hotbar = Spawn<Hotbar>("Hotbar");
             // 디자이너가 인스펙터에서 칸 수를 줄였다(배열 크기 Size 를 바꾸면 뒤 칸이 사라진다).
             // デザイナーがインスペクターでスロット数を減らした (配列のサイズ (Size) を変えると後ろのスロットが消える)。
-            hotbar.Slots = Case(new[] { "검", "활", "물약" }, new[] { "창", "방패" });
+            hotbar.Slots = Case(new[] { Loc.T("검"), Loc.T("활"), Loc.T("물약") }, new[] { Loc.T("창"), Loc.T("방패") });
             int filled = hotbar.Slots.Length;
             yield return null;
 

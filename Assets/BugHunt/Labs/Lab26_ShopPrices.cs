@@ -48,7 +48,7 @@ namespace BugHunt.Labs.Lab26
         public override IEnumerator Run()
         {
             var shop = Spawn<Shop>("Shop");
-            shop.ShopName = Case("대장간", "약초상");
+            shop.ShopName = Case(Loc.T("대장간"), Loc.T("약초상"));
             shop.Gold = Case(500, 1200);
             string item = Case("potion", "herb");
             int price = Case(50, 35);
