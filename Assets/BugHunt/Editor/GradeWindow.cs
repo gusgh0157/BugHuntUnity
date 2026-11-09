@@ -12,7 +12,7 @@ namespace BugHunt.Editor
 
         public static void Open()
         {
-            var window = GetWindow<GradeWindow>(Loc.T("BugHunt 채점"));
+            var window = GetWindow<GradeWindow>(Loc.L("BugHunt 채점", "BugHunt 採点"));
             window.Reload();
             window.Show();
         }
@@ -33,16 +33,16 @@ namespace BugHunt.Editor
             using (new EditorGUILayout.HorizontalScope())
             {
                 GUI.enabled = !EditorApplication.isPlaying;
-                if (GUILayout.Button(Loc.T("다시 채점"), GUILayout.Width(100)))
+                if (GUILayout.Button(Loc.L("다시 채점", "再採点"), GUILayout.Width(100)))
                 {
                     EditorApplication.ExecuteMenuItem(MenuPaths.Grade);
                 }
                 GUI.enabled = true;
-                if (GUILayout.Button(Loc.T("새로 읽기"), GUILayout.Width(80)))
+                if (GUILayout.Button(Loc.L("새로 읽기", "再読み込み"), GUILayout.Width(80)))
                 {
                     Reload();
                 }
-                if (GUILayout.Button(Loc.T("JSON 위치 열기"), GUILayout.Width(110)))
+                if (GUILayout.Button(Loc.L("JSON 위치 열기", "JSON の場所を開く"), GUILayout.Width(110)))
                 {
                     EditorUtility.RevealInFinder(Grader.ReportPath);
                 }
@@ -50,12 +50,12 @@ namespace BugHunt.Editor
 
             if (report == null)
             {
-                EditorGUILayout.HelpBox(Loc.F("아직 채점 결과가 없습니다 ({0}).\n메뉴 BugHunt → 채점 (Ctrl+Alt+G) 을 누르면 모든 랩을 돌려 채점합니다. 1~2분 걸립니다.", Grader.ReportPath), MessageType.Info);
+                EditorGUILayout.HelpBox(Loc.F("아직 채점 결과가 없습니다 ({0}).\n메뉴 BugHunt → 채점 (Ctrl+Alt+G) 을 누르면 모든 랩을 돌려 채점합니다. 1~2분 걸립니다.", "まだ採点結果がありません ({0})。\nメニュー BugHunt → 採点 (Ctrl+Alt+G) を押すと全ラボを実行して採点します。1〜2 分かかります。", Grader.ReportPath), MessageType.Info);
                 return;
             }
 
             int skipped = report.Count("SKIP");
-            string score = Loc.F("총점 {0} / {1}", report.passed, report.Gradable) + (skipped > 0 ? Loc.F("  (SKIP {0}개 제외)", skipped) : "");
+            string score = Loc.F("총점 {0} / {1}", "総合点 {0} / {1}", report.passed, report.Gradable) + (skipped > 0 ? Loc.F("  (SKIP {0}개 제외)", "  (SKIP {0} 個を除く)", skipped) : "");
             EditorGUILayout.LabelField(score, EditorStyles.boldLabel);
             EditorGUILayout.LabelField($"FAIL {report.Count("FAIL")}   TIMEOUT {report.Count("TIMEOUT")}   CRASH {report.Count("CRASH")}   SKIP {skipped}");
             EditorGUILayout.Space();
@@ -91,7 +91,7 @@ namespace BugHunt.Editor
             {
                 if (entry.Number == row.id)
                 {
-                    return Loc.T(entry.Title);
+                    return entry.Title;
                 }
             }
             return row.title;

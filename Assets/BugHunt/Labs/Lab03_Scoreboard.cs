@@ -61,7 +61,7 @@ namespace BugHunt.Labs.Lab03
         }
     }
 
-    [Lab(3, "점수판", Symptom = "매니저와 UI 를 만들자마자 NullReferenceException")]
+    [Lab(3, "점수판", "スコアボード", Symptom = "매니저와 UI 를 만들자마자 NullReferenceException", SymptomJa = "マネージャーと UI を作ったとたんに NullReferenceException")]
     public class Lab03_Scoreboard : Lab
     {
         public override IEnumerator Run()
@@ -74,7 +74,7 @@ namespace BugHunt.Labs.Lab03
             manager.AddScore(points);
             yield return null;
 
-            Report.Expect("점수판에 보이는 점수", points, board.Shown);
+            Report.Expect(Loc.L("점수판에 보이는 점수", "スコアボードに表示されるスコア"), points, board.Shown);
         }
     }
 }

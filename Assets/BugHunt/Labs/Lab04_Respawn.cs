@@ -34,7 +34,7 @@ namespace BugHunt.Labs.Lab04
         }
     }
 
-    [Lab(4, "부활", Symptom = "쓰러진 플레이어가 영영 부활하지 않는다(에러 한 줄)")]
+    [Lab(4, "부활", "リスポーン", Symptom = "쓰러진 플레이어가 영영 부활하지 않는다(에러 한 줄)", SymptomJa = "倒れたプレイヤーが二度とリスポーンしない (エラー 1 行)")]
     public class Lab04_Respawn : Lab
     {
         public override IEnumerator Run()
@@ -45,14 +45,14 @@ namespace BugHunt.Labs.Lab04
             player.Model.transform.SetParent(player.transform, false);
             yield return null;
 
-            Report.Note("플레이어가 함정에 빠졌다.");
+            Report.Note(Loc.L("플레이어가 함정에 빠졌다.", "プレイヤーが罠にかかりました。"));
             player.Die();
             yield return new WaitForSeconds(1f);
 
-            Report.Expect("부활 횟수", 1, player.Respawns);
-            Report.ExpectTrue("살아 있음", player.Alive);
-            Report.ExpectTrue("몸이 보임", player.isActiveAndEnabled && player.Model.activeInHierarchy);
-            Report.Expect("위치", player.SpawnPoint, player.transform.position);
+            Report.Expect(Loc.L("부활 횟수", "リスポーン回数"), 1, player.Respawns);
+            Report.ExpectTrue(Loc.L("살아 있음", "生きている"), player.Alive);
+            Report.ExpectTrue(Loc.L("몸이 보임", "体が見える"), player.isActiveAndEnabled && player.Model.activeInHierarchy);
+            Report.Expect(Loc.L("위치", "位置"), player.SpawnPoint, player.transform.position);
         }
     }
 }

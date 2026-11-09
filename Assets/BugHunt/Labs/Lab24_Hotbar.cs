@@ -16,7 +16,7 @@ namespace BugHunt.Labs.Lab24
     {
         public const int SlotCount = 4;   // 단축키 1~4 / ショートカットキー 1〜4
 
-        public string[] Slots = { "검", "활", "물약", "폭탄" };   // 인스펙터에서 채운다 / インスペクターで埋める
+        public string[] Slots = { "검", "활", "물약", "폭탄" };   // ko-only: 인스펙터에서 채우는 직렬화 기본값. 랩은 Loc.L 로 덮어쓴다 / インスペクターで埋めるシリアライズの既定値 (剣、弓、ポーション、爆弾)。ラボは Loc.L で上書きする
         public List<string> Labels = new List<string>();
 
         public void Build()
@@ -35,7 +35,7 @@ namespace BugHunt.Labs.Lab24
         }
     }
 
-    [Lab(24, "단축키 칸", Symptom = "디자이너가 칸 배열을 3칸으로 줄이자 IndexOutOfRangeException, 빈 단축키에서 ArgumentOutOfRangeException")]
+    [Lab(24, "단축키 칸", "ショートカットスロット", Symptom = "디자이너가 칸 배열을 3칸으로 줄이자 IndexOutOfRangeException, 빈 단축키에서 ArgumentOutOfRangeException", SymptomJa = "デザイナーがスロットの配列を 3 つに減らすと IndexOutOfRangeException、空のショートカットキーで ArgumentOutOfRangeException")]
     public class Lab24_Hotbar : Lab
     {
         public override IEnumerator Run()
@@ -43,14 +43,14 @@ namespace BugHunt.Labs.Lab24
             var hotbar = Spawn<Hotbar>("Hotbar");
             // 디자이너가 인스펙터에서 칸 수를 줄였다(배열 크기 Size 를 바꾸면 뒤 칸이 사라진다).
             // デザイナーがインスペクターでスロット数を減らした (配列のサイズ (Size) を変えると後ろのスロットが消える)。
-            hotbar.Slots = Case(new[] { Loc.T("검"), Loc.T("활"), Loc.T("물약") }, new[] { Loc.T("창"), Loc.T("방패") });
+            hotbar.Slots = Case(new[] { Loc.L("검", "剣"), Loc.L("활", "弓"), Loc.L("물약", "ポーション") }, new[] { Loc.L("창", "槍"), Loc.L("방패", "盾") });
             int filled = hotbar.Slots.Length;
             yield return null;
 
             hotbar.Build();
-            Report.Expect("단축 바 칸 수", filled, hotbar.Labels.Count);
-            Report.Expect(Loc.F("단축키 {0}", filled), $"{filled}: {hotbar.Slots[filled - 1]}", hotbar.Select(filled));
-            Report.Expect(Loc.F("빈 단축키 {0}", filled + 1), null, hotbar.Select(filled + 1));
+            Report.Expect(Loc.L("단축 바 칸 수", "ホットバーのスロット数"), filled, hotbar.Labels.Count);
+            Report.Expect(Loc.F("단축키 {0}", "ショートカットキー {0}", filled), $"{filled}: {hotbar.Slots[filled - 1]}", hotbar.Select(filled));
+            Report.Expect(Loc.F("빈 단축키 {0}", "空のショートカットキー {0}", filled + 1), null, hotbar.Select(filled + 1));
         }
     }
 }

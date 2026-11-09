@@ -28,7 +28,7 @@ namespace BugHunt.Labs.Lab16
         }
     }
 
-    [Lab(16, "수레 탑승", Symptom = "수레에 탄 상인이 자리에서 멀리 떨어진 허공에 앉는다")]
+    [Lab(16, "수레 탑승", "荷車に乗る", Symptom = "수레에 탄 상인이 자리에서 멀리 떨어진 허공에 앉는다", SymptomJa = "荷車に乗った商人が、席から遠く離れた宙に座る")]
     public class Lab16_CartRide : Lab
     {
         public override IEnumerator Run()
@@ -43,12 +43,12 @@ namespace BugHunt.Labs.Lab16
             yield return null;
 
             cart.Board(merchant.transform);
-            Report.ExpectNear("탄 직후 상인과 자리 사이 거리(m)", 0f, Vector3.Distance(merchant.transform.position, seat.transform.position), 0.01f);
+            Report.ExpectNear(Loc.L("탄 직후 상인과 자리 사이 거리(m)", "乗った直後の商人と席の距離 (m)"), 0f, Vector3.Distance(merchant.transform.position, seat.transform.position), 0.01f);
 
             cart.Velocity = new Vector3(0f, 0f, 3f);
             yield return new WaitForSeconds(0.5f);
-            Report.ExpectTrue("수레가 움직였다", cart.transform.position.z > cartAt.z + 0.5f);
-            Report.ExpectNear("수레가 간 뒤 상인과 자리 사이 거리(m)", 0f, Vector3.Distance(merchant.transform.position, seat.transform.position), 0.01f);
+            Report.ExpectTrue(Loc.L("수레가 움직였다", "荷車が動いた"), cart.transform.position.z > cartAt.z + 0.5f);
+            Report.ExpectNear(Loc.L("수레가 간 뒤 상인과 자리 사이 거리(m)", "荷車が進んだ後の商人と席の距離 (m)"), 0f, Vector3.Distance(merchant.transform.position, seat.transform.position), 0.01f);
         }
     }
 }

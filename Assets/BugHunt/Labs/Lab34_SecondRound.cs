@@ -59,12 +59,12 @@ namespace BugHunt.Labs.Lab34
         }
     }
 
-    [Lab(34, "두 번째 판", Symptom = "Play 를 두 번째 누르면 웨이브가 이어지고 레이더가 지난 판의 적을 가리킨다")]
+    [Lab(34, "두 번째 판", "2 回目のプレイ", Symptom = "Play 를 두 번째 누르면 웨이브가 이어지고 레이더가 지난 판의 적을 가리킨다", SymptomJa = "2 回目に再生を押すとウェーブが引き継がれ、レーダーが前回のプレイの敵を指す")]
     public class Lab34_SecondRound : Lab
     {
         public override IEnumerator Run()
         {
-            Report.Note(Loc.F("이 프로젝트의 Enter Play Mode 설정: {0}", LabUtil.EnterPlayModeDescription()));
+            Report.Note(Loc.F("이 프로젝트의 Enter Play Mode 설정: {0}", "このプロジェクトの再生モード開始時設定 (Enter Play Mode): {0}", LabUtil.EnterPlayModeDescription()));
 
             // ---- 1판 ----
             // ---- 1 回目のプレイ ----
@@ -82,7 +82,7 @@ namespace BugHunt.Labs.Lab34
             }
             first[0].Die();   // 한 마리만 잡고 판이 끝났다 / 1 体だけ倒してプレイが終わった
             yield return null;
-            Report.Note(Loc.F("1판 끝: 웨이브 {0}, 살아 있는 적 {1}", WaveDirector.Wave, Enemy.Alive.Count));
+            Report.Note(Loc.F("1판 끝: 웨이브 {0}, 살아 있는 적 {1}", "1 回目のプレイ終了: ウェーブ {0}、生きている敵 {1}", WaveDirector.Wave, Enemy.Alive.Count));
 
             // ---- 플레이를 멈추고 다시 Play ----
             // ---- 再生を止めて、もう一度再生 ----
@@ -102,10 +102,10 @@ namespace BugHunt.Labs.Lab34
             WaveDirector.NextWave();
             yield return null;
 
-            Report.Expect("2판 첫 웨이브 번호", 1, WaveDirector.Wave);
-            Report.Expect("레이더의 적 수", round2Enemies, Enemy.Alive.Count);
+            Report.Expect(Loc.L("2판 첫 웨이브 번호", "2 回目のプレイの最初のウェーブ番号"), 1, WaveDirector.Wave);
+            Report.Expect(Loc.L("레이더의 적 수", "レーダーの敵の数"), round2Enemies, Enemy.Alive.Count);
             Enemy nearest = radar.Nearest();
-            Report.Expect("가장 가까운 적", "R2_Enemy_0", nearest != null ? nearest.name : "없음");
+            Report.Expect(Loc.L("가장 가까운 적", "いちばん近い敵"), "R2_Enemy_0", nearest != null ? nearest.name : Loc.L("없음", "なし"));
         }
 
         Enemy SpawnEnemy(GameObject parent, string enemyName, Vector3 position)

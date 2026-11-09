@@ -42,7 +42,7 @@ namespace BugHunt.Editor
 
         void UpdateTitle()
         {
-            titleContent = new GUIContent(Loc.T("BugHunt 랩"));
+            titleContent = new GUIContent(Loc.L("BugHunt 랩", "BugHunt ラボ"));
         }
 
         void OnGUI()
@@ -58,8 +58,8 @@ namespace BugHunt.Editor
                 UpdateTitle();
             }
 
-            EditorGUILayout.HelpBox(Loc.T("번호를 누르면 BugHunt 씬에서 Play 하고 그 랩을 실행합니다. 결과는 Console 창(검색: [BugHunt])과 Game 창에 나옵니다.\n같은 랩 다시 실행: Ctrl+Alt+R"), MessageType.Info);
-            if (GUILayout.Button(Loc.T("모든 랩 채점 (Ctrl+Alt+G)"), GUILayout.Height(22)))
+            EditorGUILayout.HelpBox(Loc.L("번호를 누르면 BugHunt 씬에서 Play 하고 그 랩을 실행합니다. 결과는 Console 창(검색: [BugHunt])과 Game 창에 나옵니다.\n같은 랩 다시 실행: Ctrl+Alt+R", "番号を押すと BugHunt シーンで再生してそのラボを実行します。結果はコンソールウィンドウ (検索: [BugHunt]) とゲームビューに出ます。\n同じラボを再実行: Ctrl+Alt+R"), MessageType.Info);
+            if (GUILayout.Button(Loc.L("모든 랩 채점 (Ctrl+Alt+G)", "全ラボを採点 (Ctrl+Alt+G)"), GUILayout.Height(22)))
             {
                 EditorApplication.ExecuteMenuItem(MenuPaths.Grade);
             }
@@ -75,14 +75,14 @@ namespace BugHunt.Editor
                     EditorGUILayout.Space();
                     EditorGUILayout.LabelField(part, EditorStyles.boldLabel);
                 }
-                string sound = entry.MakesSound ? Loc.T("  (소리 주의: 볼륨을 낮추세요)") : "";
-                if (GUILayout.Button($"{entry.Number}. {Loc.T(entry.Title)}{sound}", GUILayout.Height(22)))
+                string sound = entry.MakesSound ? Loc.L("  (소리 주의: 볼륨을 낮추세요)", "  (音に注意: 音量を下げてください)") : "";
+                if (GUILayout.Button($"{entry.Number}. {entry.Title}{sound}", GUILayout.Height(22)))
                 {
                     Run(entry.Number);
                 }
                 if (!string.IsNullOrEmpty(entry.Symptom))
                 {
-                    EditorGUILayout.LabelField(Loc.T(entry.Symptom), symptomStyle);
+                    EditorGUILayout.LabelField(entry.Symptom, symptomStyle);
                 }
             }
             EditorGUILayout.EndScrollView();

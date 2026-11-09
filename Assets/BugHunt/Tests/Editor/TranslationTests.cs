@@ -8,107 +8,64 @@ using UnityEngine;
 
 namespace BugHunt.Tests.Editor
 {
-    // 빠진 번역을 찾는 EditMode 테스트. Test Runner → EditMode → Run All.
-    // 抜けている翻訳を見つける EditMode テスト。テストランナー → EditMode → Run All。
+    // 두 언어 짝이 빠진 문자열을 찾는 EditMode 테스트. Test Runner → EditMode → Run All.
+    // 2 つの言語の対が抜けている文字列を見つける EditMode テスト。テストランナー → EditMode → Run All。
     //
-    // Assets/BugHunt 아래 .cs(Lang/ 와 Tests/ 제외)의 문자열 리터럴을 읽어서:
-    //   - 한글이 든 리터럴은 일본어 표(Assets/BugHunt/Lang/Ja)에 키로 있어야 한다. 가나가 함께 든 리터럴(메뉴 이름처럼 두 언어를 나란히 쓴 것)은 제외.
-    //   - 보간 문자열($"...")의 글자 부분에는 한글을 쓰지 않는다. 대신 Loc.F("... {0} ...", 값).
-    // 표 쪽은: 일본어가 비어 있지 않고, 한글이 남아 있지 않고, 자리 표시자 {0} {1} 가 같고, 코드에서 쓰지 않는 키가 없어야 한다.
+    // Assets/BugHunt 아래 .cs 의 문자열 리터럴을 읽어서, 한글이 든 리터럴은 다음 중 하나여야 한다:
+    //   - Loc.L("한국어", "日本語") / Loc.F("한국어 {0}", "日本語 {0}", 값) 의 첫 인자(한국어 쪽) 안
+    //   - [Lab(번호, "이름", "名前", Symptom = "증상", SymptomJa = "症状")] 특성 안 (일본어 쪽은 아래 랩 테스트가 본다)
+    //   - 가나·한자가 함께 든 리터럴 (메뉴 이름처럼 두 언어를 한 문자열에 나란히 쓴 것)
+    //   - "// ko+ja" 표시가 붙고 가나·한자도 든 줄 (표의 한 줄에 한국어와 일본어를 나란히 쓴 것: LabRunner.Parts)
+    //   - "// ko-only" 표시가 붙은 줄 (직렬화 데이터의 기본값처럼 일부러 한국어만 둔 것)
+    // 주석은 보지 않는다. 그리고 Loc.F 의 두 서식 문자열은 리터럴이어야 하고 자리 표시자 {0} {1} 가 같아야 한다.
+    // Loc.L 에 보간 문자열($"...{x}...")을 넘기면 두 쪽을 다 만들고 식도 두 번 계산하므로 Loc.F 를 쓴다.
     //
-    // Assets/BugHunt 以下の .cs (Lang/ と Tests/ を除く) の文字列リテラルを読んで:
-    //   - ハングルを含むリテラルは日本語の表 (Assets/BugHunt/Lang/Ja) にキーとしてなければなりません。かなも含むリテラル (メニュー名のように 2 言語を並べたもの) は除きます。
-    //   - 補間文字列 ($"...") の文字部分にはハングルを書きません。代わりに Loc.F("... {0} ...", 値)。
-    // 表の側は: 日本語が空でなく、ハングルが残っておらず、プレースホルダー {0} {1} が同じで、コードで使っていないキーがないこと。
+    // Assets/BugHunt 以下の .cs の文字列リテラルを読み、ハングルを含むリテラルは次のどれかでなければなりません:
+    //   - Loc.L("한국어", "日本語") / Loc.F("한국어 {0}", "日本語 {0}", 値) の最初の引数 (韓国語側) の中
+    //   - [Lab(番号, "이름", "名前", Symptom = "증상", SymptomJa = "症状")] 属性の中 (日本語側は下のラボのテストが見ます)
+    //   - かな・漢字も含むリテラル (メニュー名のように 2 つの言語を 1 つの文字列に並べて書いたもの)
+    //   - 「// ko+ja」の印が付き、かな・漢字も含む行 (表の 1 行に韓国語と日本語を並べて書いたもの: LabRunner.Parts)
+    //   - 「// ko-only」の印が付いた行 (シリアライズされたデータの既定値のように、わざと韓国語だけにしたもの)
+    // コメントは見ません。また、Loc.F の 2 つの書式文字列はリテラルで、プレースホルダー {0} {1} が同じでなければなりません。
+    // Loc.L に補間文字列 ($"...{x}...") を渡すと両方を作って式も 2 回計算するので、Loc.F を使います。
     public class TranslationTests
     {
-        struct Literal
-        {
-            public string File;
-            public int Line;
-            public string Text;          // 이스케이프를 푼 값 / エスケープを解いた値
-            public bool Interpolated;
-        }
+        public const string KoreanOnlyMark = "// ko-only";
+        public const string BothLanguagesMark = "// ko+ja";
 
         static readonly Regex Placeholder = new Regex(@"\{(\d+)(?:[,:][^}]*)?\}");
 
-        static bool HasHangul(string s) => s.Any(c => (c >= '\uAC00' && c <= '\uD7A3') || (c >= '\u3130' && c <= '\u318F'));
-        // \uAC00\uB098\uB098 \uD55C\uC790\uAC00 \uD568\uAED8 \uC788\uC73C\uBA74 \uC774\uBBF8 \uB450 \uC5B8\uC5B4\uB97C \uB098\uB780\uD788 \uC4F4 \uBB38\uC790\uC5F4\uC774\uB2E4 / \u304B\u306A\u3084\u6F22\u5B57\u304C\u4E00\u7DD2\u306B\u3042\u308C\u3070\u3001\u3059\u3067\u306B 2 \u8A00\u8A9E\u3092\u4E26\u3079\u305F\u6587\u5B57\u5217\u3067\u3059
-        static bool HasKana(string s) => s.Any(c => (c >= '\u3040' && c <= '\u30FF') || (c >= '\u4E00' && c <= '\u9FFF'));
+        static bool HasKana(string s) => s.Any(c => (c >= '぀' && c <= 'ヿ') || (c >= '一' && c <= '鿿'));
 
         static string Root => Path.Combine(Application.dataPath, "BugHunt");
 
-        static IEnumerable<string> SourceFiles()
-        {
-            foreach (string path in Directory.GetFiles(Root, "*.cs", SearchOption.AllDirectories))
-            {
-                string rel = path.Substring(Root.Length + 1).Replace('\\', '/');
-                if (rel.StartsWith("Lang/") || rel.StartsWith("Tests/"))
-                {
-                    continue;
-                }
-                yield return path;
-            }
-        }
-
-        static string Rel(string path) => "Assets/BugHunt/" + path.Substring(Root.Length + 1).Replace('\\', '/');
-
         [Test]
-        public void KoreanLiteralsHaveJapanese()
+        public void KoreanLiteralsArePairedWithJapanese()
         {
-            IReadOnlyDictionary<string, string> table = Loc.Japanese;
             var problems = new List<string>();
-            foreach (Literal lit in AllLiterals())
+            foreach (string path in Directory.GetFiles(Root, "*.cs", SearchOption.AllDirectories).OrderBy(p => p, System.StringComparer.Ordinal))
             {
-                if (!HasHangul(lit.Text) || HasKana(lit.Text))
+                string rel = "Assets/BugHunt/" + path.Substring(Root.Length + 1).Replace('\\', '/');
+                string src = File.ReadAllText(path, Encoding.UTF8);
+                string[] lines = src.Split('\n');
+                foreach (var (at, message) in new LiteralScanner(src).Problems())
                 {
-                    continue;
-                }
-                if (lit.Interpolated)
-                {
-                    problems.Add($"{lit.File}:{lit.Line}  보간 문자열에 한글 → Loc.F(...) 로 / 補間文字列にハングル → Loc.F(...) に: $\"{lit.Text}\"");
-                }
-                else if (!table.ContainsKey(lit.Text))
-                {
-                    problems.Add($"{lit.File}:{lit.Line}  일본어 없음 / 日本語なし: \"{Escape(lit.Text)}\"");
+                    int line = 0;
+                    for (int i = 0; i < at; ++i)
+                    {
+                        if (src[i] == '\n')
+                        {
+                            ++line;
+                        }
+                    }
+                    if (lines[line].Contains(KoreanOnlyMark) || (lines[line].Contains(BothLanguagesMark) && HasKana(lines[line])))
+                    {
+                        continue;
+                    }
+                    problems.Add($"{rel}:{line + 1}: {message}");
                 }
             }
-            Assert.IsEmpty(problems, $"번역이 빠진 문자열 {problems.Count}개 / 翻訳が抜けている文字列 {problems.Count} 個\n" + string.Join("\n", problems));
-        }
-
-        [Test]
-        public void JapaneseTableIsClean()
-        {
-            var used = new HashSet<string>(AllLiterals().Where(l => !l.Interpolated).Select(l => l.Text));
-            var seen = new Dictionary<string, (string Table, string Ja)>();
-            var problems = new List<string>();
-            foreach (var (tableName, ko, ja) in Loc.JapaneseEntries())
-            {
-                string where = $"JaText.{tableName}: \"{Escape(ko)}\"";
-                if (string.IsNullOrWhiteSpace(ja))
-                {
-                    problems.Add($"{where}  일본어가 비어 있음 / 日本語が空");
-                    continue;
-                }
-                if (HasHangul(ja))
-                {
-                    problems.Add($"{where}  일본어에 한글이 남아 있음 / 日本語にハングルが残っている: \"{Escape(ja)}\"");
-                }
-                if (!SamePlaceholders(ko, ja))
-                {
-                    problems.Add($"{where}  자리 표시자가 다름 / プレースホルダーが違う: \"{Escape(ja)}\"");
-                }
-                if (seen.TryGetValue(ko, out var earlier) && earlier.Ja != ja)
-                {
-                    problems.Add($"{where}  JaText.{earlier.Table} 와 번역이 다름 / JaText.{earlier.Table} と翻訳が違う");
-                }
-                seen[ko] = (tableName, ja);
-                if (!used.Contains(ko))
-                {
-                    problems.Add($"{where}  코드에서 쓰지 않는 키 / コードで使っていないキー");
-                }
-            }
-            Assert.IsEmpty(problems, $"일본어 표의 문제 {problems.Count}개 / 日本語の表の問題 {problems.Count} 個\n" + string.Join("\n", problems));
+            Assert.IsEmpty(problems, $"짝이 맞지 않는 문자열 {problems.Count}개 / 対になっていない文字列 {problems.Count} 個\n" + string.Join("\n", problems));
         }
 
         [Test]
@@ -117,190 +74,372 @@ namespace BugHunt.Tests.Editor
             var problems = new List<string>();
             foreach (LabRunner.LabEntry entry in LabRunner.Labs)
             {
-                if (string.IsNullOrEmpty(entry.Symptom))
+                foreach (var (name, ko, ja) in new[] { ("Title", entry.TitleKo, entry.TitleJa), ("Symptom", entry.SymptomKo, entry.SymptomJa) })
                 {
-                    problems.Add($"랩 {entry.Number}: Symptom 이 없음 / ラボ {entry.Number}: Symptom がない");
-                }
-                foreach (string ko in new[] { entry.Title, entry.Symptom })
-                {
-                    if (!string.IsNullOrEmpty(ko) && !Loc.Japanese.ContainsKey(ko))
+                    if (string.IsNullOrEmpty(ko))
                     {
-                        problems.Add($"랩 {entry.Number}: 일본어 없음 / ラボ {entry.Number}: 日本語なし: \"{ko}\"");
+                        problems.Add($"랩 {entry.Number}: {name} 이 없음 / ラボ {entry.Number}: {name} がない");
+                    }
+                    if (string.IsNullOrEmpty(ja) || Loc.HasHangul(ja))
+                    {
+                        problems.Add($"랩 {entry.Number}: {name}Ja 가 없거나 한글이 남아 있음 / ラボ {entry.Number}: {name}Ja がないかハングルが残っている: \"{ja}\"");
                     }
                 }
             }
             foreach (var part in LabRunner.Parts)
             {
-                if (!Loc.Japanese.ContainsKey(part.Name))
+                if (string.IsNullOrEmpty(part.Ja) || Loc.HasHangul(part.Ja))
                 {
-                    problems.Add($"부 이름 / 部の名前: \"{part.Name}\"");
+                    problems.Add($"부 이름 / 部の名前: \"{part.Ko}\" → \"{part.Ja}\"");
                 }
             }
             Assert.IsEmpty(problems, string.Join("\n", problems));
         }
 
-        static bool SamePlaceholders(string ko, string ja)
+        [Test]
+        public void ScannerFindsUnpairedLiterals()
         {
-            var a = Placeholder.Matches(ko).Cast<Match>().Select(m => m.Groups[1].Value).Distinct().OrderBy(s => s);
-            var b = Placeholder.Matches(ja).Cast<Match>().Select(m => m.Groups[1].Value).Distinct().OrderBy(s => s);
-            return a.SequenceEqual(b);
+            // 스캐너 자체 점검: 짝이 맞는 것은 통과, 빠진 것은 걸린다 / スキャナー自体の点検: 対になっているものは通り、抜けているものは引っかかる
+            string ok = "class A { void M() { Report.Note(Loc.L(\"가\", \"か\")); Report.Note(Loc.F(\"가 {0}\", \"か {0}\", 1)); string s = $\"{Loc.L(\"가\", \"か\")}\"; } }\n"
+                      + "[Lab(1, \"가\", \"か\", Symptom = \"나\", SymptomJa = \"な\")] class B { } // \"주석\"\n"
+                      + "class C { string d = \"가 / か\"; }";
+            Assert.IsEmpty(new LiteralScanner(ok).Problems().Select(p => p.Message));
+            string bad = "class A { void M() { Report.Note(\"가\"); Report.Note(Loc.L(\"가\", \"나\")); Report.Note(Loc.F(\"가 {0}\", \"か\", 1)); Report.Note(Loc.F(\"가 {0}\", x, 1));"
+                       + " Report.Note(Loc.L($\"가 {n}\", $\"か {n}\")); string s = $\"{(f ? \"가\" : \"\")}\"; } }";
+            Assert.AreEqual(6, new LiteralScanner(bad).Problems().Count, string.Join("\n", new LiteralScanner(bad).Problems().Select(p => p.Message)));
         }
 
-        static string Escape(string s) => s.Replace("\n", "\\n").Replace("\"", "\\\"");
-
-        static IEnumerable<Literal> AllLiterals()
+        static string Short(string s)
         {
-            return SourceFiles().SelectMany(path => Scan(Rel(path), File.ReadAllText(path, Encoding.UTF8)));
+            s = s.Replace("\r", "").Replace("\n", "\\n");
+            return s.Length > 80 ? s.Substring(0, 80) + "…" : s;
         }
 
-        // C# 문자열 리터럴만 골라내는 작은 스캐너. 주석, 문자 리터럴('"'), 보간 구멍 안의 중첩 문자열을 처리한다.
-        // C# の文字列リテラルだけを取り出す小さなスキャナー。コメント、文字リテラル ('"')、補間の穴の中の入れ子の文字列を扱います。
-        static List<Literal> Scan(string file, string src)
+        // C# 소스를 훑어 한글 문자열 리터럴이 어디에 있는지 본다. 주석, 문자 리터럴, 보간 구멍과 그 안의 문자열, 축자 문자열(@"")을 처리한다.
+        // (BugHunt C# 판 Strings.cs 의 스캐너를 Unity 의 C# 9 에 맞게 옮기고 Loc.F 와 [Lab] 을 더했다.)
+        // C# のソースをなめて、ハングルの文字列リテラルがどこにあるかを見ます。コメント、文字リテラル、補間の穴とその中の文字列、逐語的文字列 (@"") を扱います。
+        // (BugHunt C# 版 Strings.cs のスキャナーを Unity の C# 9 に合わせて移し、Loc.F と [Lab] を加えました。)
+        sealed class LiteralScanner
         {
-            var result = new List<Literal>();
-            int i = 0;
-            int line = 1;
-            ScanCode(file, src, ref i, ref line, result, stopAtBrace: false);
-            return result;
-        }
+            enum Kind { Other, L, F, LabAttribute }
 
-        static void ScanCode(string file, string src, ref int i, ref int line, List<Literal> result, bool stopAtBrace)
-        {
-            int depth = 0;
-            while (i < src.Length)
+            // 여는 괄호 ( [ { 마다 하나 / 開く括弧 ( [ { ごとに 1 つ
+            sealed class Frame
             {
-                char c = src[i];
-                char next = i + 1 < src.Length ? src[i + 1] : '\0';
-                if (c == '\n')
+                public Kind Kind;
+                public int Start;
+                public int Arg;
+                public readonly List<ArgInfo> Args = new List<ArgInfo> { new ArgInfo() };
+            }
+
+            // 인자 하나가 리터럴 하나로만 되어 있나 / 引数 1 つがリテラル 1 つだけでできているか
+            sealed class ArgInfo
+            {
+                public int Literals;
+                public bool Other;
+                public string Text;
+                public bool Interpolated;
+                public bool HasHoles;
+            }
+
+            readonly string src;
+            int i;
+            readonly List<Frame> frames = new List<Frame>();
+            readonly List<(int At, string Message)> found = new List<(int, string)>();
+
+            public LiteralScanner(string source)
+            {
+                src = source;
+            }
+
+            public List<(int At, string Message)> Problems()
+            {
+                Code(false);
+                return found;
+            }
+
+            Frame Top => frames.Count > 0 ? frames[frames.Count - 1] : null;
+
+            void Code(bool inHole)
+            {
+                int bottom = frames.Count;
+                while (i < src.Length)
                 {
-                    ++line;
-                    ++i;
-                }
-                else if (c == '/' && next == '/')
-                {
-                    while (i < src.Length && src[i] != '\n')
-                    {
-                        ++i;
-                    }
-                }
-                else if (c == '/' && next == '*')
-                {
-                    i += 2;
-                    while (i + 1 < src.Length && !(src[i] == '*' && src[i + 1] == '/'))
-                    {
-                        if (src[i] == '\n')
-                        {
-                            ++line;
-                        }
-                        ++i;
-                    }
-                    i += 2;
-                }
-                else if (c == '\'')
-                {
-                    i += 1;
-                    while (i < src.Length && src[i] != '\'')
-                    {
-                        i += src[i] == '\\' ? 2 : 1;
-                    }
-                    ++i;
-                }
-                else if (c == '"' || ((c == '$' || c == '@') && (next == '"' || next == '$' || next == '@')))
-                {
-                    bool interpolated = false, verbatim = false;
-                    while (src[i] == '$' || src[i] == '@')
-                    {
-                        interpolated |= src[i] == '$';
-                        verbatim |= src[i] == '@';
-                        ++i;
-                    }
-                    int startLine = line;
-                    ++i;   // 여는 " / 開く "
-                    string text = ScanString(file, src, ref i, ref line, result, interpolated, verbatim);
-                    result.Add(new Literal { File = file, Line = startLine, Text = text, Interpolated = interpolated });
-                }
-                else if (stopAtBrace && c == '{')
-                {
-                    ++depth;
-                    ++i;
-                }
-                else if (stopAtBrace && c == '}')
-                {
-                    if (depth == 0)
+                    char c = src[i];
+                    bool top = frames.Count == bottom;
+                    if (inHole && top && (c == '}' || c == ':' || c == ','))
                     {
                         return;
                     }
-                    --depth;
-                    ++i;
-                }
-                else
-                {
-                    ++i;
+                    if (!inHole && (Starts("//") || (c == '#' && LineStartBefore(i))))
+                    {
+                        int nl = src.IndexOf('\n', i);
+                        i = nl < 0 ? src.Length : nl;
+                    }
+                    else if (Starts("/*"))
+                    {
+                        int end = src.IndexOf("*/", i + 2, System.StringComparison.Ordinal);
+                        i = end < 0 ? src.Length : end + 2;
+                    }
+                    else if (c == '\'')
+                    {
+                        MarkOther();
+                        ++i;
+                        while (i < src.Length && src[i] != '\'')
+                        {
+                            i += src[i] == '\\' ? 2 : 1;
+                        }
+                        ++i;
+                    }
+                    else if (c == '"' || ((c == '$' || c == '@') && StringPrefixAt(i)))
+                    {
+                        Literal();
+                    }
+                    else if (c == '(' || c == '[' || c == '{')
+                    {
+                        MarkOther();
+                        frames.Add(new Frame { Kind = c == '(' ? KindBefore(i) : Kind.Other, Start = i });
+                        ++i;
+                    }
+                    else if (c == ')' || c == ']' || c == '}')
+                    {
+                        if (frames.Count > bottom)
+                        {
+                            Close(frames[frames.Count - 1]);
+                            frames.RemoveAt(frames.Count - 1);
+                        }
+                        ++i;
+                    }
+                    else if (c == ',' && frames.Count > 0)
+                    {
+                        Frame f = Top;
+                        ++f.Arg;
+                        f.Args.Add(new ArgInfo());
+                        ++i;
+                    }
+                    else
+                    {
+                        if (!char.IsWhiteSpace(c))
+                        {
+                            MarkOther();
+                        }
+                        ++i;
+                    }
                 }
             }
-        }
 
-        // 닫는 " 다음까지 읽고, 보간 구멍을 뺀 글자 부분을 돌려준다.
-        // 閉じる " の次まで読み、補間の穴を除いた文字部分を返します。
-        static string ScanString(string file, string src, ref int i, ref int line, List<Literal> result, bool interpolated, bool verbatim)
-        {
-            var text = new StringBuilder();
-            while (i < src.Length)
+            void MarkOther()
             {
-                char c = src[i];
-                char next = i + 1 < src.Length ? src[i + 1] : '\0';
-                if (c == '"')
+                Frame f = Top;
+                if (f != null)
                 {
-                    if (verbatim && next == '"')
+                    f.Args[f.Arg].Other = true;
+                }
+            }
+
+            Kind KindBefore(int open)
+            {
+                int j = open - 1;
+                while (j >= 0 && char.IsWhiteSpace(src[j]))
+                {
+                    --j;
+                }
+                int end = j + 1;
+                while (j >= 0 && (char.IsLetterOrDigit(src[j]) || src[j] == '_' || src[j] == '.'))
+                {
+                    --j;
+                }
+                string name = src.Substring(j + 1, end - j - 1);
+                if (name == "Loc.L")
+                {
+                    return Kind.L;
+                }
+                if (name == "Loc.F")
+                {
+                    return Kind.F;
+                }
+                if (name == "Lab" || name == "LabAttribute")
+                {
+                    while (j >= 0 && char.IsWhiteSpace(src[j]))
                     {
-                        text.Append('"');
+                        --j;
+                    }
+                    if (j >= 0 && (src[j] == '[' || src[j] == ','))
+                    {
+                        return Kind.LabAttribute;
+                    }
+                }
+                return Kind.Other;
+            }
+
+            void Close(Frame f)
+            {
+                if (f.Kind == Kind.F)
+                {
+                    ArgInfo ko = f.Args[0];
+                    ArgInfo ja = f.Args.Count > 1 ? f.Args[1] : null;
+                    if (ja == null || !IsPlainLiteral(ko) || !IsPlainLiteral(ja))
+                    {
+                        found.Add((f.Start, "Loc.F 의 처음 두 인자는 한국어·일본어 서식 문자열 리터럴이어야 함 / Loc.F の最初の 2 つの引数は韓国語・日本語の書式文字列リテラルでなければならない"));
+                    }
+                    else if (!SamePlaceholders(ko.Text, ja.Text))
+                    {
+                        found.Add((f.Start, $"자리 표시자가 다름 / プレースホルダーが違う: \"{Short(ko.Text)}\" ↔ \"{Short(ja.Text)}\""));
+                    }
+                }
+                else if (f.Kind == Kind.L)
+                {
+                    if (f.Args.Count != 2)
+                    {
+                        found.Add((f.Start, "Loc.L 은 인자가 둘(한국어, 일본어) / Loc.L は引数が 2 つ (韓国語、日本語)"));
+                    }
+                    else if (f.Args.Any(a => a.Interpolated && a.HasHoles))
+                    {
+                        found.Add((f.Start, "Loc.L 에 보간 문자열 → Loc.F(\"... {0}\", \"... {0}\", 값) 로 / Loc.L に補間文字列 → Loc.F(\"... {0}\", \"... {0}\", 値) に"));
+                    }
+                }
+            }
+
+            static bool IsPlainLiteral(ArgInfo a) => a.Literals == 1 && !a.Other && !a.Interpolated;
+
+            // 가장 안쪽의 Loc.L / Loc.F / [Lab] 이 어디인가 / 最も内側の Loc.L / Loc.F / [Lab] はどこか
+            Frame Owner()
+            {
+                for (int k = frames.Count - 1; k >= 0; --k)
+                {
+                    if (frames[k].Kind != Kind.Other)
+                    {
+                        return frames[k];
+                    }
+                }
+                return null;
+            }
+
+            void Literal()
+            {
+                int start = i;
+                int dollars = 0;
+                bool verbatim = false;
+                while (src[i] == '$' || src[i] == '@')
+                {
+                    if (src[i] == '$')
+                    {
+                        ++dollars;
+                    }
+                    else
+                    {
+                        verbatim = true;
+                    }
+                    ++i;
+                }
+                ++i;   // 여는 " / 開く "
+                var text = new StringBuilder();
+                bool holes = false;
+                while (i < src.Length)
+                {
+                    char c = src[i];
+                    if (c == '\\' && !verbatim)
+                    {
+                        char next = src[i + 1];
+                        text.Append(next == 'n' ? '\n' : next == 't' ? '\t' : next);
                         i += 2;
                         continue;
                     }
-                    ++i;
-                    return text.ToString();
-                }
-                if (c == '\n')
-                {
-                    ++line;
-                }
-                if (!verbatim && c == '\\')
-                {
-                    switch (next)
+                    if (c == '"')
                     {
-                        case 'n': text.Append('\n'); break;
-                        case 't': text.Append('\t'); break;
-                        case 'r': text.Append('\r'); break;
-                        case '0': text.Append('\0'); break;
-                        default: text.Append(next); break;
+                        if (verbatim && Starts("\"\""))
+                        {
+                            text.Append('"');
+                            i += 2;
+                            continue;
+                        }
+                        ++i;
+                        break;
                     }
-                    i += 2;
-                    continue;
-                }
-                if (interpolated && c == '{')
-                {
-                    if (next == '{')
+                    if (dollars > 0 && c == '{')
                     {
-                        text.Append('{');
+                        if (Starts("{{"))
+                        {
+                            text.Append('{');
+                            i += 2;
+                            continue;
+                        }
+                        ++i;
+                        holes = true;
+                        Hole();
+                        text.Append("{}");
+                        continue;
+                    }
+                    if (dollars > 0 && Starts("}}"))
+                    {
+                        text.Append('}');
                         i += 2;
                         continue;
                     }
+                    text.Append(c);
                     ++i;
-                    ScanCode(file, src, ref i, ref line, result, stopAtBrace: true);
-                    ++i;   // 닫는 } / 閉じる }
-                    text.Append("{}");
-                    continue;
                 }
-                if (interpolated && c == '}' && next == '}')
+
+                string value = text.ToString();
+                Frame top = Top;
+                if (top != null)
                 {
-                    text.Append('}');
-                    i += 2;
-                    continue;
+                    ArgInfo arg = top.Args[top.Arg];
+                    ++arg.Literals;
+                    arg.Text = value;
+                    arg.Interpolated |= dollars > 0;
+                    arg.HasHoles |= holes;
                 }
-                text.Append(c);
+                if (!Loc.HasHangul(value) || HasKana(value))
+                {
+                    return;
+                }
+                Frame owner = Owner();
+                if (owner == null)
+                {
+                    found.Add((start, $"한글 문자열에 일본어 짝이 없음 → Loc.L(\"한국어\", \"日本語\") / ハングルの文字列に日本語の対がない → Loc.L(\"한국어\", \"日本語\"): \"{Short(value)}\""));
+                }
+                else if (owner.Kind != Kind.LabAttribute && owner.Arg >= 1)
+                {
+                    found.Add((start, $"일본어 쪽에 한글 / 日本語側にハングル: \"{Short(value)}\""));
+                }
+            }
+
+            // 보간 구멍 { 식 , 정렬 : 서식 } 에서 식만 코드로 읽고, 정렬·서식은 닫는 } 까지 건너뛴다.
+            // 補間の穴 { 式 , 整列 : 書式 } のうち式だけをコードとして読み、整列・書式は閉じる } まで飛ばします。
+            void Hole()
+            {
+                Code(true);
+                while (i < src.Length && src[i] != '}')
+                {
+                    ++i;
+                }
                 ++i;
             }
-            return text.ToString();
+
+            bool Starts(string s) => string.CompareOrdinal(src, i, s, 0, s.Length) == 0;
+
+            bool StringPrefixAt(int k)
+            {
+                while (k < src.Length && (src[k] == '$' || src[k] == '@'))
+                {
+                    ++k;
+                }
+                return k < src.Length && src[k] == '"';
+            }
+
+            bool LineStartBefore(int k)
+            {
+                int nl = src.LastIndexOf('\n', System.Math.Max(k - 1, 0));
+                return src.Substring(nl + 1, k - nl - 1).Trim().Length == 0;
+            }
+
+            static bool SamePlaceholders(string ko, string ja)
+            {
+                var a = Placeholder.Matches(ko).Cast<Match>().Select(m => m.Groups[1].Value).Distinct().OrderBy(s => s);
+                var b = Placeholder.Matches(ja).Cast<Match>().Select(m => m.Groups[1].Value).Distinct().OrderBy(s => s);
+                return a.SequenceEqual(b);
+            }
         }
     }
 }

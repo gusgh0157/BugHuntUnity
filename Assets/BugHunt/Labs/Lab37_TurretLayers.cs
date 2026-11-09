@@ -26,7 +26,7 @@ namespace BugHunt.Labs.Lab37
         }
     }
 
-    [Lab(37, "포탑의 조준", Symptom = "Enemy 레이어만 쏘라고 했는데 유리창에 맞는다")]
+    [Lab(37, "포탑의 조준", "タレットの照準", Symptom = "Enemy 레이어만 쏘라고 했는데 유리창에 맞는다", SymptomJa = "Enemy レイヤーだけを撃つよう指定したのに窓ガラスに当たる")]
     public class Lab37_TurretLayers : Lab
     {
         public override IEnumerator Run()
@@ -44,8 +44,8 @@ namespace BugHunt.Labs.Lab37
             turret.EnemyLayer = enemyLayer;
             yield return new WaitForFixedUpdate();   // 새로 만든 콜라이더가 물리 장면에 들어가도록 / 新しく作ったコライダーが物理シーンに入るように
 
-            Report.Note(Loc.F("유리창 레이어 {0}, 적 레이어 {1}", GlassLayer, enemyLayer));
-            Report.Expect("포탑이 맞힌 것", "Enemy", turret.Aim());
+            Report.Note(Loc.F("유리창 레이어 {0}, 적 레이어 {1}", "窓ガラスのレイヤー {0}、敵のレイヤー {1}", GlassLayer, enemyLayer));
+            Report.Expect(Loc.L("포탑이 맞힌 것", "砲台が当てたもの"), "Enemy", turret.Aim());
         }
     }
 }

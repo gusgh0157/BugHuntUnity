@@ -37,7 +37,7 @@ namespace BugHunt.Labs.Lab58
         }
     }
 
-    [Lab(58, "리플레이 빨리감기", Symptom = "서버를 일주일 넘게 켜 두면 빨리감기에서 멈춘다")]
+    [Lab(58, "리플레이 빨리감기", "リプレイの早送り", Symptom = "서버를 일주일 넘게 켜 두면 빨리감기에서 멈춘다", SymptomJa = "サーバーを 1 週間以上つけっぱなしにすると早送りで止まる")]
     public class Lab58_ReplayFastForward : Lab
     {
         public override IEnumerator Run()
@@ -47,14 +47,14 @@ namespace BugHunt.Labs.Lab58
 
             var fresh = new ReplaySimulator(Case(90f, 600f));   // 막 켠 서버 / 起動したばかりのサーバー
             fresh.FastForward(seconds);
-            Report.Expect(Loc.F("켠 지 {0:0}초 된 서버: {1}초 빨리감기 틱 수", fresh.SimTime, seconds), expectedTicks, fresh.Ticks);
+            Report.Expect(Loc.F("켠 지 {0:0}초 된 서버: {1}초 빨리감기 틱 수", "起動して {0:0} 秒のサーバー: {1} 秒早送りのティック数", fresh.SimTime, seconds), expectedTicks, fresh.Ticks);
             yield return null;
 
             float uptime = Case(7f, 10f) * 24 * 60 * 60;
-            Report.Note(Loc.F("이번에는 켠 지 {0:0}일({1:0}초) 된 서버", uptime / 86400f, uptime));
+            Report.Note(Loc.F("이번에는 켠 지 {0:0}일({1:0}초) 된 서버", "今度は起動して {0:0} 日 ({1:0} 秒) のサーバー", uptime / 86400f, uptime));
             var old = new ReplaySimulator(uptime);
             old.FastForward(seconds);
-            Report.Expect(Loc.F("켠 지 {0:0}일 된 서버: {1}초 빨리감기 틱 수", uptime / 86400f, seconds), expectedTicks, old.Ticks);
+            Report.Expect(Loc.F("켠 지 {0:0}일 된 서버: {1}초 빨리감기 틱 수", "起動して {0:0} 日のサーバー: {1} 秒早送りのティック数", uptime / 86400f, seconds), expectedTicks, old.Ticks);
         }
     }
 }

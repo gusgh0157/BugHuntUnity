@@ -33,14 +33,14 @@ namespace BugHunt.Labs.Lab11
         }
     }
 
-    [Lab(11, "무기 데이터", Symptom = "남의 탄창이 줄고, 플레이를 멈춰도 줄어 있다")]
+    [Lab(11, "무기 데이터", "武器データ", Symptom = "남의 탄창이 줄고, 플레이를 멈춰도 줄어 있다", SymptomJa = "他人の弾倉が減り、再生を止めても減ったまま")]
     public class Lab11_WeaponData : Lab
     {
         public override IEnumerator Run()
         {
             var rifleData = Resources.Load<WeaponData>("BugHunt/Rifle");
             int assetAmmoBefore = rifleData.Ammo;
-            Report.Note(Loc.F("랩 시작 시 에셋 Rifle.asset 의 Ammo: {0} (파일에 저장된 값은 30)", assetAmmoBefore));
+            Report.Note(Loc.F("랩 시작 시 에셋 Rifle.asset 의 Ammo: {0} (파일에 저장된 값은 30)", "ラボ開始時のアセット Rifle.asset の Ammo: {0} (ファイルに保存された値は 30)", assetAmmoBefore));
 
             var player1 = Spawn<Weapon>("Player1_Rifle");
             var player2 = Spawn<Weapon>("Player2_Rifle");
@@ -55,9 +55,9 @@ namespace BugHunt.Labs.Lab11
                 yield return null;
             }
 
-            Report.Expect("플레이어 1 탄약", rifleData.MaxAmmo - shots, player1.AmmoLeft);
-            Report.Expect("플레이어 2 탄약", rifleData.MaxAmmo, player2.AmmoLeft);
-            Report.Expect("이번 실행 동안 에셋의 Ammo 변화량", 0, rifleData.Ammo - assetAmmoBefore);
+            Report.Expect(Loc.L("플레이어 1 탄약", "プレイヤー 1 の弾薬"), rifleData.MaxAmmo - shots, player1.AmmoLeft);
+            Report.Expect(Loc.L("플레이어 2 탄약", "プレイヤー 2 の弾薬"), rifleData.MaxAmmo, player2.AmmoLeft);
+            Report.Expect(Loc.L("이번 실행 동안 에셋의 Ammo 변화량", "今回の実行中のアセットの Ammo の変化量"), 0, rifleData.Ammo - assetAmmoBefore);
         }
     }
 }

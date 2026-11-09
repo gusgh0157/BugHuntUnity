@@ -58,7 +58,7 @@ namespace BugHunt.Labs.Lab08
         }
     }
 
-    [Lab(8, "궁수", Symptom = "쓰러진 허수아비로 점수를 계속 번다")]
+    [Lab(8, "궁수", "弓兵", Symptom = "쓰러진 허수아비로 점수를 계속 번다", SymptomJa = "倒れたかかしでスコアを稼ぎ続ける")]
     public class Lab08_Archer : Lab
     {
         public override IEnumerator Run()
@@ -77,8 +77,8 @@ namespace BugHunt.Labs.Lab08
             }
 
             int standing = archer.Field.Count(d => d != null);
-            Report.Expect("서 있는 허수아비", 0, standing);
-            Report.Expect("점수", dummies * 100, archer.Score);
+            Report.Expect(Loc.L("서 있는 허수아비", "立っているかかし"), 0, standing);
+            Report.Expect(Loc.L("점수", "スコア"), dummies * 100, archer.Score);
         }
     }
 }

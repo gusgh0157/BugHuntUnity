@@ -29,15 +29,15 @@ namespace BugHunt.Labs.Lab31
         }
     }
 
-    [Lab(31, "경로 캐시", Symptom = "예외는 없는데 오래 하면 메모리가 늘고, 멈추면 Leak Detected")]
+    [Lab(31, "경로 캐시", "経路キャッシュ", Symptom = "예외는 없는데 오래 하면 메모리가 늘고, 멈추면 Leak Detected", SymptomJa = "例外はないのに長く遊ぶとメモリが増え、止めると Leak Detected")]
     public class Lab31_PathCache : Lab
     {
         public override IEnumerator Run()
         {
-            Report.Note(Loc.F("누수 감지 수준 (Preferences → Jobs → Leak Detection Level): {0}", NativeLeakDetection.Mode));
+            Report.Note(Loc.F("누수 감지 수준 (Preferences → Jobs → Leak Detection Level): {0}", "リーク検出レベル (環境設定 → Jobs → Leak Detection Level): {0}", NativeLeakDetection.Mode));
             if (!LabUtil.NativeSafetyChecksEnabled)
             {
-                Report.Skip("네이티브 버퍼 수명", "이 빌드는 컬렉션 안전 검사(ENABLE_UNITY_COLLECTIONS_CHECKS)가 꺼져 있습니다. 에디터에서 실행하세요");
+                Report.Skip(Loc.L("네이티브 버퍼 수명", "ネイティブバッファの寿命"), Loc.L("이 빌드는 컬렉션 안전 검사(ENABLE_UNITY_COLLECTIONS_CHECKS)가 꺼져 있습니다. 에디터에서 실행하세요", "このビルドはコレクションの安全チェック (ENABLE_UNITY_COLLECTIONS_CHECKS) がオフです。エディターで実行してください"));
                 yield break;
             }
 
@@ -58,15 +58,15 @@ namespace BugHunt.Labs.Lab31
             int pointCount = cache.Points.Length;
             Vector3 last = cache.Points[pointCount - 1];
             int aliveWhileUsing = LabUtil.CountAliveNativeBuffers(made);
-            Report.Note(Loc.F("목표를 {0}번 바꾼 뒤 살아 있는 버퍼 {1}개 (지금 쓰는 것 1개면 정상)", retargets, aliveWhileUsing));
+            Report.Note(Loc.F("목표를 {0}번 바꾼 뒤 살아 있는 버퍼 {1}개 (지금 쓰는 것 1개면 정상)", "目標を {0} 回変えた後に生きているバッファ {1} 個 (今使っている 1 個なら正常)", retargets, aliveWhileUsing));
 
             Destroy(cache.gameObject);
             yield return null;
 
-            Report.Expect("마지막 경로의 점 수", segments + 1, pointCount);
-            Report.Expect("마지막 경로의 끝점", new Vector3(retargets, 0, 10), last);
-            Report.Expect("쓰는 중에 살아 있는 버퍼 (지금 경로 하나)", 1, aliveWhileUsing);
-            Report.Expect("순찰병을 없앤 뒤 살아 있는 버퍼", 0, LabUtil.CountAliveNativeBuffers(made));
+            Report.Expect(Loc.L("마지막 경로의 점 수", "最後の経路の点の数"), segments + 1, pointCount);
+            Report.Expect(Loc.L("마지막 경로의 끝점", "最後の経路の終点"), new Vector3(retargets, 0, 10), last);
+            Report.Expect(Loc.L("쓰는 중에 살아 있는 버퍼 (지금 경로 하나)", "使用中に生きているバッファ (今の経路 1 つ)"), 1, aliveWhileUsing);
+            Report.Expect(Loc.L("순찰병을 없앤 뒤 살아 있는 버퍼", "巡回兵を消した後に生きているバッファ"), 0, LabUtil.CountAliveNativeBuffers(made));
         }
     }
 }

@@ -28,7 +28,7 @@ namespace BugHunt.Labs.Lab28
         }
     }
 
-    [Lab(28, "부대 편성", Symptom = "두 부대의 명단이 똑같다")]
+    [Lab(28, "부대 편성", "部隊編成", Symptom = "두 부대의 명단이 똑같다", SymptomJa = "2 つの部隊の名簿がまったく同じ")]
     public class Lab28_SquadRoster : Lab
     {
         public override IEnumerator Run()
@@ -50,9 +50,9 @@ namespace BugHunt.Labs.Lab28
             List<Soldier> alphaRoster = Roster.SoldiersOf(alpha);
             List<Soldier> bravoRoster = Roster.SoldiersOf(bravo);
 
-            Report.Expect("Alpha 명단 인원", alphaCount, alphaRoster.Count);
-            Report.Expect("Bravo 명단 인원", bravoCount, bravoRoster.Count);
-            Report.Expect("Alpha 명단이 모두 Alpha 소속", true, alphaRoster.All(s => s.transform.parent == alpha.transform));
+            Report.Expect(Loc.L("Alpha 명단 인원", "Alpha の名簿の人数"), alphaCount, alphaRoster.Count);
+            Report.Expect(Loc.L("Bravo 명단 인원", "Bravo の名簿の人数"), bravoCount, bravoRoster.Count);
+            Report.Expect(Loc.L("Alpha 명단이 모두 Alpha 소속", "Alpha の名簿が全員 Alpha 所属"), true, alphaRoster.All(s => s.transform.parent == alpha.transform));
         }
     }
 }

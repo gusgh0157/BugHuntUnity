@@ -37,7 +37,7 @@ namespace BugHunt.Labs.Lab36
         }
     }
 
-    [Lab(36, "가시 함정", Symptom = "함정 위를 지나가도 OnTriggerEnter 가 불리지 않는다")]
+    [Lab(36, "가시 함정", "トゲの罠", Symptom = "함정 위를 지나가도 OnTriggerEnter 가 불리지 않는다", SymptomJa = "罠の上を通り過ぎても OnTriggerEnter が呼ばれない")]
     public class Lab36_SpikeTrap : Lab
     {
         float savedCaptureDeltaTime;
@@ -56,8 +56,8 @@ namespace BugHunt.Labs.Lab36
             var player = SpawnPrimitive(PrimitiveType.Capsule, "Player", Vector3.zero).AddComponent<Player>();
             yield return new WaitForSeconds((trapX + 2f) / player.Speed);   // 함정을 지나 2m 더 간다 / 罠を通り過ぎてさらに 2m 進む
 
-            Report.Expect("함정 발동 횟수", 1, trap.Triggered);
-            Report.Expect("플레이어 HP", 100 - trap.Damage, player.Health);
+            Report.Expect(Loc.L("함정 발동 횟수", "罠の発動回数"), 1, trap.Triggered);
+            Report.Expect(Loc.L("플레이어 HP", "プレイヤーの HP"), 100 - trap.Damage, player.Health);
         }
 
         void OnDestroy()

@@ -45,7 +45,7 @@ namespace BugHunt.Labs.Lab09
         }
     }
 
-    [Lab(9, "순찰 경로", Symptom = "바닥에 맞췄다는 웨이포인트로 순찰병이 날아간다")]
+    [Lab(9, "순찰 경로", "巡回ルート", Symptom = "바닥에 맞췄다는 웨이포인트로 순찰병이 날아간다", SymptomJa = "床に合わせたはずのウェイポイントへ巡回兵が飛んでいく")]
     public class Lab09_Waypoints : Lab
     {
         public override IEnumerator Run()
@@ -58,12 +58,12 @@ namespace BugHunt.Labs.Lab09
             patrol.Waypoints.Add(Case(new Vector3(0, air, 5), new Vector3(-2, air, 4)));
             patrol.GroundHeight = ground;
             patrol.SnapWaypointsToGround();
-            Report.Note(Loc.F("맞춘 뒤 첫 웨이포인트: {0}", patrol.Waypoints[0]));
+            Report.Note(Loc.F("맞춘 뒤 첫 웨이포인트: {0}", "合わせた後の最初のウェイポイント: {0}", patrol.Waypoints[0]));
 
             yield return new WaitForSeconds(2.5f);
 
-            Report.Expect("지난 웨이포인트", 3, patrol.Reached);
-            Report.ExpectNear("순찰병의 최고 높이", ground, patrol.MaxHeight, 0.01f);
+            Report.Expect(Loc.L("지난 웨이포인트", "通過したウェイポイント"), 3, patrol.Reached);
+            Report.ExpectNear(Loc.L("순찰병의 최고 높이", "巡回兵の最高の高さ"), ground, patrol.MaxHeight, 0.01f);
         }
     }
 }

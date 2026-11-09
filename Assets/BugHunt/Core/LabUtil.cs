@@ -55,14 +55,14 @@ namespace BugHunt
 #if UNITY_EDITOR
             if (!UnityEditor.EditorSettings.enterPlayModeOptionsEnabled)
             {
-                return Loc.T("기본값 (Domain Reload 켜짐, Scene Reload 켜짐)");
+                return Loc.L("기본값 (Domain Reload 켜짐, Scene Reload 켜짐)", "既定値 (Domain Reload オン、Scene Reload オン)");
             }
             var options = UnityEditor.EditorSettings.enterPlayModeOptions;
             bool domain = (options & UnityEditor.EnterPlayModeOptions.DisableDomainReload) == 0;
             bool scene = (options & UnityEditor.EnterPlayModeOptions.DisableSceneReload) == 0;
-            return Loc.F("Domain Reload {0}, Scene Reload {1}", Loc.T(domain ? "켜짐" : "꺼짐"), Loc.T(scene ? "켜짐" : "꺼짐"));
+            return string.Format("Domain Reload {0}, Scene Reload {1}", domain ? Loc.L("켜짐", "オン") : Loc.L("꺼짐", "オフ"), scene ? Loc.L("켜짐", "オン") : Loc.L("꺼짐", "オフ"));
 #else
-            return Loc.T("플레이어 빌드 (해당 없음)");
+            return Loc.L("플레이어 빌드 (해당 없음)", "プレイヤービルド (該当なし)");
 #endif
         }
 

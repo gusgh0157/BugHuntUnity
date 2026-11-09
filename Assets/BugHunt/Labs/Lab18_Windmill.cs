@@ -19,7 +19,7 @@ namespace BugHunt.Labs.Lab18
         }
     }
 
-    [Lab(18, "풍차", Symptom = "풍차 날개가 위를 가리킬 즈음 떨면서 멈춘다")]
+    [Lab(18, "풍차", "風車", Symptom = "풍차 날개가 위를 가리킬 즈음 떨면서 멈춘다", SymptomJa = "風車の羽根が真上を指すあたりで震えて止まる")]
     public class Lab18_Windmill : Lab
     {
         float savedCaptureDeltaTime;
@@ -45,8 +45,8 @@ namespace BugHunt.Labs.Lab18
 
             float turned = windmill.DegreesPerSecond * frames / 60f;
             Vector3 expectedUp = Quaternion.Euler(0f, yaw, 0f) * Quaternion.AngleAxis(turned, Vector3.right) * Vector3.up;
-            Report.Note(Loc.F("{0} 프레임 동안 돌았어야 할 각도 {1:0}도", frames, turned));
-            Report.ExpectNear("날개 방향(transform.up)과 기대 방향의 차이(도)", 0f, Vector3.Angle(expectedUp, windmill.transform.up), 3f);
+            Report.Note(Loc.F("{0} 프레임 동안 돌았어야 할 각도 {1:0}도", "{0} フレームの間に回っているはずの角度 {1:0} 度", frames, turned));
+            Report.ExpectNear(Loc.L("날개 방향(transform.up)과 기대 방향의 차이(도)", "羽根の向き (transform.up) と期待する向きの差 (度)"), 0f, Vector3.Angle(expectedUp, windmill.transform.up), 3f);
         }
 
         void OnDestroy()

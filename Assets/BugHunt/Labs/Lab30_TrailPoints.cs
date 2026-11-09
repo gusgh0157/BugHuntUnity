@@ -43,7 +43,7 @@ namespace BugHunt.Labs.Lab30
         }
     }
 
-    [Lab(30, "발자국", Symptom = "한 걸음만 걸어도 출발점을 읽는 줄에서 \"has been deallocated\"")]
+    [Lab(30, "발자국", "足跡", Symptom = "한 걸음만 걸어도 출발점을 읽는 줄에서 \"has been deallocated\"", SymptomJa = "1 歩歩いただけで出発点を読む行で \"has been deallocated\"")]
     public class Lab30_TrailPoints : Lab
     {
         public override IEnumerator Run()
@@ -57,13 +57,13 @@ namespace BugHunt.Labs.Lab30
             {
                 trail.Step(start + new Vector3(i, 0f, i * 0.5f));
             }
-            Report.Expect("발자국 수(출발점 포함)", steps + 1, trail.Points.Length);
-            Report.Expect("출발점", start, trail.StartPoint());
+            Report.Expect(Loc.L("발자국 수(출발점 포함)", "足跡の数 (出発点を含む)"), steps + 1, trail.Points.Length);
+            Report.Expect(Loc.L("출발점", "出発点"), start, trail.StartPoint());
 
             NativeList<Vector3> points = trail.Points;
             Destroy(trail.gameObject);
             yield return null;
-            Report.Expect("Trail 을 없앤 뒤 NativeList 를 돌려줌", false, points.IsCreated && LabUtil.NativeSafetyChecksEnabled && IsAlive(points));
+            Report.Expect(Loc.L("Trail 을 없앤 뒤 NativeList 를 돌려줌", "Trail を消した後に NativeList を返却"), false, points.IsCreated && LabUtil.NativeSafetyChecksEnabled && IsAlive(points));
         }
 
         static bool IsAlive(NativeList<Vector3> list)

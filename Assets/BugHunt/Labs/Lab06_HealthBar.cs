@@ -56,7 +56,7 @@ namespace BugHunt.Labs.Lab06
                 {
                     if (Mismatched == 0)
                     {
-                        Report.Note(Loc.F("프레임 {0}: 영웅 HP {1}, HP 바 {2}", Time.frameCount, Hero.Health, Bar.Displayed));
+                        Report.Note(Loc.F("프레임 {0}: 영웅 HP {1}, HP 바 {2}", "フレーム {0}: 英雄の HP {1}、HP バー {2}", Time.frameCount, Hero.Health, Bar.Displayed));
                     }
                     ++Mismatched;
                 }
@@ -68,7 +68,7 @@ namespace BugHunt.Labs.Lab06
         }
     }
 
-    [Lab(6, "HP 바", Symptom = "HP 바가 매 프레임 한 칸씩 늦다")]
+    [Lab(6, "HP 바", "HP バー", Symptom = "HP 바가 매 프레임 한 칸씩 늦다", SymptomJa = "HP バーが毎フレーム 1 つずつ遅れる")]
     public class Lab06_HealthBar : Lab
     {
         public override IEnumerator Run()
@@ -86,8 +86,8 @@ namespace BugHunt.Labs.Lab06
                 yield return null;
             }
 
-            Report.Expect(Loc.F("HP 바가 틀린 프레임 수 ({0}프레임 중)", probe.Frames), 0, probe.Mismatched);
-            Report.Expect("영웅이 쓰러진 프레임의 HP 바", 0, probe.ShownWhenDead);
+            Report.Expect(Loc.F("HP 바가 틀린 프레임 수 ({0}프레임 중)", "HP バーが間違っていたフレーム数 ({0} フレーム中)", probe.Frames), 0, probe.Mismatched);
+            Report.Expect(Loc.L("영웅이 쓰러진 프레임의 HP 바", "英雄が倒れたフレームの HP バー"), 0, probe.ShownWhenDead);
         }
     }
 }

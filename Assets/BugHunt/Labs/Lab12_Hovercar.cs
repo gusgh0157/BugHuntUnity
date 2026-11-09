@@ -19,7 +19,7 @@ namespace BugHunt.Labs.Lab12
         }
     }
 
-    [Lab(12, "호버카", Symptom = "30fps 에서 절반, 120fps 에서 두 배 속도")]
+    [Lab(12, "호버카", "ホバーカー", Symptom = "30fps 에서 절반, 120fps 에서 두 배 속도", SymptomJa = "30fps で半分、120fps で 2 倍の速さ")]
     public class Lab12_Hovercar : Lab
     {
         float savedCaptureDeltaTime;
@@ -40,7 +40,7 @@ namespace BugHunt.Labs.Lab12
                 {
                     yield return null;
                 }
-                Report.ExpectNear(Loc.F("{0}fps 에서 {1}초 동안 간 거리(m)", fps, seconds), MetersPerSecond * seconds, car.transform.position.z - startZ, 0.2f);
+                Report.ExpectNear(Loc.F("{0}fps 에서 {1}초 동안 간 거리(m)", "{0}fps で {1} 秒間に進んだ距離 (m)", fps, seconds), MetersPerSecond * seconds, car.transform.position.z - startZ, 0.2f);
                 Destroy(car.gameObject);
             }
         }

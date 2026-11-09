@@ -32,16 +32,16 @@ namespace BugHunt.Labs.Lab55
 
         public void Open(SaveFile save)
         {
-            ShownGold = HangGuard.Wait(save.LoadGoldAsync(), "ShopWindow.Open: 세이브에서 금화 읽기를 기다림");
+            ShownGold = HangGuard.Wait(save.LoadGoldAsync(), Loc.L("ShopWindow.Open: 세이브에서 금화 읽기를 기다림", "ShopWindow.Open: セーブからの金貨の読み込みを待機"));
         }
     }
 
-    [Lab(55, "상점의 금화", Symptom = "상점을 여는 순간 영원히 멈춘다(CPU 0%)")]
+    [Lab(55, "상점의 금화", "ショップの金貨", Symptom = "상점을 여는 순간 영원히 멈춘다(CPU 0%)", SymptomJa = "ショップを開いた瞬間に永遠に止まる (CPU 0%)")]
     public class Lab55_ShopGold : Lab
     {
         public override IEnumerator Run()
         {
-            Report.Note(Loc.F("메인 스레드의 SynchronizationContext: {0}", System.Threading.SynchronizationContext.Current?.GetType().Name ?? Loc.T("없음")));
+            Report.Note(Loc.F("메인 스레드의 SynchronizationContext: {0}", "メインスレッドの SynchronizationContext: {0}", System.Threading.SynchronizationContext.Current?.GetType().Name ?? Loc.L("없음", "なし")));
             var save = new SaveFile { Gold = Case(1250, 4321) };
             var shop = Spawn<ShopWindow>("ShopWindow");
             yield return null;
@@ -58,8 +58,8 @@ namespace BugHunt.Labs.Lab55
                 yield return null;
             }
 
-            Report.Expect("상점에 보이는 금화", save.Gold, shop.ShownGold);
-            Report.ExpectTrue(Loc.F("Open 이 돌아온 순간 금화는 아직 읽는 중 (보인 값 {0}, 기대 -1). 메인 스레드를 막지 않음", goldWhenOpenReturned), goldWhenOpenReturned < 0);
+            Report.Expect(Loc.L("상점에 보이는 금화", "ショップに表示される金貨"), save.Gold, shop.ShownGold);
+            Report.ExpectTrue(Loc.F("Open 이 돌아온 순간 금화는 아직 읽는 중 (보인 값 {0}, 기대 -1). 메인 스레드를 막지 않음", "Open が戻った瞬間、金貨はまだ読み込み中 (表示値 {0}、期待 -1)。メインスレッドをブロックしない", goldWhenOpenReturned), goldWhenOpenReturned < 0);
         }
     }
 }

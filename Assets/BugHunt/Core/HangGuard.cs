@@ -72,7 +72,7 @@ namespace BugHunt
         {
             if (Tripped)
             {
-                throw new HangException(Loc.F("응답 없음 (이미 선언됨): {0}", Loc.T(what)));
+                throw new HangException(Loc.F("응답 없음 (이미 선언됨): {0}", "応答なし (宣言済み): {0}", what));
             }
             double now = clock.Elapsed.TotalSeconds;
             int frame = Time.frameCount;
@@ -93,11 +93,11 @@ namespace BugHunt
             ++iterations;
             if (stuckSeconds > BudgetSeconds)
             {
-                Trip(what, Loc.F("{0:0.#}초 동안 한 프레임에서 빠져나오지 못함, 반복 {1:N0}번", BudgetSeconds, iterations));
+                Trip(what, Loc.F("{0:0.#}초 동안 한 프레임에서 빠져나오지 못함, 반복 {1:N0}번", "{0:0.#} 秒間 1 フレームから抜け出せない、ループ {1:N0} 回", BudgetSeconds, iterations));
             }
             if (iterations > maxIterations)
             {
-                Trip(what, Loc.F("한 프레임에 반복 {0:N0}번 (한도 {1:N0}), {2:0.00}초", iterations, maxIterations, stuckSeconds));
+                Trip(what, Loc.F("한 프레임에 반복 {0:N0}번 (한도 {1:N0}), {2:0.00}초", "1 フレームでループ {0:N0} 回 (上限 {1:N0})、{2:0.00} 秒", iterations, maxIterations, stuckSeconds));
             }
         }
 
@@ -107,7 +107,7 @@ namespace BugHunt
         {
             if (!task.Wait(TimeSpan.FromSeconds(BudgetSeconds)))
             {
-                Trip(what, Loc.F("{0:0.#}초를 기다려도 Task 가 끝나지 않음 (상태: {1})", BudgetSeconds, task.Status));
+                Trip(what, Loc.F("{0:0.#}초를 기다려도 Task 가 끝나지 않음 (상태: {1})", "{0:0.#} 秒待っても Task が終わらない (状態: {1})", BudgetSeconds, task.Status));
             }
             return task.Result;
         }
@@ -116,8 +116,8 @@ namespace BugHunt
         {
             Tripped = true;
             TrippedWhat = what;
-            Report.Fail(Loc.F("응답 없음: {0} ({1}). 진짜 게임이었다면 여기서 에디터가 굳었습니다", Loc.T(what), why));
-            throw new HangException(Loc.F("응답 없음: {0}. 아래 스택 트레이스가 메인 스레드가 갇혀 있던 곳입니다", Loc.T(what)));
+            Report.Fail(Loc.F("응답 없음: {0} ({1}). 진짜 게임이었다면 여기서 에디터가 굳었습니다", "応答なし: {0} ({1})。本物のゲームならここでエディターが固まっていました", what, why));
+            throw new HangException(Loc.F("응답 없음: {0}. 아래 스택 트레이스가 메인 스레드가 갇혀 있던 곳입니다", "応答なし: {0}。下のスタックトレースがメインスレッドが閉じ込められていた場所です", what));
         }
     }
 }

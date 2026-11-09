@@ -46,7 +46,7 @@ namespace BugHunt.Labs.Lab15
         }
     }
 
-    [Lab(15, "일시정지 메뉴", Symptom = "timeScale = 0 에서 메뉴가 안 들어오고 카운트다운이 멈춘다")]
+    [Lab(15, "일시정지 메뉴", "ポーズメニュー", Symptom = "timeScale = 0 에서 메뉴가 안 들어오고 카운트다운이 멈춘다", SymptomJa = "timeScale = 0 でメニューが入ってこず、カウントダウンが止まる")]
     public class Lab15_PauseMenu : Lab
     {
         public override float TimeoutSeconds => 20f;
@@ -70,7 +70,7 @@ namespace BugHunt.Labs.Lab15
             {
                 yield return null;
             }
-            Report.ExpectNear("멈춘 동안 메뉴가 들어온 정도", 1f, menu.Shown, 0.01f);
+            Report.ExpectNear(Loc.L("멈춘 동안 메뉴가 들어온 정도", "止まっている間にメニューが入った割合"), 1f, menu.Shown, 0.01f);
 
             int countdown = Case(2, 1);
             menu.Resume(countdown);
@@ -79,8 +79,8 @@ namespace BugHunt.Labs.Lab15
             {
                 yield return null;
             }
-            Report.Expect("카운트다운이 끝난 뒤 timeScale", 1f, Time.timeScale);
-            Report.Expect("카운트다운이 끝난 뒤 남은 숫자", 0, menu.CountdownLeft);
+            Report.Expect(Loc.L("카운트다운이 끝난 뒤 timeScale", "カウントダウンが終わった後の timeScale"), 1f, Time.timeScale);
+            Report.Expect(Loc.L("카운트다운이 끝난 뒤 남은 숫자", "カウントダウンが終わった後の残りの数字"), 0, menu.CountdownLeft);
         }
 
         void OnDestroy()

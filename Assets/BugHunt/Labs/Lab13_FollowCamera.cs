@@ -22,7 +22,7 @@ namespace BugHunt.Labs.Lab13
         }
     }
 
-    [Lab(13, "따라오는 카메라", Symptom = "30fps 에서 카메라가 한참 처지고 120fps 에서 딱 붙는다")]
+    [Lab(13, "따라오는 카메라", "追従カメラ", Symptom = "30fps 에서 카메라가 한참 처지고 120fps 에서 딱 붙는다", SymptomJa = "30fps ではカメラが大きく遅れ、120fps ではぴったりくっつく")]
     public class Lab13_FollowCamera : Lab
     {
         float savedCaptureDeltaTime;
@@ -47,7 +47,7 @@ namespace BugHunt.Labs.Lab13
                 }
                 float gap = Vector3.Distance(cam.transform.position, cam.Target);
                 float expectedGap = distance * Mathf.Exp(-Sharpness * frames / (float)fps);   // 실제로 흐른 시간 = 프레임 수 × 간격 / 実際に経過した時間 = フレーム数 × 間隔
-                Report.ExpectNear(Loc.F("{0}fps 에서 {1}초 뒤 남은 거리(m)", fps, seconds), expectedGap, gap, expectedGap * 0.05f + 0.01f);
+                Report.ExpectNear(Loc.F("{0}fps 에서 {1}초 뒤 남은 거리(m)", "{0}fps で {1} 秒後の残り距離 (m)", fps, seconds), expectedGap, gap, expectedGap * 0.05f + 0.01f);
                 Destroy(cam.gameObject);
             }
         }

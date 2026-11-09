@@ -38,7 +38,7 @@ namespace BugHunt.Labs.Lab29
         }
     }
 
-    [Lab(29, "위협 목록", Symptom = "위협 1위가 죽자 보스가 MissingReferenceException, 목록 수도 그대로")]
+    [Lab(29, "위협 목록", "ヘイトリスト", Symptom = "위협 1위가 죽자 보스가 MissingReferenceException, 목록 수도 그대로", SymptomJa = "ヘイト 1 位が死ぬとボスが MissingReferenceException、リストの数もそのまま")]
     public class Lab29_ThreatTable : Lab
     {
         public override IEnumerator Run()
@@ -61,9 +61,9 @@ namespace BugHunt.Labs.Lab29
             yield return null;
 
             string expectedTarget = enemies[System.Array.IndexOf(damages, damages.Where((_, i) => i != topIndex).Max())].name;
-            Report.Expect("위협 목록의 적 수", damages.Length - 1, boss.ThreatCount);
+            Report.Expect(Loc.L("위협 목록의 적 수", "ヘイトリストの敵の数"), damages.Length - 1, boss.ThreatCount);
             boss.AttackTop();
-            Report.Expect("보스가 공격한 적", expectedTarget, boss.LastTarget);
+            Report.Expect(Loc.L("보스가 공격한 적", "ボスが攻撃した敵"), expectedTarget, boss.LastTarget);
         }
     }
 }

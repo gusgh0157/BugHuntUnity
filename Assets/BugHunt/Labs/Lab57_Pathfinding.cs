@@ -69,7 +69,7 @@ namespace BugHunt.Labs.Lab57
         }
     }
 
-    [Lab(57, "던전 길 찾기", Symptom = "문을 잠가 길이 끊기면 멈추고 메모리가 치솟는다")]
+    [Lab(57, "던전 길 찾기", "ダンジョンの経路探索", Symptom = "문을 잠가 길이 끊기면 멈추고 메모리가 치솟는다", SymptomJa = "扉に鍵をかけて道が途切れると止まり、メモリが跳ね上がる")]
     public class Lab57_Pathfinding : Lab
     {
         public override IEnumerator Run()
@@ -92,12 +92,12 @@ namespace BugHunt.Labs.Lab57
             yield return null;
 
             int doors = PathFinder.DoorsBetween(dungeon, monster, player);
-            Report.Expect(Loc.F("몬스터(방 {0}) → 플레이어(방 {1}) 문 수", monster, player), expected, doors);
+            Report.Expect(Loc.F("몬스터(방 {0}) → 플레이어(방 {1}) 문 수", "モンスター (部屋 {0}) → プレイヤー (部屋 {1}) の扉の数", monster, player), expected, doors);
             yield return null;
 
-            Report.Note("플레이어가 3-6 문을 잠갔다.");
+            Report.Note(Loc.L("플레이어가 3-6 문을 잠갔다.", "プレイヤーが 3-6 の扉に鍵をかけました。"));
             dungeon.Lock(3, 6);
-            Report.Expect("길이 끊긴 뒤 문 수 (갈 수 없음)", -1, PathFinder.DoorsBetween(dungeon, monster, player));
+            Report.Expect(Loc.L("길이 끊긴 뒤 문 수 (갈 수 없음)", "道が途切れた後の扉の数 (行けない)"), -1, PathFinder.DoorsBetween(dungeon, monster, player));
         }
     }
 }

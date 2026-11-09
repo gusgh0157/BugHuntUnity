@@ -50,7 +50,7 @@ namespace BugHunt.Labs.Lab51
         }
     }
 
-    [Lab(51, "손에 든 무기", Symptom = "횃불이 손을 한 박자 늦게 따라온다")]
+    [Lab(51, "손에 든 무기", "手に持った武器", Symptom = "횃불이 손을 한 박자 늦게 따라온다", SymptomJa = "松明がワンテンポ遅れて手についてくる")]
     public class Lab51_WeaponAttach : Lab
     {
         float savedCaptureDeltaTime;
@@ -81,9 +81,9 @@ namespace BugHunt.Labs.Lab51
                 yield return null;
             }
 
-            Report.Note(Loc.F("{0}프레임 동안 손이 움직인 거리 {1:0.00}, 어긋난 프레임 {2}, 가장 크게 벌어진 거리 {3:0.000}", probe.Frames, probe.HandTravel, probe.Mismatched, probe.WorstGap));
-            Report.ExpectTrue("손이 실제로 움직였다 (애니메이션이 돌고 있다)", probe.HandTravel > 0.5f);
-            Report.Expect("손과 횃불이 어긋난 프레임", 0, probe.Mismatched);
+            Report.Note(Loc.F("{0}프레임 동안 손이 움직인 거리 {1:0.00}, 어긋난 프레임 {2}, 가장 크게 벌어진 거리 {3:0.000}", "{0} フレームの間に手が動いた距離 {1:0.00}、ずれたフレーム {2}、最も大きく離れた距離 {3:0.000}", probe.Frames, probe.HandTravel, probe.Mismatched, probe.WorstGap));
+            Report.ExpectTrue(Loc.L("손이 실제로 움직였다 (애니메이션이 돌고 있다)", "手が実際に動いた (アニメーションが動いている)"), probe.HandTravel > 0.5f);
+            Report.Expect(Loc.L("손과 횃불이 어긋난 프레임", "手と松明がずれたフレーム"), 0, probe.Mismatched);
         }
 
         void OnDestroy()

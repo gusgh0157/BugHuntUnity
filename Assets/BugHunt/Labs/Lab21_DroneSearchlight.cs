@@ -26,7 +26,7 @@ namespace BugHunt.Labs.Lab21
         }
     }
 
-    [Lab(21, "드론 탐조등", Symptom = "맵 구석에 둔 드론의 탐조등 방향과 좌우 판정이 틀린다")]
+    [Lab(21, "드론 탐조등", "ドローンのサーチライト", Symptom = "맵 구석에 둔 드론의 탐조등 방향과 좌우 판정이 틀린다", SymptomJa = "マップの隅に置いたドローンのサーチライトの向きと左右の判定が間違う")]
     public class Lab21_DroneSearchlight : Lab
     {
         public override IEnumerator Run()
@@ -36,12 +36,12 @@ namespace BugHunt.Labs.Lab21
             yield return null;
 
             Vector3 expectedBeam = drone.transform.rotation * drone.LocalBeam;
-            Report.ExpectNear("탐조등 방향과 기대 방향의 차이(도)", 0f, Vector3.Angle(expectedBeam, drone.BeamDirection()), 0.5f);
+            Report.ExpectNear(Loc.L("탐조등 방향과 기대 방향의 차이(도)", "サーチライトの向きと期待する向きの差 (度)"), 0f, Vector3.Angle(expectedBeam, drone.BeamDirection()), 0.5f);
 
             Vector3 leftIntruder = drone.transform.position + drone.transform.rotation * new Vector3(-3f, 0f, 4f);
             Vector3 rightIntruder = drone.transform.position + drone.transform.rotation * new Vector3(3f, 0f, 4f);
-            Report.Expect("드론 왼쪽 앞 침입자를 왼쪽으로 판정", true, drone.IsOnLeft(leftIntruder));
-            Report.Expect("드론 오른쪽 앞 침입자를 왼쪽으로 판정", false, drone.IsOnLeft(rightIntruder));
+            Report.Expect(Loc.L("드론 왼쪽 앞 침입자를 왼쪽으로 판정", "ドローンの左前の侵入者を左と判定"), true, drone.IsOnLeft(leftIntruder));
+            Report.Expect(Loc.L("드론 오른쪽 앞 침입자를 왼쪽으로 판정", "ドローンの右前の侵入者を左と判定"), false, drone.IsOnLeft(rightIntruder));
         }
     }
 }
