@@ -1094,13 +1094,13 @@ public async void Open(SaveFile save)
 ```csharp
 while (!Elevator.IsAt(Floor))
 {
-    HangGuard.Tick("Passenger.RideTo: 엘리베이터가 오기를 기다림");
+    HangGuard.Tick(Loc.L("Passenger.RideTo: 엘리베이터가 오기를 기다림", "Passenger.RideTo: エレベーターが来るのを待機"));
     yield return null;   // 한 프레임 양보 → 그동안 Elevator.Update 가 돈다
 }
 ...
 while (!Elevator.IsAt(destination))
 {
-    HangGuard.Tick("Passenger.RideTo: 목표 층에 닿기를 기다림");
+    HangGuard.Tick(Loc.L("Passenger.RideTo: 목표 층에 닿기를 기다림", "Passenger.RideTo: 目的の階に着くのを待機"));
     yield return null;
 }
 ```
@@ -1194,7 +1194,7 @@ void Update()
     if (alive != shownAlive || total != shownTotal)
     {
         shownAlive = alive; shownTotal = total;
-        SquadText = Loc.F("생존 {0}명, 부대 HP {1}", alive, total);
+        SquadText = Loc.F("생존 {0}명, 부대 HP {1}", "生存 {0} 人、部隊の HP {1}", alive, total);
     }
 }
 ```
