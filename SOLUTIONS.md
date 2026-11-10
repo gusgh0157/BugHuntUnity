@@ -1156,11 +1156,10 @@ GetComponent<Animator>().cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 처음 어긋난 곳: Swing 은 0.7 에 빠지기 시작해 0.8 에 완전히 끝난다. 0.9 의 이벤트는 재생되지 않는 구간
 진짜 원인:     애니메이션 에셋. 이벤트가 트랜지션 뒤에 있다.
 ```
-**수정:** 코드가 아니라 애니메이션 에셋을 고친다. 둘 중 하나를 고르면 된다.
-1. **트랜지션을 늦추기 (권장):** Project 창에서 `Assets/BugHunt/Resources/BugHunt/Animation/Swordsman.controller` 를 더블클릭해 Animator 창을 연다. Swing → Idle 화살표를 고르고, Inspector 의 **Exit Time 을 0.7 에서 0.95** 로 바꾼다(이벤트 뒤에서 넘어가기 시작). `Ctrl+S` 로 저장한다.
-2. **이벤트를 앞당기기:** Project 창에서 `Swordsman_Swing.anim` 을 고르고 Animation 창을 연다(`Ctrl+6`). 0.9초의 **Hit 이벤트를 0.5초** 무렵(칼날이 실제로 닿는 지점)으로 끌어 옮기고 저장한다.
+**수정:** 코드가 아니라 애니메이션 에셋을 고친다. Project 창에서 `Assets/BugHunt/Resources/BugHunt/Animation/Swordsman.controller` 를 더블클릭해 Animator 창을 연다. Swing → Idle 화살표를 고르고, Inspector 의 **Exit Time 을 0.7 에서 0.95** 로 바꾼다(이벤트 뒤에서 넘어가기 시작). `Ctrl+S` 로 저장한다.
+(Hit 이벤트를 칼날이 실제로 닿는 0.5초 무렵으로 앞당겨도 고쳐진다. 다만 Animation 창에서 이벤트를 옮기려면 그 클립을 쓰는 Animator 오브젝트를 골라야 하는데, 이 랩의 Swordsman 은 실행 중에만 있다.)
 
-주의: 메뉴 `BugHunt > 개발용 > 랩 에셋 다시 만들기` 를 누르면 에셋이 처음 상태(버그)로 돌아간다. 다시 만들어도 고친 상태를 유지하려면 `BugHuntAssetBuilder.cs` 의 `swingDone.exitTime = 0.7f;` 를 `0.95f` 로 바꾼다.
+주의: 메뉴 `BugHunt > 개발용 · 開発用 > 랩 에셋 다시 만들기 · ラボのアセットを作り直す` 를 누르면 에셋이 처음 상태(버그)로 돌아간다. 다시 만들어도 고친 상태를 유지하려면 `BugHuntAssetBuilder.cs` 의 `swingDone.exitTime = 0.7f;` 를 `0.95f` 로 바꾼다.
 **교훈:** 트랜지션 도중에는 두 상태의 클립이 같이 재생되며 양쪽 이벤트가 불리지만, 트랜지션이 **끝난 뒤** 원래 클립은 더 진행되지 않는다. 판정용 이벤트는 트랜지션 시작 전에 둔다. 피격·회피 같은 인터럽트로 공격이 끊길 때 판정이 빠지는 것도 같은 원리이고, 그건 의도된 동작일 수도 있다(기획과 정하자).
 
 ## Lab 51 — 애니메이션 결과를 Update 에서 읽음
