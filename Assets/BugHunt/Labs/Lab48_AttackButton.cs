@@ -25,7 +25,7 @@ namespace BugHunt.Labs.Lab48
         }
     }
 
-    [Lab(48, "공격 버튼", Symptom = "버튼을 눌러도 공격 모션이 안 나온다(예외 없음)")]
+    [Lab(48, "공격 버튼", "攻撃ボタン", Symptom = "버튼을 눌러도 공격 모션이 안 나온다(예외 없음)", SymptomJa = "ボタンを押しても攻撃モーションが出ない (例外なし)")]
     public class Lab48_AttackButton : Lab
     {
         public override IEnumerator Run()
@@ -47,7 +47,7 @@ namespace BugHunt.Labs.Lab48
                 attacked = animator.GetCurrentAnimatorStateInfo(0).IsName("Attack")
                     || animator.GetNextAnimatorStateInfo(0).IsName("Attack");
             }
-            Report.ExpectTrue("0.5초 안에 Attack 상태 진입", attacked);
+            Report.ExpectTrue(Loc.L("0.5초 안에 Attack 상태 진입", "0.5 秒以内に Attack ステートに入る"), attacked);
         }
     }
 }

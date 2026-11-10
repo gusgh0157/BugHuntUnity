@@ -45,7 +45,7 @@ namespace BugHunt.Labs.Lab25
         }
     }
 
-    [Lab(25, "공습", Symptom = "공습에 적이 쓰러지면 InvalidOperationException, 뒤쪽 적은 멀쩡")]
+    [Lab(25, "공습", "空爆", Symptom = "공습에 적이 쓰러지면 InvalidOperationException, 뒤쪽 적은 멀쩡", SymptomJa = "空爆で敵が倒れると InvalidOperationException、後ろの敵は無傷")]
     public class Lab25_Airstrike : Lab
     {
         public override IEnumerator Run()
@@ -66,8 +66,8 @@ namespace BugHunt.Labs.Lab25
             squad.Airstrike(Damage);
             yield return null;
 
-            Report.Expect("살아남은 분대원 수", expected.Count, squad.Members.Count);
-            Report.Expect("살아남은 분대원의 HP", string.Join(",", expected), string.Join(",", squad.Members.Select(e => e.Health)));
+            Report.Expect(Loc.L("살아남은 분대원 수", "生き残った分隊員の数"), expected.Count, squad.Members.Count);
+            Report.Expect(Loc.L("살아남은 분대원의 HP", "生き残った分隊員の HP"), string.Join(",", expected), string.Join(",", squad.Members.Select(e => e.Health)));
         }
     }
 }

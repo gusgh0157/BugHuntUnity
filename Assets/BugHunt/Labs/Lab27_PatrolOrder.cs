@@ -28,7 +28,7 @@ namespace BugHunt.Labs.Lab27
         }
     }
 
-    [Lab(27, "순찰 순서", Symptom = "경비병이 Order 번호와 상관없는 순서로 돈다. 맵마다, 실행 환경마다 맞기도 하고 틀리기도 한다")]
+    [Lab(27, "순찰 순서", "巡回順序", Symptom = "경비병이 Order 번호와 상관없는 순서로 돈다. 맵마다, 실행 환경마다 맞기도 하고 틀리기도 한다", SymptomJa = "警備兵が Order 番号と関係のない順序で回る。マップごと、実行環境ごとに合うこともあれば違うこともある")]
     public class Lab27_PatrolOrder : Lab
     {
         public override IEnumerator Run()
@@ -56,7 +56,7 @@ namespace BugHunt.Labs.Lab27
 
                 guard.LearnRoute();
                 string expected = string.Join(",", Enumerable.Range(0, placed.Length));
-                Report.Expect(Loc.F("맵 {0}: 순찰 순서(Order)", map + 1), expected, string.Join(",", guard.Route.Select(p => p.Order)));
+                Report.Expect(Loc.F("맵 {0}: 순찰 순서(Order)", "マップ {0}: 巡回順序 (Order)", map + 1), expected, string.Join(",", guard.Route.Select(p => p.Order)));
 
                 Destroy(level);
                 yield return null;

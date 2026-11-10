@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace BugHunt.Labs.Lab10
 {
-    [Lab(10, "밸런스 패치", Symptom = "코드에서 HP 를 150 으로 올렸는데 게임에선 100")]
+    [Lab(10, "밸런스 패치", "バランス調整パッチ", Symptom = "코드에서 HP 를 150 으로 올렸는데 게임에선 100", SymptomJa = "コードで HP を 150 に上げたのにゲームでは 100")]
     public class Lab10_Balance : Lab
     {
         public override IEnumerator Run()
@@ -21,10 +21,10 @@ namespace BugHunt.Labs.Lab10
             SlimeStats fromCode = Spawn<SlimeStats>("Slime (AddComponent)");
             yield return null;
 
-            Report.Note(Loc.F("AddComponent 로 만든 슬라임: MaxHealth {0}, MoveSpeed {1}", fromCode.MaxHealth, fromCode.MoveSpeed));
-            Report.Note(Loc.F("프리팹으로 만든 슬라임:     MaxHealth {0}, MoveSpeed {1}", fromPrefab.MaxHealth, fromPrefab.MoveSpeed));
-            Report.Expect("프리팹 슬라임 MaxHealth", 150, fromPrefab.MaxHealth);
-            Report.ExpectNear("프리팹 슬라임 MoveSpeed", 2.5f, fromPrefab.MoveSpeed, 0.001f);
+            Report.Note(Loc.F("AddComponent 로 만든 슬라임: MaxHealth {0}, MoveSpeed {1}", "AddComponent で作ったスライム: MaxHealth {0}, MoveSpeed {1}", fromCode.MaxHealth, fromCode.MoveSpeed));
+            Report.Note(Loc.F("프리팹으로 만든 슬라임:     MaxHealth {0}, MoveSpeed {1}", "プレハブから作ったスライム:     MaxHealth {0}, MoveSpeed {1}", fromPrefab.MaxHealth, fromPrefab.MoveSpeed));
+            Report.Expect(Loc.L("프리팹 슬라임 MaxHealth", "プレハブのスライムの MaxHealth"), 150, fromPrefab.MaxHealth);
+            Report.ExpectNear(Loc.L("프리팹 슬라임 MoveSpeed", "プレハブのスライムの MoveSpeed"), 2.5f, fromPrefab.MoveSpeed, 0.001f);
         }
     }
 }

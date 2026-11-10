@@ -31,7 +31,7 @@ namespace BugHunt.Labs.Lab40
         }
     }
 
-    [Lab(40, "블래스터 발사음", MakesSound = true, Symptom = "첫 발만 발사음이 섬광보다 늦다")]
+    [Lab(40, "블래스터 발사음", "ブラスターの発射音", MakesSound = true, Symptom = "첫 발만 발사음이 섬광보다 늦다", SymptomJa = "最初の 1 発だけ発射音がマズルフラッシュより遅れる")]
     public class Lab40_BlasterSound : Lab
     {
         public override IEnumerator Run()
@@ -63,8 +63,8 @@ namespace BugHunt.Labs.Lab40
             {
                 yield return null;
             }
-            Report.Note(Loc.F("발사 후 데이터가 올라오기까지: {0}프레임, {1:0.0}ms", Time.frameCount - fireFrame, (Time.realtimeSinceStartup - fireTime) * 1000f));
-            Report.Expect("첫 발을 쏜 순간의 발사음 로드 상태", AudioDataLoadState.Loaded, stateAtFire);
+            Report.Note(Loc.F("발사 후 데이터가 올라오기까지: {0}프레임, {1:0.0}ms", "発射してからデータが載るまで: {0} フレーム、{1:0.0}ms", Time.frameCount - fireFrame, (Time.realtimeSinceStartup - fireTime) * 1000f));
+            Report.Expect(Loc.L("첫 발을 쏜 순간의 발사음 로드 상태", "最初の 1 発を撃った瞬間の発射音のロード状態"), AudioDataLoadState.Loaded, stateAtFire);
         }
     }
 }

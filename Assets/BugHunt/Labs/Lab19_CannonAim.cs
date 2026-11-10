@@ -22,7 +22,7 @@ namespace BugHunt.Labs.Lab19
         }
     }
 
-    [Lab(19, "포신 조준", Symptom = "옆쪽 높은 곳의 표적을 겨누면 포신이 엉뚱한 하늘을 향한다")]
+    [Lab(19, "포신 조준", "砲身の照準", Symptom = "옆쪽 높은 곳의 표적을 겨누면 포신이 엉뚱한 하늘을 향한다", SymptomJa = "横の高い所の標的を狙うと、砲身が見当違いの空を向く")]
     public class Lab19_CannonAim : Lab
     {
         public override IEnumerator Run()
@@ -39,7 +39,7 @@ namespace BugHunt.Labs.Lab19
             {
                 cannon.AimAt(targets[i]);
                 Vector3 wanted = targets[i] - cannon.transform.position;
-                Report.ExpectNear(Loc.F("표적 {0}: 포신 방향과의 차이(도)", i + 1), 0f, Vector3.Angle(cannon.transform.forward, wanted), 1f);
+                Report.ExpectNear(Loc.F("표적 {0}: 포신 방향과의 차이(도)", "標的 {0}: 砲身の向きとの差 (度)", i + 1), 0f, Vector3.Angle(cannon.transform.forward, wanted), 1f);
             }
         }
     }

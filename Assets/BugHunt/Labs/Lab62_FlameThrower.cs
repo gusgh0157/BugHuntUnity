@@ -36,7 +36,7 @@ namespace BugHunt.Labs.Lab62
         }
     }
 
-    [Lab(62, "화염 방사기", Symptom = "적이 피해를 받지 않는다(에러 없음). 이름을 고쳐도 할당이 남는다")]
+    [Lab(62, "화염 방사기", "火炎放射器", Symptom = "적이 피해를 받지 않는다(에러 없음). 이름을 고쳐도 할당이 남는다", SymptomJa = "敵がダメージを受けない (エラーなし)。名前を直してもアロケーションが残る")]
     public class Lab62_FlameThrower : Lab
     {
         float savedCaptureDeltaTime;
@@ -68,9 +68,9 @@ namespace BugHunt.Labs.Lab62
             long bytes = System.Math.Max(0, work.BytesPerFrame - baseline.BytesPerFrame);
 
             float burned = 1000f - enemies[0].Health;
-            Report.Note(Loc.F("적 {0}마리, 프레임당 GC 할당 {1}바이트", enemies.Count, bytes));
-            Report.ExpectTrue(Loc.F("불길 안의 적이 피해를 받음 (받은 피해 {0:0.0})", burned), burned > flamer.DamagePerSecond * 0.4f);
-            Report.ExpectTrue(Loc.F("피해를 주는 데 GC 할당 ≤ {0}바이트/프레임", Budget), bytes <= Budget);
+            Report.Note(Loc.F("적 {0}마리, 프레임당 GC 할당 {1}바이트", "敵 {0} 体、フレームあたりの GC アロケーション {1} バイト", enemies.Count, bytes));
+            Report.ExpectTrue(Loc.F("불길 안의 적이 피해를 받음 (받은 피해 {0:0.0})", "炎の中の敵がダメージを受けた (受けたダメージ {0:0.0})", burned), burned > flamer.DamagePerSecond * 0.4f);
+            Report.ExpectTrue(Loc.F("피해를 주는 데 GC 할당 ≤ {0}바이트/프레임", "ダメージを与えるときの GC アロケーション ≤ {0} バイト/フレーム", Budget), bytes <= Budget);
         }
 
         void OnDestroy()

@@ -29,7 +29,7 @@ namespace BugHunt.Labs.Lab38
         }
     }
 
-    [Lab(38, "움직이는 발판", Symptom = "Interpolate 를 켜자 발판이 거의 안 움직이고, 위의 상자도 안 실려 간다")]
+    [Lab(38, "움직이는 발판", "動く足場", Symptom = "Interpolate 를 켜자 발판이 거의 안 움직이고, 위의 상자도 안 실려 간다", SymptomJa = "補間 (Interpolate) をオンにしたら足場がほとんど動かず、上の箱も運ばれない")]
     public class Lab38_MovingPlatform : Lab
     {
         float savedCaptureDeltaTime;
@@ -51,9 +51,9 @@ namespace BugHunt.Labs.Lab38
             float expectedX = platform.Velocity.x * seconds;
             yield return new WaitForSeconds(seconds);
 
-            Report.ExpectNear("발판이 간 거리(m)", expectedX, platformGo.transform.position.x, 0.2f);
-            Report.ExpectNear("상자가 실려 간 거리(m)", expectedX, box.transform.position.x, 0.5f);   // 마찰로 따라붙는 지연(약 v²/2a) 만큼 여유 / 摩擦で追いつくまでの遅れ (約 v²/2a) の分の余裕
-            Report.ExpectTrue(Loc.F("상자가 발판 위에 있음 (y = {0:0.00})", box.transform.position.y), box.transform.position.y > 0.6f);
+            Report.ExpectNear(Loc.L("발판이 간 거리(m)", "足場が進んだ距離 (m)"), expectedX, platformGo.transform.position.x, 0.2f);
+            Report.ExpectNear(Loc.L("상자가 실려 간 거리(m)", "箱が運ばれた距離 (m)"), expectedX, box.transform.position.x, 0.5f);   // 마찰로 따라붙는 지연(약 v²/2a) 만큼 여유 / 摩擦で追いつくまでの遅れ (約 v²/2a) の分の余裕
+            Report.ExpectTrue(Loc.F("상자가 발판 위에 있음 (y = {0:0.00})", "箱が足場の上にある (y = {0:0.00})", box.transform.position.y), box.transform.position.y > 0.6f);
         }
 
         void OnDestroy()

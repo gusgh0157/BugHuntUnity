@@ -38,7 +38,7 @@ namespace BugHunt.Labs.Lab60
         }
     }
 
-    [Lab(60, "포탑의 표적 찾기", Symptom = "맵에 오브젝트가 많아지자 프레임이 무너지고 GC 가 튄다")]
+    [Lab(60, "포탑의 표적 찾기", "タレットの標的探し", Symptom = "맵에 오브젝트가 많아지자 프레임이 무너지고 GC 가 튄다", SymptomJa = "マップのオブジェクトが増えるとフレームレートが崩れ、GC が跳ねる")]
     public class Lab60_TurretSearch : Lab
     {
         public override IEnumerator Run()
@@ -76,20 +76,20 @@ namespace BugHunt.Labs.Lab60
             stopwatch.Stop();
             long bytes = System.Math.Max(0, work.BytesPerFrame - baseline.BytesPerFrame);
 
-            Report.Note(Loc.F("포탑 40대, 적 {0}마리, 장식 1500개: 프레임당 GC 할당 {1}바이트, 22프레임 {2}ms (참고용)", enemies, bytes, stopwatch.ElapsedMilliseconds));
-            Report.ExpectTrue(Loc.F("표적 찾기의 GC 할당 ≤ {0}바이트/프레임", Budget), bytes <= Budget);
-            Report.ExpectTrue("포탑이 플레이어를 알고 있음", turrets[0].Player != null && turrets[0].Player.name == "Player");
+            Report.Note(Loc.F("포탑 40대, 적 {0}마리, 장식 1500개: 프레임당 GC 할당 {1}바이트, 22프레임 {2}ms (참고용)", "タレット 40 台、敵 {0} 体、装飾 1500 個: フレームあたりの GC アロケーション {1} バイト、22 フレーム {2}ms (参考)", enemies, bytes, stopwatch.ElapsedMilliseconds));
+            Report.ExpectTrue(Loc.F("표적 찾기의 GC 할당 ≤ {0}바이트/프레임", "標的探しの GC アロケーション ≤ {0} バイト/フレーム", Budget), bytes <= Budget);
+            Report.ExpectTrue(Loc.L("포탑이 플레이어를 알고 있음", "タレットがプレイヤーを知っている"), turrets[0].Player != null && turrets[0].Player.name == "Player");
 
             // 새 적이 포탑 바로 앞에 나타난다.
             // 新しい敵がタレットのすぐ前に現れる。
             var ambusher = Spawn<Enemy>("Ambusher", new Vector3(Case(3f, 7f), 0f, 1f));
             yield return null;
             yield return null;
-            Report.Expect("새로 나타난 적을 표적으로", "Ambusher", turrets[Case(6, 14)].Target != null ? turrets[Case(6, 14)].Target.name : null);
+            Report.Expect(Loc.L("새로 나타난 적을 표적으로", "新しく現れた敵を標的に"), "Ambusher", turrets[Case(6, 14)].Target != null ? turrets[Case(6, 14)].Target.name : null);
             Destroy(ambusher.gameObject);
             yield return null;
             yield return null;
-            Report.ExpectTrue("사라진 적은 표적에서 빠짐", turrets[Case(6, 14)].Target != null && turrets[Case(6, 14)].Target.name != "Ambusher");
+            Report.ExpectTrue(Loc.L("사라진 적은 표적에서 빠짐", "消えた敵は標的から外れた"), turrets[Case(6, 14)].Target != null && turrets[Case(6, 14)].Target.name != "Ambusher");
         }
     }
 }

@@ -30,7 +30,7 @@ namespace BugHunt.Labs.Lab42
         }
     }
 
-    [Lab(42, "폭발 통", MakesSound = true, Symptom = "폭발음이 터지자마자 끊긴다")]
+    [Lab(42, "폭발 통", "爆発する樽", MakesSound = true, Symptom = "폭발음이 터지자마자 끊긴다", SymptomJa = "爆発音が鳴った途端に途切れる")]
     public class Lab42_Barrel : Lab
     {
         public override IEnumerator Run()
@@ -53,13 +53,13 @@ namespace BugHunt.Labs.Lab42
             barrel.Explode();
             yield return new WaitForSeconds(0.2f);
 
-            Report.ExpectTrue("통이 사라짐", barrel == null);
+            Report.ExpectTrue(Loc.L("통이 사라짐", "ドラム缶が消えた"), barrel == null);
             if (!audioWorks)
             {
-                Report.Skip("폭발음 재생", "오디오 출력 장치가 없거나 오디오가 꺼져 있습니다");
+                Report.Skip(Loc.L("폭발음 재생", "爆発音の再生"), Loc.L("오디오 출력 장치가 없거나 오디오가 꺼져 있습니다", "オーディオ出力デバイスがないか、オーディオがオフになっています"));
                 yield break;
             }
-            Report.ExpectTrue("0.2초 뒤에도 폭발음 재생 중", LabUtil.IsClipPlayingAnywhere(clip));
+            Report.ExpectTrue(Loc.L("0.2초 뒤에도 폭발음 재생 중", "0.2 秒後にも爆発音が再生中"), LabUtil.IsClipPlayingAnywhere(clip));
         }
     }
 }

@@ -42,7 +42,7 @@ namespace BugHunt.Labs.Lab54
         }
     }
 
-    [Lab(54, "세이브 불러오기", Symptom = "백그라운드 해석으로 바꾸자 \"can only be called from the main thread\"")]
+    [Lab(54, "세이브 불러오기", "セーブデータの読み込み", Symptom = "백그라운드 해석으로 바꾸자 \"can only be called from the main thread\"", SymptomJa = "バックグラウンド解析に変えたら \"can only be called from the main thread\"")]
     public class Lab54_SaveLoader : Lab
     {
         Application.LogCallback onLog;
@@ -66,10 +66,10 @@ namespace BugHunt.Labs.Lab54
             }
             Application.logMessageReceivedThreaded -= onLog;
 
-            Report.ExpectTrue("해석을 백그라운드 스레드에서 함", loader.ParseThreadId != 0 && loader.ParseThreadId != mainThreadId);
-            Report.ExpectTrue("불러오기 끝남", loader.Loaded);
-            Report.Expect("캐릭터 이름", save.Name, loader.name);
-            Report.ExpectNear("캐릭터 크기", save.Scale, loader.transform.localScale.x, 0.001f);
+            Report.ExpectTrue(Loc.L("해석을 백그라운드 스레드에서 함", "解析をバックグラウンドスレッドで行った"), loader.ParseThreadId != 0 && loader.ParseThreadId != mainThreadId);
+            Report.ExpectTrue(Loc.L("불러오기 끝남", "読み込みが終わった"), loader.Loaded);
+            Report.Expect(Loc.L("캐릭터 이름", "キャラクターの名前"), save.Name, loader.name);
+            Report.ExpectNear(Loc.L("캐릭터 크기", "キャラクターの大きさ"), save.Scale, loader.transform.localScale.x, 0.001f);
         }
 
         void OnDestroy()

@@ -40,7 +40,7 @@ namespace BugHunt.Labs.Lab52
         }
     }
 
-    [Lab(52, "한정 판매", Symptom = "한 자루 남은 검을 두 명이 샀다. 재고 -1")]
+    [Lab(52, "한정 판매", "限定販売", Symptom = "한 자루 남은 검을 두 명이 샀다. 재고 -1", SymptomJa = "残り 1 本の剣を 2 人が買えてしまった。在庫 -1")]
     public class Lab52_LimitedStock : Lab
     {
         public override IEnumerator Run()
@@ -65,9 +65,9 @@ namespace BugHunt.Labs.Lab52
                 yield return null;
             }
 
-            Report.Expect("팔린 수", stock, tasks.Count(t => t.Result));
-            Report.Expect("남은 재고", 0, shop.Stock);
-            Report.Expect("구매자 명단 수", stock, shop.Buyers.Count);
+            Report.Expect(Loc.L("팔린 수", "売れた数"), stock, tasks.Count(t => t.Result));
+            Report.Expect(Loc.L("남은 재고", "残りの在庫"), 0, shop.Stock);
+            Report.Expect(Loc.L("구매자 명단 수", "購入者リストの人数"), stock, shop.Buyers.Count);
         }
     }
 }

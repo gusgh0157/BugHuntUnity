@@ -65,7 +65,7 @@ namespace BugHunt.Labs.Lab61
         }
     }
 
-    [Lab(61, "탄환 풀", Symptom = "풀을 만들었는데도 매 발 Instantiate, 풀은 늘 비어 있다")]
+    [Lab(61, "탄환 풀", "弾のプール", Symptom = "풀을 만들었는데도 매 발 Instantiate, 풀은 늘 비어 있다", SymptomJa = "プールを作ったのに 1 発ごとに Instantiate、プールはいつも空")]
     public class Lab61_BulletPool : Lab
     {
         float savedCaptureDeltaTime;
@@ -102,13 +102,13 @@ namespace BugHunt.Labs.Lab61
                 yield return null;   // 마지막 탄환이 수명을 다할 때까지 / 最後の弾が寿命を終えるまで
             }
 
-            Report.Note(Loc.F("{0}발 발사, 수명 {1}초, 동시에 최대 {2}발", shots, life, alive));
-            Report.ExpectTrue(Loc.F("만든 탄환 수 {0} ≤ {1}", Bullet.Created, alive), Bullet.Created <= alive);
-            Report.Expect("다 쓴 탄환이 모두 풀로 돌아옴", Bullet.Created, pool.IdleCount);
+            Report.Note(Loc.F("{0}발 발사, 수명 {1}초, 동시에 최대 {2}발", "{0} 発発射、寿命 {1} 秒、同時に最大 {2} 発", shots, life, alive));
+            Report.ExpectTrue(Loc.F("만든 탄환 수 {0} ≤ {1}", "作った弾の数 {0} ≤ {1}", Bullet.Created, alive), Bullet.Created <= alive);
+            Report.Expect(Loc.L("다 쓴 탄환이 모두 풀로 돌아옴", "使い終わった弾がすべてプールに戻った"), Bullet.Created, pool.IdleCount);
 
             Bullet again = pool.Get();
             again.Launch(Vector3.zero, Vector3.forward, life);
-            Report.ExpectTrue("풀에서 다시 꺼낸 탄환이 살아 있음", again != null && again.gameObject.activeSelf);
+            Report.ExpectTrue(Loc.L("풀에서 다시 꺼낸 탄환이 살아 있음", "プールから再び取り出した弾が生きている"), again != null && again.gameObject.activeSelf);
         }
 
         void OnDestroy()

@@ -42,11 +42,11 @@ namespace BugHunt.Labs.Lab59
             {
                 total += member.Current;
             }
-            SquadText = Loc.F("생존 {0}명, 부대 HP {1}", alive, total);
+            SquadText = Loc.F("생존 {0}명, 부대 HP {1}", "生存 {0} 人、部隊の HP {1}", alive, total);
         }
     }
 
-    [Lab(59, "체력 표시줄", Symptom = "값이 그대로인데도 매 프레임 쓰레기가 쌓여 GC 로 끊긴다")]
+    [Lab(59, "체력 표시줄", "体力ゲージ", Symptom = "값이 그대로인데도 매 프레임 쓰레기가 쌓여 GC 로 끊긴다", SymptomJa = "値が変わらないのに毎フレームゴミがたまり、GC でカクつく")]
     public class Lab59_HudGarbage : Lab
     {
         public override IEnumerator Run()
@@ -77,16 +77,16 @@ namespace BugHunt.Labs.Lab59
             yield return work.Measure(30);
             long bytes = System.Math.Max(0, work.BytesPerFrame - baseline.BytesPerFrame);
 
-            Report.Note(Loc.F("표시줄 {0}개, 값이 그대로인 프레임의 GC 할당: 프레임당 {1}바이트 (아무것도 안 할 때 {2}바이트)", count, bytes, baseline.BytesPerFrame));
-            Report.ExpectTrue(Loc.F("값이 그대로인 프레임의 GC 할당 ≤ {0}바이트/프레임", Budget), bytes <= Budget);
+            Report.Note(Loc.F("표시줄 {0}개, 값이 그대로인 프레임의 GC 할당: 프레임당 {1}바이트 (아무것도 안 할 때 {2}바이트)", "体力バー {0} 個、値が変わらないフレームの GC アロケーション: フレームあたり {1} バイト (何もしないとき {2} バイト)", count, bytes, baseline.BytesPerFrame));
+            Report.ExpectTrue(Loc.F("값이 그대로인 프레임의 GC 할당 ≤ {0}바이트/프레임", "値が変わらないフレームの GC アロケーション ≤ {0} バイト/フレーム", Budget), bytes <= Budget);
 
             int hit = Case(3, 11);
             squad.Members[hit].Current = Case(70, 45);
             squad.Members[0].Current = 0;
             yield return null;
             int expectedTotal = squad.Members.Sum(m => m.Current);
-            Report.Expect("맞은 부대원의 표시", $"HP {squad.Members[hit].Current} / 100", bars[hit].Text);
-            Report.Expect("부대 표시", Loc.F("생존 {0}명, 부대 HP {1}", count - 1, expectedTotal), bars[hit].SquadText);
+            Report.Expect(Loc.L("맞은 부대원의 표시", "攻撃を受けた部隊員の表示"), $"HP {squad.Members[hit].Current} / 100", bars[hit].Text);
+            Report.Expect(Loc.L("부대 표시", "部隊の表示"), Loc.F("생존 {0}명, 부대 HP {1}", "生存 {0} 人、部隊の HP {1}", count - 1, expectedTotal), bars[hit].SquadText);
         }
     }
 }

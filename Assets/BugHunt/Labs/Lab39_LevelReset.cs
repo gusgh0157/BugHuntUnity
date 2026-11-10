@@ -33,7 +33,7 @@ namespace BugHunt.Labs.Lab39
         }
     }
 
-    [Lab(39, "퍼즐 초기화", Symptom = "초기화한 그 프레임에 상자를 집으면 허공을, 옛 자리를 집으면 상자를 집는다")]
+    [Lab(39, "퍼즐 초기화", "パズルのリセット", Symptom = "초기화한 그 프레임에 상자를 집으면 허공을, 옛 자리를 집으면 상자를 집는다", SymptomJa = "リセットしたそのフレームで箱をつかむと空中を、元の位置をつかむと箱をつかむ")]
     public class Lab39_LevelReset : Lab
     {
         public override IEnumerator Run()
@@ -53,8 +53,8 @@ namespace BugHunt.Labs.Lab39
             string atStart = Grabber.Grab(new Vector3(start.x, 0f, 0f), Vector3.forward);
             string atOld = Grabber.Grab(new Vector3(moved.x, 0f, 0f), Vector3.forward);
 
-            Report.Expect("상자가 돌아간 자리에서 집은 것", "Crate", atStart);
-            Report.Expect("상자가 있던 옛 자리에서 집은 것", null, atOld);
+            Report.Expect(Loc.L("상자가 돌아간 자리에서 집은 것", "箱が戻った位置でつかんだもの"), "Crate", atStart);
+            Report.Expect(Loc.L("상자가 있던 옛 자리에서 집은 것", "箱があった元の位置でつかんだもの"), null, atOld);
         }
     }
 }

@@ -29,7 +29,7 @@ namespace BugHunt.Labs.Lab44
         }
     }
 
-    [Lab(44, "상자 강조", Symptom = "한 상자에 마우스를 올렸는데 전부 빨개진다")]
+    [Lab(44, "상자 강조", "木箱のハイライト", Symptom = "한 상자에 마우스를 올렸는데 전부 빨개진다", SymptomJa = "1 つの木箱にマウスを乗せたのに、すべて赤くなる")]
     public class Lab44_CrateHighlight : Lab
     {
         public override IEnumerator Run()
@@ -53,14 +53,14 @@ namespace BugHunt.Labs.Lab44
 
             Color hovered = LabUtil.ShownColor(crates[pick].GetComponent<Renderer>());
             Color neighbor = LabUtil.ShownColor(crates[other].GetComponent<Renderer>());
-            Report.ExpectTrue(Loc.F("강조한 상자는 빨강 (실제 {0})", hovered), LabUtil.SameColor(hovered, Color.red));
-            Report.ExpectTrue(Loc.F("옆 상자는 흰색 (실제 {0})", neighbor), LabUtil.SameColor(neighbor, Color.white));
-            Report.ExpectTrue(Loc.F("Crate.mat 에셋은 흰색 (실제 {0})", crateMaterial.color), LabUtil.SameColor(crateMaterial.color, Color.white));
+            Report.ExpectTrue(Loc.F("강조한 상자는 빨강 (실제 {0})", "ハイライトした木箱は赤 (実際 {0})", hovered), LabUtil.SameColor(hovered, Color.red));
+            Report.ExpectTrue(Loc.F("옆 상자는 흰색 (실제 {0})", "隣の木箱は白 (実際 {0})", neighbor), LabUtil.SameColor(neighbor, Color.white));
+            Report.ExpectTrue(Loc.F("Crate.mat 에셋은 흰색 (실제 {0})", "Crate.mat アセットは白 (実際 {0})", crateMaterial.color), LabUtil.SameColor(crateMaterial.color, Color.white));
 
             crates[pick].OnHoverExit();
             yield return null;
             Color restored = LabUtil.ShownColor(crates[pick].GetComponent<Renderer>());
-            Report.ExpectTrue(Loc.F("마우스를 떼면 흰색으로 (실제 {0})", restored), LabUtil.SameColor(restored, Color.white));
+            Report.ExpectTrue(Loc.F("마우스를 떼면 흰색으로 (실제 {0})", "マウスを離すと白に戻る (実際 {0})", restored), LabUtil.SameColor(restored, Color.white));
         }
     }
 }

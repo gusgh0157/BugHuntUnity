@@ -115,7 +115,7 @@ namespace BugHunt.Editor
         {
             if (EditorApplication.isPlaying || IsGrading)
             {
-                EditorUtility.DisplayDialog(Loc.T("BugHunt 채점"), Loc.T("플레이를 멈춘 뒤에 채점하세요."), Loc.T("확인"));
+                EditorUtility.DisplayDialog(Loc.L("BugHunt 채점", "BugHunt 採点"), Loc.L("플레이를 멈춘 뒤에 채점하세요.", "再生を止めてから採点してください。"), Loc.L("확인", "OK"));
                 return;
             }
             if (!batch && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
@@ -132,7 +132,7 @@ namespace BugHunt.Editor
             SessionState.SetString(ReportKey, reportPath);
             SessionState.SetString(LabsKey, labs);
             SessionState.SetInt(ExitCodeKey, 2);
-            Debug.Log($"{Report.Tag} " + Loc.F("[채점] 시작: {0}, 그래픽 장치 {1}, 결과 → {2}", Loc.T(batch ? "명령줄" : "에디터"), SystemInfo.graphicsDeviceType, reportPath));
+            Debug.Log($"{Report.Tag} " + Loc.F("[채점] 시작: {0}, 그래픽 장치 {1}, 결과 → {2}", "[採点] 開始: {0}、グラフィックスデバイス {1}、結果 → {2}", batch ? Loc.L("명령줄", "コマンドライン") : Loc.L("에디터", "エディター"), SystemInfo.graphicsDeviceType, reportPath));
             EditorApplication.EnterPlaymode();
         }
 
@@ -160,7 +160,7 @@ namespace BugHunt.Editor
                 Lab.HiddenCase = false;
                 if (!done)
                 {
-                    Debug.LogWarning($"{Report.Tag} " + Loc.F("[채점] 끝나기 전에 플레이가 멈췄습니다. {0} 에는 거기까지의 결과가 있습니다.", ReportPath));
+                    Debug.LogWarning($"{Report.Tag} " + Loc.F("[채점] 끝나기 전에 플레이가 멈췄습니다. {0} 에는 거기까지의 결과가 있습니다.", "[採点] 終わる前に再生が止まりました。{0} にはそこまでの結果があります。", ReportPath));
                 }
                 if (batch)
                 {
@@ -183,9 +183,16 @@ namespace BugHunt.Editor
             float savedBudget = HangGuard.BudgetSeconds;
             HangGuard.BudgetSeconds = HangGuard.DefaultBudgetSeconds;   // "오래 버티기" 를 켜 두었어도 채점은 기본 예산으로 / 「30 秒間固まったままにする」をオンにしていても、採点は既定の予算で
 
+            // 일본어로 채점할 때 랩 출력에 한글이 섞이면(Loc.L 짝을 빠뜨린 문자열) 랩마다 경고한다. 판정은 바꾸지 않는다.
+            // 日本語で採点するときラボの出力にハングルが混ざったら (Loc.L の対が抜けた文字列)、ラボごとに警告します。判定は変えません。
+            string hangulLine = null;
+            Action<string, Color> watchHangul = (text, _) => { if (Loc.IsJapanese && hangulLine == null && Loc.HasHangul(text)) hangulLine = text; };
+            Report.Printed += watchHangul;
+
             for (int i = 0; i < labs.Count; ++i)
             {
                 LabRunner.LabEntry entry = labs[i];
+                hangulLine = null;
                 // 이 랩에서 에디터가 정말로 굳어 강제 종료되더라도 결과 파일은 남도록, 돌리기 전에 "이 랩에서 멈춤" 으로 미리 써 둔다.
                 // このラボでエディターが本当に固まって強制終了されても結果ファイルが残るよう、回す前に「このラボで停止」としてあらかじめ書いておきます。
                 WriteReport(Provisional(report, labs, i));
@@ -205,14 +212,14 @@ namespace BugHunt.Editor
                     if (hiddenResult != "PASS" && hiddenResult != "SKIP")
                     {
                         result = hiddenResult;
-                        detail = Loc.F("[숨은 케이스] {0} (보통 입력에서는 통과: 값을 코드에 박아 넣지 않았나요?)", hiddenDetail);
+                        detail = Loc.F("[숨은 케이스] {0} (보통 입력에서는 통과: 값을 코드에 박아 넣지 않았나요?)", "[隠しケース] {0} (通常の入力では合格: 値をコードに直接書き込んでいませんか?)", hiddenDetail);
                     }
                 }
 
                 report.labs.Add(new LabRow
                 {
                     id = entry.Number,
-                    title = Loc.T(entry.Title),
+                    title = entry.Title,
                     part = PartNumber(entry.Number),
                     result = result,
                     ms = clock.ElapsedMilliseconds,
@@ -222,7 +229,17 @@ namespace BugHunt.Editor
                 {
                     ++report.passed;
                 }
+                if (Loc.IsJapanese)
+                {
+                    LabRow row = report.labs[report.labs.Count - 1];
+                    hangulLine ??= Loc.HasHangul(row.title) ? row.title : Loc.HasHangul(row.detail) ? row.detail : null;
+                    if (hangulLine != null)
+                    {
+                        Debug.LogWarning($"{Report.Tag} " + Loc.F("[채점] 랩 {0}: 일본어 출력에 한글이 섞였습니다: {1}", "[採点] ラボ {0}: 日本語の出力にハングルが混ざっています: {1}", entry.Number, hangulLine));
+                    }
+                }
             }
+            Report.Printed -= watchHangul;
 
             HangGuard.BudgetSeconds = savedBudget;
             WriteReport(report);
@@ -236,11 +253,11 @@ namespace BugHunt.Editor
         {
             if (r.Crashed)
             {
-                return ("CRASH", FirstLine(r.FirstException) ?? Loc.T("예외로 중단됨"));
+                return ("CRASH", FirstLine(r.FirstException) ?? Loc.L("예외로 중단됨", "例外で中断"));
             }
             if (r.TimedOut)
             {
-                return ("TIMEOUT", FirstLine(r.FirstFailure) ?? Loc.T("시간 초과"));
+                return ("TIMEOUT", FirstLine(r.FirstFailure) ?? Loc.L("시간 초과", "タイムアウト"));
             }
             if (r.Failed > 0)
             {
@@ -254,7 +271,7 @@ namespace BugHunt.Editor
             {
                 return ("PASS", "");
             }
-            return ("FAIL", Loc.T("판정이 하나도 나오지 않음"));
+            return ("FAIL", Loc.L("판정이 하나도 나오지 않음", "判定が 1 つも出なかった"));
         }
 
         static GradeReport Provisional(GradeReport done, List<LabRunner.LabEntry> labs, int current)
@@ -266,11 +283,11 @@ namespace BugHunt.Editor
                 provisional.labs.Add(new LabRow
                 {
                     id = labs[i].Number,
-                    title = Loc.T(labs[i].Title),
+                    title = labs[i].Title,
                     part = PartNumber(labs[i].Number),
                     result = i == current ? "TIMEOUT" : "FAIL",
                     ms = 0,
-                    detail = Loc.T(i == current ? "채점이 이 랩에서 끝나지 않았습니다 (에디터가 멈췄거나 강제로 종료됨)" : "앞 랩에서 채점이 멈춰 실행하지 못함"),
+                    detail = i == current ? Loc.L("채점이 이 랩에서 끝나지 않았습니다 (에디터가 멈췄거나 강제로 종료됨)", "採点がこのラボで終わりませんでした (エディターが固まったか、強制終了された)") : Loc.L("앞 랩에서 채점이 멈춰 실행하지 못함", "前のラボで採点が止まったため実行できなかった"),
                 });
             }
             return provisional;
@@ -343,7 +360,7 @@ namespace BugHunt.Editor
         static void PrintSummary(GradeReport report)
         {
             var text = new StringBuilder();
-            text.AppendLine($"{Report.Tag} " + Loc.F("[채점] 결과 ({0}, 그래픽 장치 {1})", report.edition, SystemInfo.graphicsDeviceType));
+            text.AppendLine($"{Report.Tag} " + Loc.F("[채점] 결과 ({0}, 그래픽 장치 {1})", "[採点] 結果 ({0}、グラフィックスデバイス {1})", report.edition, SystemInfo.graphicsDeviceType));
             foreach (LabRow row in report.labs)
             {
                 text.Append($"  {row.id,2}. {row.title,-12} {row.result,-7} {row.ms,6}ms");
@@ -354,10 +371,10 @@ namespace BugHunt.Editor
                 text.AppendLine();
             }
             int skipped = report.Count("SKIP");
-            text.Append(Loc.F("총점: {0} / {1}", report.passed, report.Gradable));
+            text.Append(Loc.F("총점: {0} / {1}", "総合点: {0} / {1}", report.passed, report.Gradable));
             if (skipped > 0)
             {
-                text.Append(Loc.F(" (SKIP {0}개 제외)", skipped));
+                text.Append(Loc.F(" (SKIP {0}개 제외)", " (SKIP {0} 個を除く)", skipped));
             }
             text.Append($"   FAIL {report.Count("FAIL")}, TIMEOUT {report.Count("TIMEOUT")}, CRASH {report.Count("CRASH")}");
             Debug.Log(text.ToString());

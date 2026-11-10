@@ -1,27 +1,25 @@
 using System;
-using System.Collections.Generic;
-using System.Reflection;
+using System.Diagnostics;
 using UnityEngine;
 
 namespace BugHunt
 {
     public enum Language { Korean, Japanese }
 
-    // 출력 문자열의 언어. 코드에는 한국어 문장을 그대로 쓰고, 그 문장이 일본어 표(Assets/BugHunt/Lang/Ja/LabNN.cs)의 키다.
-    // 出力文字列の言語。コードには韓国語の文をそのまま書き、その文が日本語の表 (Assets/BugHunt/Lang/Ja/LabNN.cs) のキーになります。
+    // 출력 문자열의 언어. 코드에는 두 언어를 나란히 쓴다: Loc.L("한국어", "日本語"), Loc.F("한국어 {0}", "日本語 {0}", 값).
+    // 出力文字列の言語。コードには 2 つの言語を並べて書きます: Loc.L("한국어", "日本語")、Loc.F("한국어 {0}", "日本語 {0}", 値)。
     //
     // 언어를 고르는 순서: 명령줄 -bughuntLang ko|ja > 랩 실행 창에서 고른 언어(EditorPrefs) > OS 언어가 일본어면 일본어 > 한국어.
     // 言語を選ぶ順序: コマンドライン -bughuntLang ko|ja > ラボ実行ウィンドウで選んだ言語 (EditorPrefs) > OS の言語が日本語なら日本語 > 韓国語。
     //
-    // 빠진 번역은 EditMode 테스트(BugHunt.Tests.Editor.TranslationTests)가 찾아 준다. 여기에는 버그가 없다.
-    // 抜けている翻訳は EditMode テスト (BugHunt.Tests.Editor.TranslationTests) が見つけます。ここにバグはありません。
+    // 짝이 없는 한글 문자열은 EditMode 테스트(BugHunt.Tests.Editor.TranslationTests)가 찾아 준다. 여기에는 버그가 없다.
+    // 対になっていないハングルの文字列は EditMode テスト (BugHunt.Tests.Editor.TranslationTests) が見つけます。ここにバグはありません。
     public static class Loc
     {
         public const string PrefKey = "BugHunt.Language";
         public const string CommandLineFlag = "-bughuntLang";
 
         static Language? current;
-        static Dictionary<string, string> japanese;
 
         public static event Action Changed;
 
@@ -76,59 +74,50 @@ namespace BugHunt
 
         public static string Code(Language language) => language == Language.Japanese ? "ja" : "ko";
 
-        // 한국어 문장 → 지금 언어. 표에 없으면 한국어 그대로.
-        // 韓国語の文 → 今の言語。表になければ韓国語のまま。
-        public static string T(string korean)
+        // 한국어와 일본어 중 지금 언어의 문구를 고른다. 화면에 나오는 문구는 쓰는 자리에서 두 언어를 함께 적는다:
+        //   Report.Expect(Loc.L("칸에 그려진 아이콘", "スロットに描かれたアイコン"), ...)
+        // 그래서 소스를 읽는 사람은 어느 언어로든 그 줄이 무엇을 찍는지 바로 알 수 있다. 따로 떨어진 번역 표는 없다.
+        // 韓国語と日本語のうち、今の言語の文言を選びます。画面に出る文言は、使う場所で 2 つの言語を一緒に書きます:
+        //   Report.Expect(Loc.L("칸에 그려진 아이콘", "スロットに描かれたアイコン"), ...)
+        // なのでソースを読む人は、どちらの言語でもその行が何を出力するかがすぐ分かります。別に離れた翻訳表はありません。
+        [DebuggerStepThrough]
+        public static string L(string ko, string ja)
         {
-            if (korean == null || Current == Language.Korean)
+            return IsJapanese ? ja : ko;
+        }
+
+        // 자리 표시자({0}, {1:0.0})가 있는 문구. 두 언어의 서식 문자열을 받아 고른 쪽만 string.Format 으로 만든다.
+        // 값(args)은 두 언어가 같이 쓰므로 호출하는 자리에서 한 번만 계산된다. 보간 문자열 두 개($"...", $"...")를 쓰면
+        // 두 문자열을 모두 만들고 식도 두 번 계산하므로(성능 랩은 할당을 센다) 이렇게 나눈다.
+        // (C# 판은 보간 문자열 핸들러로 고른 쪽만 만들지만, Unity 의 C# 9 에는 그 기능이 없다.)
+        // 숫자 서식은 예전처럼 CurrentCulture 를 따른다.
+        // プレースホルダー ({0}, {1:0.0}) のある文言。2 つの言語の書式文字列を受け取り、選んだ方だけを string.Format で作ります。
+        // 値 (args) は 2 つの言語で共用なので、呼び出す場所で一度だけ計算されます。補間文字列を 2 つ ($"...", $"...") 使うと
+        // 両方の文字列を作り、式も 2 回計算してしまうので (パフォーマンスのラボはアロケーションを数えます)、こう分けています。
+        // (C# 版は補間文字列ハンドラーで選んだ方だけを作りますが、Unity の C# 9 にはその機能がありません。)
+        // 数値の書式は以前と同じく CurrentCulture に従います。
+        [DebuggerStepThrough]
+        public static string F(string koFormat, string jaFormat, params object[] args)
+        {
+            return string.Format(IsJapanese ? jaFormat : koFormat, args);
+        }
+
+        // 한글(음절, 자모)이 들어 있나. 일본어로 채점할 때 출력에 한글이 섞이면 채점기가 경고한다.
+        // ハングル (音節、字母) を含むか。日本語で採点するとき出力にハングルが混ざると、採点ツールが警告します。
+        public static bool HasHangul(string text)
+        {
+            if (text == null)
             {
-                return korean;
+                return false;
             }
-            return Japanese.TryGetValue(korean, out string ja) ? ja : korean;
-        }
-
-        // 자리 표시자({0}, {1:0.0})가 있는 한국어 문장. 보간 문자열($"...") 대신 쓴다: 보간하면 표의 키가 매번 달라진다.
-        // プレースホルダー ({0}, {1:0.0}) のある韓国語の文。補間文字列 ($"...") の代わりに使います。補間するとキーが毎回変わってしまいます。
-        public static string F(string koreanFormat, params object[] args)
-        {
-            return string.Format(T(koreanFormat), args);
-        }
-
-        public static IReadOnlyDictionary<string, string> Japanese => japanese ??= BuildJapanese();
-
-        // JaText 의 (string Ko, string Ja)[] 필드를 모두 모은다. 필드 하나가 랩 하나(Lab05)거나 Core/Editor 공용이다.
-        // JaText の (string Ko, string Ja)[] フィールドをすべて集めます。フィールド 1 つがラボ 1 つ (Lab05)、または Core/Editor 共用です。
-        public static IEnumerable<(string Table, string Ko, string Ja)> JapaneseEntries()
-        {
-            foreach (FieldInfo field in typeof(JaText).GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public))
+            foreach (char c in text)
             {
-                if (field.GetValue(null) is ValueTuple<string, string>[] rows)
+                if ((c >= '\uAC00' && c <= '\uD7A3') || (c >= '\u1100' && c <= '\u11FF') || (c >= '\u3130' && c <= '\u318F'))
                 {
-                    foreach (var (ko, ja) in rows)
-                    {
-                        yield return (field.Name, ko, ja);
-                    }
+                    return true;
                 }
             }
+            return false;
         }
-
-        static Dictionary<string, string> BuildJapanese()
-        {
-            var table = new Dictionary<string, string>();
-            foreach (var (_, ko, ja) in JapaneseEntries())
-            {
-                if (!string.IsNullOrEmpty(ko) && !string.IsNullOrEmpty(ja))
-                {
-                    table[ko] = ja;
-                }
-            }
-            return table;
-        }
-    }
-
-    // 일본어 표. 파일은 Assets/BugHunt/Lang/Ja/ 에 랩마다 하나(LabNN.cs)와 공용 하나(Core.cs).
-    // 日本語の表。ファイルは Assets/BugHunt/Lang/Ja/ にラボごとに 1 つ (LabNN.cs) と共用の 1 つ (Core.cs)。
-    public static partial class JaText
-    {
     }
 }

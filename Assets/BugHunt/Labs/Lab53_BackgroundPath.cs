@@ -42,7 +42,7 @@ namespace BugHunt.Labs.Lab53
         }
     }
 
-    [Lab(53, "백그라운드 길 찾기", Symptom = "길 찾기는 끝까지 도는데 로봇이 안 움직인다. Console 은 조용하다")]
+    [Lab(53, "백그라운드 길 찾기", "バックグラウンド経路探索", Symptom = "길 찾기는 끝까지 도는데 로봇이 안 움직인다. Console 은 조용하다", SymptomJa = "経路探索は最後まで回るのにロボットが動かない。コンソールは静か")]
     public class Lab53_BackgroundPath : Lab
     {
         public override IEnumerator Run()
@@ -64,9 +64,9 @@ namespace BugHunt.Labs.Lab53
                 yield return null;
             }
 
-            Report.ExpectTrue("길 찾기를 워커 스레드에서 함", robot.PathThreadId != 0 && robot.PathThreadId != mainThreadId);
-            Report.ExpectTrue("로봇이 도착했다고 알림", robot.Arrived);
-            Report.ExpectNear("목적지까지 남은 거리(m)", 0f, Vector3.Distance(robot.transform.position, goal), 0.01f);
+            Report.ExpectTrue(Loc.L("길 찾기를 워커 스레드에서 함", "経路探索をワーカースレッドで行った"), robot.PathThreadId != 0 && robot.PathThreadId != mainThreadId);
+            Report.ExpectTrue(Loc.L("로봇이 도착했다고 알림", "ロボットが到着を知らせた"), robot.Arrived);
+            Report.ExpectNear(Loc.L("목적지까지 남은 거리(m)", "目的地までの残り距離 (m)"), 0f, Vector3.Distance(robot.transform.position, goal), 0.01f);
         }
     }
 }

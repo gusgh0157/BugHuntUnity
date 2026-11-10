@@ -21,7 +21,7 @@ namespace BugHunt.Editor
         [MenuItem(MenuPaths.RebuildAssets)]
         static void BuildFromMenu()
         {
-            if (EditorUtility.DisplayDialog(Loc.T("랩 에셋 다시 만들기"), Loc.T("Resources/BugHunt 아래 에셋과 BugHunt 씬을 덮어씁니다. 고친 에셋도 버그 상태로 돌아갑니다."), Loc.T("덮어쓰기"), Loc.T("취소")))
+            if (EditorUtility.DisplayDialog(Loc.L("랩 에셋 다시 만들기", "ラボのアセットを作り直す"), Loc.L("Resources/BugHunt 아래 에셋과 BugHunt 씬을 덮어씁니다. 고친 에셋도 버그 상태로 돌아갑니다.", "Resources/BugHunt 以下のアセットと BugHunt シーンを上書きします。修正したアセットもバグのある状態に戻ります。"), Loc.L("덮어쓰기", "上書き"), Loc.L("취소", "キャンセル")))
             {
                 BuildAll();
             }
@@ -48,7 +48,7 @@ namespace BugHunt.Editor
             BuildModels();
             BuildScene();
             AssetDatabase.SaveAssets();
-            Debug.Log($"{Report.Tag} {Loc.T("랩 에셋을 만들었습니다.")}");
+            Debug.Log($"{Report.Tag} {Loc.L("랩 에셋을 만들었습니다.", "ラボのアセットを作りました。")}");
         }
 
         // ---------------------------------------------------------------- 소리 / 音

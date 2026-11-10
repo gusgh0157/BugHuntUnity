@@ -50,7 +50,7 @@ namespace BugHunt.Labs.Lab46
         }
     }
 
-    [Lab(46, "인벤토리 아이콘", Symptom = "스크롤하면 이름은 물약인데 아이콘은 검")]
+    [Lab(46, "인벤토리 아이콘", "インベントリのアイコン", Symptom = "스크롤하면 이름은 물약인데 아이콘은 검", SymptomJa = "スクロールすると、名前はポーションなのにアイコンは剣")]
     public class Lab46_ItemIcons : Lab
     {
         public override IEnumerator Run()
@@ -71,9 +71,9 @@ namespace BugHunt.Labs.Lab46
             var slot = Spawn<InventorySlot>("Slot_0");
             slot.Loader = loader;
             slot.Show(slow);
-            Report.Note(Loc.F("프레임 {0}: 칸에 {1} 표시 요청", Time.frameCount, slow));
+            Report.Note(Loc.F("프레임 {0}: 칸에 {1} 표시 요청", "フレーム {0}: スロットに {1} の表示を要求", Time.frameCount, slow));
             slot.Show(cached);   // 같은 프레임에 스크롤되어 칸이 물약으로 재사용됨 / 同じフレームでスクロールされ、スロットがポーションに再利用された
-            Report.Note(Loc.F("프레임 {0}: 칸에 {1} 표시 요청 (아이콘 {2})", Time.frameCount, cached, slot.Icon ? slot.Icon.name : Loc.T("없음")));
+            Report.Note(Loc.F("프레임 {0}: 칸에 {1} 표시 요청 (아이콘 {2})", "フレーム {0}: スロットに {1} の表示を要求 (アイコン {2})", Time.frameCount, cached, slot.Icon ? slot.Icon.name : Loc.L("없음", "なし")));
 
             // 늦게 오는 아이콘이 다 읽힐 때까지 기다린다(그래픽 장치가 있으면 텍스처 업로드로 몇 프레임 더 걸린다).
             // 遅れて届くアイコンが読み込み終わるまで待つ (グラフィックスデバイスがあると、テクスチャのアップロードで数フレーム余計にかかる)。
@@ -87,9 +87,9 @@ namespace BugHunt.Labs.Lab46
                 yield return null;   // 같은 에셋의 앞선 요청이 콜백을 부를 때까지 / 同じアセットへの先の要求がコールバックを呼ぶまで
             }
 
-            string iconName = slot.Icon ? slot.Icon.name : "없음";
-            Report.Expect("칸의 아이템", cached, slot.ItemId);
-            Report.Expect("칸에 그려진 아이콘", $"icon_{slot.ItemId}", iconName);
+            string iconName = slot.Icon ? slot.Icon.name : Loc.L("없음", "なし");
+            Report.Expect(Loc.L("칸의 아이템", "スロットのアイテム"), cached, slot.ItemId);
+            Report.Expect(Loc.L("칸에 그려진 아이콘", "スロットに描かれたアイコン"), $"icon_{slot.ItemId}", iconName);
         }
     }
 }

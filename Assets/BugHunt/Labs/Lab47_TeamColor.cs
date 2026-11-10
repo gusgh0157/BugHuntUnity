@@ -27,7 +27,7 @@ namespace BugHunt.Labs.Lab47
         }
     }
 
-    [Lab(47, "팀 색", Symptom = "팀 색이 물 빠지고 밝다(0x00, 0xFF 는 맞음)")]
+    [Lab(47, "팀 색", "チームカラー", Symptom = "팀 색이 물 빠지고 밝다(0x00, 0xFF 는 맞음)", SymptomJa = "チームカラーが色あせて明るい (0x00、0xFF は合っている)")]
     public class Lab47_TeamColor : Lab
     {
         RenderTexture target;
@@ -36,10 +36,10 @@ namespace BugHunt.Labs.Lab47
 
         public override IEnumerator Run()
         {
-            Report.Note(Loc.F("색 공간: {0}", QualitySettings.activeColorSpace));
+            Report.Note(Loc.F("색 공간: {0}", "色空間: {0}", QualitySettings.activeColorSpace));
             if (IsHeadless)
             {
-                Report.Skip("깃발 픽셀", "그래픽 장치가 없습니다(-nographics). 에디터에서 Play 로 실행하세요");
+                Report.Skip(Loc.L("깃발 픽셀", "旗のピクセル"), Loc.L("그래픽 장치가 없습니다(-nographics). 에디터에서 Play 로 실행하세요", "グラフィックスデバイスがありません (-nographics)。エディターで再生 (Play) して実行してください"));
                 yield break;
             }
 
@@ -69,12 +69,12 @@ namespace BugHunt.Labs.Lab47
             RenderTexture.active = previous;
 
             Color32 pixel = readback.GetPixel(4, 4);
-            Report.Note(Loc.F("깃발 픽셀: ({0}, {1}, {2})", pixel.r, pixel.g, pixel.b));
+            Report.Note(Loc.F("깃발 픽셀: ({0}, {1}, {2})", "旗のピクセル: ({0}, {1}, {2})", pixel.r, pixel.g, pixel.b));
             ColorUtility.TryParseHtmlString(hex, out Color wanted);
             Color32 expected = wanted;
-            Report.ExpectNear("빨강", expected.r, pixel.r, 3);
-            Report.ExpectNear("초록", expected.g, pixel.g, 3);
-            Report.ExpectNear("파랑", expected.b, pixel.b, 3);
+            Report.ExpectNear(Loc.L("빨강", "赤"), expected.r, pixel.r, 3);
+            Report.ExpectNear(Loc.L("초록", "緑"), expected.g, pixel.g, 3);
+            Report.ExpectNear(Loc.L("파랑", "青"), expected.b, pixel.b, 3);
         }
 
         void OnDestroy()

@@ -31,28 +31,35 @@ namespace BugHunt
         public struct LabEntry
         {
             public int Number;
-            public string Title;     // 한국어(표의 키). 보여 줄 때는 Loc.T / 韓国語 (表のキー)。表示するときは Loc.T
-            public string Symptom;
+            public string TitleKo;
+            public string TitleJa;
+            public string SymptomKo;
+            public string SymptomJa;
             public bool MakesSound;
             public Type Type;
+
+            // 지금 언어의 이름과 증상 / 今の言語の名前と症状
+            public string Title => Loc.L(TitleKo, TitleJa);
+            public string Symptom => Loc.L(SymptomKo, SymptomJa);
         }
 
-        public const string SoundWarning = "[주의] 소리가 납니다. 볼륨을 낮추세요";
+        public static string SoundWarning => Loc.L("[주의] 소리가 납니다. 볼륨을 낮추세요", "[注意] 音が出ます。音量を下げてください");
         public const float SoundLabListenerVolume = 0.1f;   // 소리 랩 동안의 전체 볼륨. 클립 자체도 진폭 0.3 이하다 / 音のラボの間の全体音量。クリップ自体も振幅 0.3 以下
 
-        public static readonly (int First, int Last, string Name)[] Parts =
+        // 부 이름. PartOf 가 지금 언어 쪽을 고른다 / 部の名前。PartOf が今の言語の方を選ぶ
+        public static readonly (int First, int Last, string Ko, string Ja)[] Parts =
         {
-            (1, 4, "1부: 크래시 / 예외"),
-            (5, 15, "2부: 흐름 추적"),
-            (16, 23, "3부: 트랜스폼과 공간"),
-            (24, 30, "4부: 컨테이너"),
-            (31, 34, "5부: 잘못된 참조와 네이티브 메모리"),
-            (35, 39, "6부: 물리"),
-            (40, 43, "7부: 사운드"),
-            (44, 47, "8부: 이미지 / 렌더링"),
-            (48, 51, "9부: 애니메이션"),
-            (52, 58, "10부: 동시성과 멈춤"),
-            (59, 63, "11부: 성능"),
+            (1, 4, "1부: 크래시 / 예외", "第1部: クラッシュ / 例外"),   // ko+ja
+            (5, 15, "2부: 흐름 추적", "第2部: 処理の流れの追跡"),   // ko+ja
+            (16, 23, "3부: 트랜스폼과 공간", "第3部: トランスフォームと空間"),   // ko+ja
+            (24, 30, "4부: 컨테이너", "第4部: コンテナ"),   // ko+ja
+            (31, 34, "5부: 잘못된 참조와 네이티브 메모리", "第5部: 不正な参照とネイティブメモリ"),   // ko+ja
+            (35, 39, "6부: 물리", "第6部: 物理"),   // ko+ja
+            (40, 43, "7부: 사운드", "第7部: サウンド"),   // ko+ja
+            (44, 47, "8부: 이미지 / 렌더링", "第8部: 画像 / レンダリング"),   // ko+ja
+            (48, 51, "9부: 애니메이션", "第9部: アニメーション"),   // ko+ja
+            (52, 58, "10부: 동시성과 멈춤", "第10部: 並行処理とフリーズ"),   // ko+ja
+            (59, 63, "11부: 성능", "第11部: パフォーマンス"),   // ko+ja
         };
 
         static List<LabEntry> labs;
@@ -76,7 +83,7 @@ namespace BugHunt
                 .Where(t => !t.IsAbstract && typeof(Lab).IsAssignableFrom(t))
                 .Select(t => (Type: t, Info: t.GetCustomAttribute<LabAttribute>()))
                 .Where(x => x.Info != null)
-                .Select(x => new LabEntry { Number = x.Info.Number, Title = x.Info.Title, Symptom = x.Info.Symptom, MakesSound = x.Info.MakesSound, Type = x.Type })
+                .Select(x => new LabEntry { Number = x.Info.Number, TitleKo = x.Info.Title, TitleJa = x.Info.TitleJa, SymptomKo = x.Info.Symptom, SymptomJa = x.Info.SymptomJa, MakesSound = x.Info.MakesSound, Type = x.Type })
                 .OrderBy(e => e.Number)
                 .ToList();
         }
@@ -87,7 +94,7 @@ namespace BugHunt
             {
                 if (number >= part.First && number <= part.Last)
                 {
-                    return Loc.T(part.Name);
+                    return Loc.L(part.Ko, part.Ja);
                 }
             }
             return "";
@@ -132,14 +139,14 @@ namespace BugHunt
         {
             if (IsRunning)
             {
-                Report.Print(Loc.T("이미 랩이 실행 중입니다."), Color.yellow);
+                Report.Print(Loc.L("이미 랩이 실행 중입니다.", "すでにラボを実行中です。"), Color.yellow);
                 yield break;
             }
 
             LabEntry entry = Labs.FirstOrDefault(e => e.Number == number);
             if (entry.Type == null)
             {
-                Report.Print(Loc.F("랩 {0} 은(는) 없습니다.", number), Color.yellow);
+                Report.Print(Loc.F("랩 {0} 은(는) 없습니다.", "ラボ {0} はありません。", number), Color.yellow);
                 yield break;
             }
 
@@ -156,13 +163,13 @@ namespace BugHunt
             float savedListenerVolume = AudioListener.volume;
             if (entry.MakesSound)
             {
-                Report.Print(Loc.T(SoundWarning), Color.yellow);
+                Report.Print(SoundWarning, Color.yellow);
                 AudioListener.volume = SoundLabListenerVolume;   // 모든 소리를 같은 비율로 줄인다(가상 음성 순위는 그대로) / すべての音を同じ比率で下げる (仮想ボイスの順位はそのまま)
             }
-            Report.Print(Loc.F("==== 랩 {0}: {1} ====", number, Loc.T(entry.Title)), Color.cyan);
+            Report.Print(Loc.F("==== 랩 {0}: {1} ====", "==== ラボ {0}: {1} ====", number, entry.Title), Color.cyan);
             if (Lab.HiddenCase)
             {
-                Report.Note("(채점: 숨은 테스트 케이스로 실행)");
+                Report.Note(Loc.L("(채점: 숨은 테스트 케이스로 실행)", "(採点: 隠しテストケースで実行)"));
             }
             Application.logMessageReceived += OnLog;
 
@@ -185,15 +192,15 @@ namespace BugHunt
 
             if (crashed)
             {
-                Report.Fail("예외로 중단됨: Console 창의 빨간 줄을 클릭해 스택 트레이스를 보세요");
+                Report.Fail(Loc.L("예외로 중단됨: Console 창의 빨간 줄을 클릭해 스택 트레이스를 보세요", "例外で中断: コンソールウィンドウの赤い行をクリックしてスタックトレースを見てください"));
             }
             else if (timedOut && !hung)
             {
-                Report.Fail(Loc.F("시간 초과 ({0}초)", lab.TimeoutSeconds));
+                Report.Fail(Loc.F("시간 초과 ({0}초)", "タイムアウト ({0} 秒)", lab.TimeoutSeconds));
             }
             if (errorLogs > 0)
             {
-                Report.Fail(Loc.F("랩 도중 Console 에 에러 {0}개", errorLogs));
+                Report.Fail(Loc.F("랩 도중 Console 에 에러 {0}개", "ラボの途中でコンソールにエラー {0} 個", errorLogs));
             }
 
             Destroy(root);
@@ -201,7 +208,7 @@ namespace BugHunt
             AudioListener.volume = savedListenerVolume;
 
             string skipped = Report.Skipped > 0 ? $" / SKIP {Report.Skipped}" : "";
-            Report.Print(Loc.F("==== 랩 {0} 결과: PASS {1} / FAIL {2}{3} ====", number, Report.Passed, Report.Failed, skipped), Color.cyan);
+            Report.Print(Loc.F("==== 랩 {0} 결과: PASS {1} / FAIL {2}{3} ====", "==== ラボ {0} の結果: PASS {1} / FAIL {2}{3} ====", number, Report.Passed, Report.Failed, skipped), Color.cyan);
             LastResult = new LabResult
             {
                 Number = number,
@@ -254,7 +261,7 @@ namespace BugHunt
         {
             const float listWidth = 260f;
             GUILayout.BeginArea(new Rect(10, 10, listWidth, Screen.height - 20), GUI.skin.box);
-            GUILayout.Label(Loc.T("BugHunt Unity: 랩을 고르세요"));
+            GUILayout.Label(Loc.L("BugHunt Unity: 랩을 고르세요", "BugHunt Unity: ラボを選んでください"));
             listScroll = GUILayout.BeginScrollView(listScroll);
             string currentPart = null;
             foreach (LabEntry entry in Labs)
@@ -266,7 +273,7 @@ namespace BugHunt
                     GUILayout.Label(part);
                 }
                 GUI.enabled = !IsRunning;
-                if (GUILayout.Button($"{entry.Number}. {Loc.T(entry.Title)}{(entry.MakesSound ? Loc.T(" (소리 주의)") : "")}"))
+                if (GUILayout.Button($"{entry.Number}. {entry.Title}{(entry.MakesSound ? Loc.L(" (소리 주의)", " (音に注意)") : "")}"))
                 {
                     StartCoroutine(RunLab(entry.Number));
                 }

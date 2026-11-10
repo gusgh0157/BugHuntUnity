@@ -22,7 +22,7 @@ namespace BugHunt.Labs.Lab14
         }
     }
 
-    [Lab(14, "스태미나", Symptom = "\"시간을 곱했는데도\" fps 에 따라 차는 속도가 다르다")]
+    [Lab(14, "스태미나", "スタミナ", Symptom = "\"시간을 곱했는데도\" fps 에 따라 차는 속도가 다르다", SymptomJa = "「時間を掛けたのに」fps によって回復の速さが違う")]
     public class Lab14_Stamina : Lab
     {
         float savedCaptureDeltaTime;
@@ -43,7 +43,7 @@ namespace BugHunt.Labs.Lab14
                 {
                     yield return null;
                 }
-                Report.ExpectNear(Loc.F("{0}fps 에서 {1}초 동안 찬 스태미나", fps, seconds), stamina.RegenPerSecond * seconds, stamina.Value, 0.5f);
+                Report.ExpectNear(Loc.F("{0}fps 에서 {1}초 동안 찬 스태미나", "{0}fps で {1} 秒間に回復したスタミナ", fps, seconds), stamina.RegenPerSecond * seconds, stamina.Value, 0.5f);
                 Destroy(stamina.gameObject);
             }
         }

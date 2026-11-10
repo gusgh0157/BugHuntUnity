@@ -29,7 +29,7 @@ namespace BugHunt.Labs.Lab23
         }
     }
 
-    [Lab(23, "성문과 석상", Symptom = "성문이 가운데를 축으로 돌고, 석상이 바닥에 묻힌다")]
+    [Lab(23, "성문과 석상", "城門と石像", Symptom = "성문이 가운데를 축으로 돌고, 석상이 바닥에 묻힌다", SymptomJa = "城門が真ん中を軸に回り、石像が床に埋まる")]
     public class Lab23_GateAndStatue : Lab
     {
         public override IEnumerator Run()
@@ -38,7 +38,7 @@ namespace BugHunt.Labs.Lab23
             var statueMesh = Resources.Load<Mesh>("BugHunt/Models/Statue");
             if (gateMesh == null || statueMesh == null)
             {
-                Report.Fail("Resources/BugHunt/Models 의 Gate, Statue 메시가 없습니다");
+                Report.Fail(Loc.L("Resources/BugHunt/Models 의 Gate, Statue 메시가 없습니다", "Resources/BugHunt/Models の Gate、Statue メッシュがありません"));
                 yield break;
             }
 
@@ -56,14 +56,14 @@ namespace BugHunt.Labs.Lab23
 
             Quaternion closed = gate.transform.rotation;
             gate.Open(90f);
-            Report.ExpectNear("성문이 열린 각도(도)", 90f, Quaternion.Angle(closed, gate.transform.rotation), 0.5f);
-            Report.ExpectNear("연 뒤 경첩 쪽 끝과 경첩 사이 거리(m)", 0f, Vector3.Distance(gate.transform.TransformPoint(hingeLocal), gate.Hinge), 0.01f);
+            Report.ExpectNear(Loc.L("성문이 열린 각도(도)", "城門が開いた角度 (度)"), 90f, Quaternion.Angle(closed, gate.transform.rotation), 0.5f);
+            Report.ExpectNear(Loc.L("연 뒤 경첩 쪽 끝과 경첩 사이 거리(m)", "開いた後のちょうつがい側の端とちょうつがいの距離 (m)"), 0f, Vector3.Distance(gate.transform.TransformPoint(hingeLocal), gate.Hinge), 0.01f);
 
             Vector3 floorPoint = Case(new Vector3(2f, 0f, -3f), new Vector3(-5f, 1.5f, 6f));
             Plaza.PlaceOnFloor(statue.transform, floorPoint);
             // 렌더러 bounds 는 그래픽 장치가 없으면 비어 있을 수 있어 메시 bounds 로 잰다 / レンダラーの bounds はグラフィックスデバイスがないと空のことがあるので、メッシュの bounds で測る
             float feet = statue.transform.TransformPoint(statueMesh.bounds.min).y;
-            Report.ExpectNear("석상 발 높이 - 바닥 높이(m)", 0f, feet - floorPoint.y, 0.01f);
+            Report.ExpectNear(Loc.L("석상 발 높이 - 바닥 높이(m)", "石像の足の高さ - 床の高さ (m)"), 0f, feet - floorPoint.y, 0.01f);
         }
     }
 }

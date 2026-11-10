@@ -46,7 +46,7 @@ namespace BugHunt.Labs.Lab07
         }
     }
 
-    [Lab(7, "점프", Symptom = "120Hz 모니터에서 점프가 씹힌다")]
+    [Lab(7, "점프", "ジャンプ", Symptom = "120Hz 모니터에서 점프가 씹힌다", SymptomJa = "120Hz モニターでジャンプが無視される")]
     public class Lab07_Jump : Lab
     {
         float savedCaptureDeltaTime;
@@ -57,7 +57,7 @@ namespace BugHunt.Labs.Lab07
             // 120Hz モニターのように毎フレーム 1/120 秒が流れるよう固定する。(固定タイムステップは既定で 0.02 秒 = 50Hz)
             savedCaptureDeltaTime = Time.captureDeltaTime;
             Time.captureDeltaTime = 1f / 120f;
-            Report.Note(Loc.F("프레임 간격 {0:0.0}ms, FixedUpdate 간격 {1:0.0}ms", Time.captureDeltaTime * 1000f, Time.fixedDeltaTime * 1000f));
+            Report.Note(Loc.F("프레임 간격 {0:0.0}ms, FixedUpdate 간격 {1:0.0}ms", "フレーム間隔 {0:0.0}ms、FixedUpdate の間隔 {1:0.0}ms", Time.captureDeltaTime * 1000f, Time.fixedDeltaTime * 1000f));
 
             var jumper = Spawn<Jumper>("Jumper");
             yield return null;
@@ -73,7 +73,7 @@ namespace BugHunt.Labs.Lab07
                 }
             }
 
-            Report.Expect("점프 횟수", presses, jumper.Jumps);
+            Report.Expect(Loc.L("점프 횟수", "ジャンプ回数"), presses, jumper.Jumps);
         }
 
         void OnDestroy()

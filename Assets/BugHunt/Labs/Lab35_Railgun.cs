@@ -33,7 +33,7 @@ namespace BugHunt.Labs.Lab35
         }
     }
 
-    [Lab(35, "레일건", Symptom = "빠른 탄환이 얇은 벽을 그냥 뚫는다(충돌 0번)")]
+    [Lab(35, "레일건", "レールガン", Symptom = "빠른 탄환이 얇은 벽을 그냥 뚫는다(충돌 0번)", SymptomJa = "速い弾が薄い壁をそのまま突き抜ける (衝突 0 回)")]
     public class Lab35_Railgun : Lab
     {
         public override IEnumerator Run()
@@ -47,15 +47,15 @@ namespace BugHunt.Labs.Lab35
             slug.transform.localScale = Vector3.one * 0.2f;
             yield return new WaitForFixedUpdate();
 
-            Report.Note(Loc.F("탄속 {0}m/s, 물리 한 스텝 {1:0}ms 에 {2:0.0}m 를 간다. 벽 두께 0.2m", speed, Time.fixedDeltaTime * 1000f, speed * Time.fixedDeltaTime));
+            Report.Note(Loc.F("탄속 {0}m/s, 물리 한 스텝 {1:0}ms 에 {2:0.0}m 를 간다. 벽 두께 0.2m", "弾速 {0}m/s、物理の 1 ステップ {1:0}ms で {2:0.0}m 進む。壁の厚さ 0.2m", speed, Time.fixedDeltaTime * 1000f, speed * Time.fixedDeltaTime));
             slug.Fire(new Vector3(speed, 0f, 0f));
             for (int i = 0; i < 10; ++i)
             {
                 yield return new WaitForFixedUpdate();
             }
 
-            Report.Expect("벽에 맞은 횟수", 1, slug.Hits);
-            Report.ExpectTrue(Loc.F("탄환이 벽 앞에 있음 (x = {0:0.00}, 벽 x = {1})", slug.transform.position.x, wallX), slug.transform.position.x < wallX);
+            Report.Expect(Loc.L("벽에 맞은 횟수", "壁に当たった回数"), 1, slug.Hits);
+            Report.ExpectTrue(Loc.F("탄환이 벽 앞에 있음 (x = {0:0.00}, 벽 x = {1})", "弾が壁の手前にある (x = {0:0.00}、壁 x = {1})", slug.transform.position.x, wallX), slug.transform.position.x < wallX);
         }
     }
 }

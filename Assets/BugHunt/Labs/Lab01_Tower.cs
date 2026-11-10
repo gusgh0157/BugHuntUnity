@@ -90,7 +90,7 @@ namespace BugHunt.Labs.Lab01
         }
     }
 
-    [Lab(1, "감시탑", Symptom = "폭탄이 적을 날리자 예외가 쏟아진다")]
+    [Lab(1, "감시탑", "監視塔", Symptom = "폭탄이 적을 날리자 예외가 쏟아진다", SymptomJa = "爆弾が敵を吹き飛ばすと例外があふれ出す")]
     public class Lab01_Tower : Lab
     {
         public override IEnumerator Run()
@@ -106,14 +106,14 @@ namespace BugHunt.Labs.Lab01
             // タワーが標的を決めて 1〜2 発撃つまで。時間ではなくフレームで待つので、最初のフレームが遅れても Enemy_0 は生きている。
             yield return null;
             yield return null;
-            Report.Note("쾅! 폭탄이 가장 가까운 적 근처에서 터진다.");
+            Report.Note(Loc.L("쾅! 폭탄이 가장 가까운 적 근처에서 터진다.", "ドカン! 爆弾が一番近い敵の近くで爆発します。"));
             var bomb = Spawn<Bomb>("Bomb", new Vector3(0, 0, 5));
             bomb.Explode(tower.Enemies, 1.5f);
 
             yield return new WaitForSeconds(1.5f);
             int alive = tower.Enemies.Count(e => e != null);
-            Report.Expect("남은 적", 0, alive);
-            Report.Expect("감시탑이 처치한 적", enemyCount - 1, tower.Kills);
+            Report.Expect(Loc.L("남은 적", "残りの敵"), 0, alive);
+            Report.Expect(Loc.L("감시탑이 처치한 적", "監視塔が倒した敵"), enemyCount - 1, tower.Kills);
         }
     }
 }

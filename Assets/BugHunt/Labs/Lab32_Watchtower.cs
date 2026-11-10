@@ -86,7 +86,7 @@ namespace BugHunt.Labs.Lab32
         }
     }
 
-    [Lab(32, "망루의 시야", Symptom = "잡을 붙이자마자 InvalidOperationException (\"분명히 Complete 했는데?\")")]
+    [Lab(32, "망루의 시야", "見張り塔の視界", Symptom = "잡을 붙이자마자 InvalidOperationException (\"분명히 Complete 했는데?\")", SymptomJa = "ジョブを付けたとたんに InvalidOperationException (「確かに Complete したのに?」)")]
     public class Lab32_Watchtower : Lab
     {
         public override IEnumerator Run()
@@ -114,7 +114,7 @@ namespace BugHunt.Labs.Lab32
             tower.Scan(positions);
             yield return null;
 
-            Report.Expect(Loc.F("사거리 {0} 안의 적", tower.Range), expected, tower.EnemiesInRange);
+            Report.Expect(Loc.F("사거리 {0} 안의 적", "射程 {0} 内の敵", tower.Range), expected, tower.EnemiesInRange);
         }
     }
 }

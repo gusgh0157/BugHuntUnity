@@ -38,7 +38,7 @@ namespace BugHunt.Labs.Lab02
         }
     }
 
-    [Lab(2, "헤드샷", Symptom = "몸통은 괜찮은데 머리를 쏘면 NullReferenceException")]
+    [Lab(2, "헤드샷", "ヘッドショット", Symptom = "몸통은 괜찮은데 머리를 쏘면 NullReferenceException", SymptomJa = "胴体は平気なのに頭を撃つと NullReferenceException")]
     public class Lab02_Headshot : Lab
     {
         public override IEnumerator Run()
@@ -63,12 +63,12 @@ namespace BugHunt.Labs.Lab02
             yield return null;
             rifle.Shoot(new Vector3(0, 0.5f, 0), Vector3.forward);   // 몸통 / 胴体を撃つ
             yield return null;
-            Report.Note(Loc.F("몸통 두 발 뒤 HP {0}", health.Current));
+            Report.Note(Loc.F("몸통 두 발 뒤 HP {0}", "胴体に 2 発当てた後の HP {0}", health.Current));
             rifle.Shoot(new Vector3(0, 2.3f, 0), Vector3.forward);   // 머리 / 頭を撃つ
             yield return null;
 
-            Report.Expect("명중 수", 3, rifle.Hits);
-            Report.Expect("허수아비 HP", 100 - 4 * rifle.Damage, health.Current);
+            Report.Expect(Loc.L("명중 수", "命中数"), 3, rifle.Hits);
+            Report.Expect(Loc.L("허수아비 HP", "かかしの HP"), 100 - 4 * rifle.Damage, health.Current);
         }
     }
 }

@@ -47,7 +47,7 @@ namespace BugHunt.Labs.Lab05
         }
     }
 
-    [Lab(5, "전투 기록 창", Symptom = "창을 다시 열면 기록이 두 줄씩, 창을 버린 뒤에도 알림")]
+    [Lab(5, "전투 기록 창", "戦闘ログウィンドウ", Symptom = "창을 다시 열면 기록이 두 줄씩, 창을 버린 뒤에도 알림", SymptomJa = "ウィンドウを開き直すとログが 2 行ずつ、ウィンドウを捨てた後も通知が出る")]
     public class Lab05_CombatLog : Lab
     {
         public override IEnumerator Run()
@@ -71,16 +71,16 @@ namespace BugHunt.Labs.Lab05
 
             foreach (string line in panel.Lines)
             {
-                Report.Note(Loc.F("전투 기록: {0}", line));
+                Report.Note(Loc.F("전투 기록: {0}", "戦闘ログ: {0}", line));
             }
-            Report.Expect("다시 연 창의 기록 줄 수", 1, panel.Lines.Count);
-            Report.Expect(Loc.F("띄운 알림 총합 ({0}, {1})", hits[0], hits[2]), 2, panel.NotificationsShown);
+            Report.Expect(Loc.L("다시 연 창의 기록 줄 수", "開き直したウィンドウのログの行数"), 1, panel.Lines.Count);
+            Report.Expect(Loc.F("띄운 알림 총합 ({0}, {1})", "出した通知の合計 ({0}, {1})", hits[0], hits[2]), 2, panel.NotificationsShown);
 
             Destroy(panelObject);   // 전투 종료: 창을 버린다 / 戦闘終了: ウィンドウを捨てる
             yield return null;
             knight.TakeHit(hits[3]);
-            Report.Expect("창을 파괴한 뒤에도 알림 총합", 2, panel.NotificationsShown);
-            Report.Expect("기사 HP", 100 - hits[0] - hits[1] - hits[2] - hits[3], knight.Health);
+            Report.Expect(Loc.L("창을 파괴한 뒤에도 알림 총합", "ウィンドウを破棄した後の通知の合計"), 2, panel.NotificationsShown);
+            Report.Expect(Loc.L("기사 HP", "騎士の HP"), 100 - hits[0] - hits[1] - hits[2] - hits[3], knight.Health);
         }
     }
 }

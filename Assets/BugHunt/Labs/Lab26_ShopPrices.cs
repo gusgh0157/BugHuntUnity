@@ -14,7 +14,7 @@ namespace BugHunt.Labs.Lab26
 {
     public class Shop : MonoBehaviour
     {
-        public string ShopName = "상점";
+        public string ShopName = "상점";   // ko-only: 직렬화 기본값. 랩은 Loc.L 로 덮어쓴다 / シリアライズの既定値 (ショップ)。ラボは Loc.L で上書きする
         public int Gold;
         public Dictionary<string, int> Prices = new Dictionary<string, int>();
         public List<List<string>> Shelves = new List<List<string>>();   // 진열대마다 물건 목록 / 商品棚ごとの品物リスト
@@ -42,13 +42,13 @@ namespace BugHunt.Labs.Lab26
         }
     }
 
-    [Lab(26, "상점 가격표", Symptom = "복제하거나 저장했다 불러온 상점의 가격표와 진열대가 텅 빈다(경고 없음)")]
+    [Lab(26, "상점 가격표", "ショップの価格表", Symptom = "복제하거나 저장했다 불러온 상점의 가격표와 진열대가 텅 빈다(경고 없음)", SymptomJa = "複製したり、保存して読み込んだりしたショップの価格表と商品棚が空っぽになる (警告なし)")]
     public class Lab26_ShopPrices : Lab
     {
         public override IEnumerator Run()
         {
             var shop = Spawn<Shop>("Shop");
-            shop.ShopName = Case(Loc.T("대장간"), Loc.T("약초상"));
+            shop.ShopName = Case(Loc.L("대장간", "鍛冶屋"), Loc.L("약초상", "薬草屋"));
             shop.Gold = Case(500, 1200);
             string item = Case("potion", "herb");
             int price = Case(50, 35);
@@ -64,17 +64,17 @@ namespace BugHunt.Labs.Lab26
             // 저장했다 불러오기
             // 保存して読み込む
             string json = JsonUtility.ToJson(shop);
-            Report.Note(Loc.F("저장된 JSON: {0}", json));
+            Report.Note(Loc.F("저장된 JSON: {0}", "保存された JSON: {0}", json));
             var loaded = Spawn<Shop>("LoadedShop");
             JsonUtility.FromJsonOverwrite(json, loaded);
             yield return null;
 
-            foreach (var (label, copy) in new[] { ("복제본", clone), ("불러온 상점", loaded) })
+            foreach (var (label, copy) in new[] { (Loc.L("복제본", "複製"), clone), (Loc.L("불러온 상점", "読み込んだショップ"), loaded) })
             {
-                Report.Expect(Loc.F("{0}: 상점 이름", Loc.T(label)), shop.ShopName, copy.ShopName);
-                Report.Expect(Loc.F("{0}: {1} 가격", Loc.T(label), item), price, copy.PriceOf(item));
-                Report.Expect(Loc.F("{0}: 진열대 수", Loc.T(label)), 2, copy.ShelfCount);
-                Report.Expect(Loc.F("{0}: 두 번째 진열대의 첫 물건", Loc.T(label)), item, copy.ShelfCount == 2 ? copy.ItemAt(1, 0) : "없음");
+                Report.Expect(Loc.F("{0}: 상점 이름", "{0}: ショップ名", label), shop.ShopName, copy.ShopName);
+                Report.Expect(Loc.F("{0}: {1} 가격", "{0}: {1} の価格", label, item), price, copy.PriceOf(item));
+                Report.Expect(Loc.F("{0}: 진열대 수", "{0}: 商品棚の数", label), 2, copy.ShelfCount);
+                Report.Expect(Loc.F("{0}: 두 번째 진열대의 첫 물건", "{0}: 2 番目の商品棚の最初の品物", label), item, copy.ShelfCount == 2 ? copy.ItemAt(1, 0) : Loc.L("없음", "なし"));
             }
         }
     }

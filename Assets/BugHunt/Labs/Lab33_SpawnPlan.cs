@@ -45,14 +45,14 @@ namespace BugHunt.Labs.Lab33
         }
     }
 
-    [Lab(33, "출현 계획표", Symptom = "웨이브를 시작한 다음 프레임, 첫 줄부터 \"has been deallocated\"")]
+    [Lab(33, "출현 계획표", "出現計画表", Symptom = "웨이브를 시작한 다음 프레임, 첫 줄부터 \"has been deallocated\"", SymptomJa = "ウェーブを始めた次のフレーム、1 行目から \"has been deallocated\"")]
     public class Lab33_SpawnPlan : Lab
     {
         public override IEnumerator Run()
         {
             if (!LabUtil.NativeSafetyChecksEnabled)
             {
-                Report.Skip("Temp 할당 수명", "이 빌드는 컬렉션 안전 검사가 꺼져 있습니다. 에디터에서 실행하세요");
+                Report.Skip(Loc.L("Temp 할당 수명", "Temp 割り当ての寿命"), Loc.L("이 빌드는 컬렉션 안전 검사가 꺼져 있습니다. 에디터에서 실행하세요", "このビルドはコレクションの安全チェックがオフです。エディターで実行してください"));
                 yield break;
             }
 
@@ -71,8 +71,8 @@ namespace BugHunt.Labs.Lab33
                 yield return null;
             }
 
-            Report.ExpectTrue("계획표를 끝까지 읽음", director.Finished);
-            Report.Expect("나온 적 합계", expected, director.Spawned);
+            Report.ExpectTrue(Loc.L("계획표를 끝까지 읽음", "計画表を最後まで読んだ"), director.Finished);
+            Report.Expect(Loc.L("나온 적 합계", "出た敵の合計"), expected, director.Spawned);
         }
     }
 }

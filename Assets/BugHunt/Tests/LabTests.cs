@@ -22,13 +22,13 @@ namespace BugHunt.Tests
 
             if (result.Skipped > 0 && result.Passed == 0 && result.Failed == 0)
             {
-                Assert.Ignore($"랩 {number}: 이 환경에서는 판정할 수 없어 SKIP (Console 의 [SKIP] 줄 참고)");
+                Assert.Ignore(Loc.F("랩 {0}: 이 환경에서는 판정할 수 없어 SKIP (Console 의 [SKIP] 줄 참고)", "ラボ {0}: この環境では判定できないので SKIP (コンソールの [SKIP] の行を参照)", number));
             }
-            Assert.IsFalse(result.Hung, $"랩 {number}: 응답 없음 (무한루프 또는 데드락)");
-            Assert.IsFalse(result.Crashed, $"랩 {number}: 예외로 중단됨");
-            Assert.IsFalse(result.TimedOut, $"랩 {number}: 시간 초과");
-            Assert.AreEqual(0, result.Failed, $"랩 {number}: FAIL {result.Failed}개");
-            Assert.Greater(result.Passed, 0, $"랩 {number}: PASS 가 하나도 없음");
+            Assert.IsFalse(result.Hung, Loc.F("랩 {0}: 응답 없음 (무한루프 또는 데드락)", "ラボ {0}: 応答なし (無限ループまたはデッドロック)", number));
+            Assert.IsFalse(result.Crashed, Loc.F("랩 {0}: 예외로 중단됨", "ラボ {0}: 例外で中断", number));
+            Assert.IsFalse(result.TimedOut, Loc.F("랩 {0}: 시간 초과", "ラボ {0}: タイムアウト", number));
+            Assert.AreEqual(0, result.Failed, Loc.F("랩 {0}: FAIL {1}개", "ラボ {0}: FAIL {1} 個", number, result.Failed));
+            Assert.Greater(result.Passed, 0, Loc.F("랩 {0}: PASS 가 하나도 없음", "ラボ {0}: PASS が 1 つもない", number));
         }
 
         [UnityTest] public IEnumerator Lab01_Tower() => Run(1);

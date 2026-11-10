@@ -38,18 +38,20 @@ namespace BugHunt
             FirstSkip = null;
         }
 
-        // what, message, reason 은 한국어 문장(표의 키)이나 이미 번역한 문장(Loc.F 의 결과)을 받는다. 여기서 Loc.T 로 지금 언어로 바꾼다.
-        // what, message, reason は韓国語の文 (表のキー) か、翻訳済みの文 (Loc.F の結果) を受け取ります。ここで Loc.T により今の言語に変えます。
+        // what, message, reason 은 언어를 이미 고른 문장(Loc.L / Loc.F 의 결과)을 받아 그대로 찍는다.
+        // 비교하는 두 값(expected, actual)도 같은 언어여야 한다: 한쪽이 Loc.L 이면 다른 쪽도 Loc.L 로 만든 값.
+        // what, message, reason は言語を選び済みの文 (Loc.L / Loc.F の結果) を受け取り、そのまま出力します。
+        // 比較する 2 つの値 (expected, actual) も同じ言語でなければなりません: 片方が Loc.L なら、もう片方も Loc.L で作った値。
         public static bool Expect<T>(string what, T expected, T actual)
         {
             bool ok = EqualityComparer<T>.Default.Equals(expected, actual);
             if (ok)
             {
-                PassText(Loc.F("{0} (값: {1})", Loc.T(what), Format(actual)));
+                PassText(Loc.F("{0} (값: {1})", "{0} (値: {1})", what, Format(actual)));
             }
             else
             {
-                FailText(Loc.F("{0} (기대: {1}, 실제: {2})", Loc.T(what), Format(expected), Format(actual)));
+                FailText(Loc.F("{0} (기대: {1}, 실제: {2})", "{0} (期待: {1}, 実際: {2})", what, Format(expected), Format(actual)));
             }
             return ok;
         }
@@ -59,11 +61,11 @@ namespace BugHunt
             bool ok = Mathf.Abs(expected - actual) <= tolerance;
             if (ok)
             {
-                PassText(Loc.F("{0} (값: {1:0.###})", Loc.T(what), actual));
+                PassText(Loc.F("{0} (값: {1:0.###})", "{0} (値: {1:0.###})", what, actual));
             }
             else
             {
-                FailText(Loc.F("{0} (기대: {1:0.###} ±{2:0.###}, 실제: {3:0.###})", Loc.T(what), expected, tolerance, actual));
+                FailText(Loc.F("{0} (기대: {1:0.###} ±{2:0.###}, 실제: {3:0.###})", "{0} (期待: {1:0.###} ±{2:0.###}, 実際: {3:0.###})", what, expected, tolerance, actual));
             }
             return ok;
         }
@@ -83,25 +85,25 @@ namespace BugHunt
 
         public static void Pass(string message)
         {
-            PassText(Loc.T(message));
+            PassText(message);
         }
 
         public static void Fail(string message)
         {
-            FailText(Loc.T(message));
+            FailText(message);
         }
 
         public static void Skip(string what, string reason)
         {
             ++Skipped;
-            string text = $"{Loc.T(what)} ({Loc.T(reason)})";
+            string text = $"{what} ({reason})";
             FirstSkip ??= text;
             Print($"[SKIP] {text}", Color.yellow);
         }
 
         public static void Note(string message)
         {
-            Print(Loc.T(message), Color.white);
+            Print(message, Color.white);
         }
 
         static void PassText(string text)
@@ -128,10 +130,6 @@ namespace BugHunt
             if (value is UnityEngine.Object obj)
             {
                 return obj == null ? "null" : obj.name;
-            }
-            if (value is string text)
-            {
-                return Loc.T(text);   // 비교는 원래 값으로 하고, 보여 줄 때만 번역한다 / 比較は元の値で行い、表示するときだけ翻訳します
             }
             return value == null ? "null" : value.ToString();
         }

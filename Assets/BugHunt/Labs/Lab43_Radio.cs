@@ -36,7 +36,7 @@ namespace BugHunt.Labs.Lab43
         }
     }
 
-    [Lab(43, "작전 브리핑", MakesSound = true, Symptom = "맞는 소리 때문에 브리핑이 끊긴다")]
+    [Lab(43, "작전 브리핑", "作戦ブリーフィング", MakesSound = true, Symptom = "맞는 소리 때문에 브리핑이 끊긴다", SymptomJa = "被弾の声のせいでブリーフィングが途切れる")]
     public class Lab43_Radio : Lab
     {
         public override IEnumerator Run()
@@ -56,14 +56,14 @@ namespace BugHunt.Labs.Lab43
 
             if (!audioWorks)
             {
-                Report.Skip("브리핑 재생", "오디오 출력 장치가 없거나 오디오가 꺼져 있습니다");
+                Report.Skip(Loc.L("브리핑 재생", "ブリーフィングの再生"), Loc.L("오디오 출력 장치가 없거나 오디오가 꺼져 있습니다", "オーディオ出力デバイスがないか、オーディオがオフになっています"));
                 yield break;
             }
-            Report.Expect("1초 뒤 Source 에 걸린 클립", briefing, voice.Source.clip);
-            Report.ExpectTrue("1초 뒤에도 브리핑 재생 중", voice.Source.isPlaying && voice.Source.clip == briefing);
+            Report.Expect(Loc.L("1초 뒤 Source 에 걸린 클립", "1 秒後に Source にセットされているクリップ"), briefing, voice.Source.clip);
+            Report.ExpectTrue(Loc.L("1초 뒤에도 브리핑 재생 중", "1 秒後にもブリーフィングが再生中"), voice.Source.isPlaying && voice.Source.clip == briefing);
             float elapsed = (float)(AudioSettings.dspTime - started);
-            Report.Note(Loc.F("재생을 시작한 뒤 오디오 시계로 {0:0.00}초", elapsed));
-            Report.ExpectNear("브리핑 재생 위치 - 재생을 시작한 뒤 흐른 시간(초)", 0f, voice.Source.time - elapsed, 0.25f);
+            Report.Note(Loc.F("재생을 시작한 뒤 오디오 시계로 {0:0.00}초", "再生を始めてからオーディオの時計で {0:0.00} 秒", elapsed));
+            Report.ExpectNear(Loc.L("브리핑 재생 위치 - 재생을 시작한 뒤 흐른 시간(초)", "ブリーフィングの再生位置 - 再生を始めてから経った時間 (秒)"), 0f, voice.Source.time - elapsed, 0.25f);
         }
     }
 }

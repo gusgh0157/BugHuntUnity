@@ -4,24 +4,31 @@ using UnityEngine;
 
 namespace BugHunt
 {
+    // 랩 이름과 증상. 특성(attribute) 인자에서는 Loc.L 을 부를 수 없으므로 한국어와 일본어를 따로 받는다:
+    //   [Lab(26, "상점 가격표", "ショップの価格表", Symptom = "...", SymptomJa = "...")]
+    // ラボの名前と症状。属性 (attribute) の引数では Loc.L を呼べないので、韓国語と日本語を別々に受け取ります:
+    //   [Lab(26, "상점 가격표", "ショップの価格表", Symptom = "...", SymptomJa = "...")]
     [AttributeUsage(AttributeTargets.Class)]
     public sealed class LabAttribute : Attribute
     {
         public int Number { get; }
         public string Title { get; }
+        public string TitleJa { get; }
 
         // 소리를 내는 랩. 랩 실행 창과 Console 첫 줄에 볼륨 주의를 띄운다.
         // 音が出るラボ。ラボ実行ウィンドウとコンソールの 1 行目に音量の注意を出します。
         public bool MakesSound { get; set; }
 
-        // 랩 실행 창에 이름과 함께 보이는 한 줄 증상(README 랩 표의 "증상"). Title 처럼 일본어 표의 키다.
-        // ラボ実行ウィンドウで名前と一緒に表示される 1 行の症状 (README のラボ表の「症状」)。Title と同じく日本語の表のキーです。
+        // 랩 실행 창에 이름과 함께 보이는 한 줄 증상(README 랩 표의 "증상").
+        // ラボ実行ウィンドウで名前と一緒に表示される 1 行の症状 (README のラボ表の「症状」)。
         public string Symptom { get; set; }
+        public string SymptomJa { get; set; }
 
-        public LabAttribute(int number, string title)
+        public LabAttribute(int number, string title, string titleJa)
         {
             Number = number;
             Title = title;
+            TitleJa = titleJa;
         }
     }
 

@@ -21,7 +21,7 @@ namespace BugHunt.Labs.Lab20
         }
     }
 
-    [Lab(20, "돌아서 쏘기", Symptom = "옆이나 뒤의 적에게 돌아서 쏜 화살이 늘 북쪽으로 날아간다")]
+    [Lab(20, "돌아서 쏘기", "振り向き撃ち", Symptom = "옆이나 뒤의 적에게 돌아서 쏜 화살이 늘 북쪽으로 날아간다", SymptomJa = "横や後ろの敵へ振り向いて撃った矢が、いつも北へ飛んでいく")]
     public class Lab20_TurnAndShoot : Lab
     {
         public override IEnumerator Run()
@@ -38,8 +38,8 @@ namespace BugHunt.Labs.Lab20
             yield return new WaitForSeconds(0.3f);
 
             Vector3 flown = arrow.transform.position - muzzle;
-            Report.ExpectTrue("화살이 날아갔다", flown.magnitude > 1f);
-            Report.ExpectNear("화살이 날아간 방향과 적 방향의 차이(도)", 0f, Vector3.Angle(flown, enemy.transform.position - archer.transform.position), 2f);
+            Report.ExpectTrue(Loc.L("화살이 날아갔다", "矢が飛んだ"), flown.magnitude > 1f);
+            Report.ExpectNear(Loc.L("화살이 날아간 방향과 적 방향의 차이(도)", "矢が飛んだ方向と敵の方向の差 (度)"), 0f, Vector3.Angle(flown, enemy.transform.position - archer.transform.position), 2f);
         }
     }
 }

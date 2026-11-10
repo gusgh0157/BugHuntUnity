@@ -28,7 +28,7 @@ namespace BugHunt.Labs.Lab17
         }
     }
 
-    [Lab(17, "검 줍기", Symptom = "주운 검이 손에 안 오고, 내려놓으면 엉뚱한 곳에서 작아진다")]
+    [Lab(17, "검 줍기", "剣を拾う", Symptom = "주운 검이 손에 안 오고, 내려놓으면 엉뚱한 곳에서 작아진다", SymptomJa = "拾った剣が手に来ず、置くと見当違いの場所で小さくなる")]
     public class Lab17_SwordPickup : Lab
     {
         Transform sword;
@@ -48,15 +48,15 @@ namespace BugHunt.Labs.Lab17
             yield return null;
 
             hand.PickUp(sword);
-            Report.ExpectNear("주운 직후 검 손잡이와 손 사이 거리(m)", 0f, Vector3.Distance(sword.position, hand.transform.position), 0.01f);
-            Report.ExpectNear("손에 쥔 검과 손의 방향 차이(도)", 0f, Quaternion.Angle(sword.rotation, hand.transform.rotation), 0.5f);
+            Report.ExpectNear(Loc.L("주운 직후 검 손잡이와 손 사이 거리(m)", "拾った直後の剣の柄と手の距離 (m)"), 0f, Vector3.Distance(sword.position, hand.transform.position), 0.01f);
+            Report.ExpectNear(Loc.L("손에 쥔 검과 손의 방향 차이(도)", "手に握った剣と手の向きの差 (度)"), 0f, Quaternion.Angle(sword.rotation, hand.transform.rotation), 0.5f);
 
             knight.transform.position += knight.transform.forward * 3f;
             yield return null;
             Vector3 handAtDrop = hand.transform.position;
             hand.Drop();
-            Report.ExpectNear("내려놓은 검과 손이 있던 자리 사이 거리(m)", 0f, Vector3.Distance(sword.position, handAtDrop), 0.01f);
-            Report.ExpectNear("내려놓은 검의 보이는 크기(lossyScale.x, 쥐고 있을 때 2)", 2f, sword.lossyScale.x, 0.01f);
+            Report.ExpectNear(Loc.L("내려놓은 검과 손이 있던 자리 사이 거리(m)", "置いた剣と、手があった場所の距離 (m)"), 0f, Vector3.Distance(sword.position, handAtDrop), 0.01f);
+            Report.ExpectNear(Loc.L("내려놓은 검의 보이는 크기(lossyScale.x, 쥐고 있을 때 2)", "置いた剣の見た目の大きさ (lossyScale.x、握っているときは 2)"), 2f, sword.lossyScale.x, 0.01f);
         }
 
         void OnDestroy()

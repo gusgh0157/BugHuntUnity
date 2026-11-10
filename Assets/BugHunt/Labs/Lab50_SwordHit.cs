@@ -35,7 +35,7 @@ namespace BugHunt.Labs.Lab50
         }
     }
 
-    [Lab(50, "검격 판정", Symptom = "휘두르는데 피해가 안 들어간다")]
+    [Lab(50, "검격 판정", "斬撃の判定", Symptom = "휘두르는데 피해가 안 들어간다", SymptomJa = "振っているのにダメージが入らない")]
     public class Lab50_SwordHit : Lab
     {
         public override IEnumerator Run()
@@ -54,7 +54,7 @@ namespace BugHunt.Labs.Lab50
                 swordsman.Swing();
                 yield return new WaitForSeconds(1.3f);
             }
-            Report.Expect("들어간 검격", swings, swordsman.HitsLanded);
+            Report.Expect(Loc.L("들어간 검격", "命中した斬撃"), swings, swordsman.HitsLanded);
         }
     }
 }

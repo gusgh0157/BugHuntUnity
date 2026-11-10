@@ -28,7 +28,7 @@ namespace BugHunt.Labs.Lab49
         }
     }
 
-    [Lab(49, "등 뒤의 발소리", Symptom = "화면 밖 경비병의 발소리가 안 난다")]
+    [Lab(49, "등 뒤의 발소리", "背後の足音", Symptom = "화면 밖 경비병의 발소리가 안 난다", SymptomJa = "画面外の警備兵の足音が鳴らない")]
     public class Lab49_Footsteps : Lab
     {
         public override IEnumerator Run()
@@ -47,8 +47,8 @@ namespace BugHunt.Labs.Lab49
 
             yield return new WaitForSeconds(2.1f);
 
-            Report.Note(Loc.F("경비병이 보이는가 (Renderer.isVisible): {0}", body.GetComponent<Renderer>().isVisible));
-            Report.ExpectTrue(Loc.F("발소리 이벤트 4번 이상 (실제 {0}번)", logic.Footsteps), logic.Footsteps >= 4);
+            Report.Note(Loc.F("경비병이 보이는가 (Renderer.isVisible): {0}", "警備兵が見えているか (Renderer.isVisible): {0}", body.GetComponent<Renderer>().isVisible));
+            Report.ExpectTrue(Loc.F("발소리 이벤트 4번 이상 (실제 {0}번)", "足音イベント 4 回以上 (実際 {0} 回)", logic.Footsteps), logic.Footsteps >= 4);
         }
     }
 }

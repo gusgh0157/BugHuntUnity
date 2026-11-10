@@ -53,14 +53,14 @@ namespace BugHunt.Labs.Lab56
             Elevator.Call(Floor);
             while (!Elevator.IsAt(Floor))   // 엘리베이터가 내 층에 올 때까지 / エレベーターが自分の階に来るまで
             {
-                HangGuard.Tick("Passenger.RideTo: 엘리베이터가 오기를 기다림");
+                HangGuard.Tick(Loc.L("Passenger.RideTo: 엘리베이터가 오기를 기다림", "Passenger.RideTo: エレベーターが来るのを待機"));
             }
 
             yield return new WaitForSeconds(0.1f);   // 타는 시간 / 乗る時間
             Elevator.Call(destination);
             while (!Elevator.IsAt(destination))   // 목표 층에 닿을 때까지 / 目的の階に着くまで
             {
-                HangGuard.Tick("Passenger.RideTo: 목표 층에 닿기를 기다림");
+                HangGuard.Tick(Loc.L("Passenger.RideTo: 목표 층에 닿기를 기다림", "Passenger.RideTo: 目的の階に着くのを待機"));
             }
 
             Floor = destination;
@@ -68,7 +68,7 @@ namespace BugHunt.Labs.Lab56
         }
     }
 
-    [Lab(56, "엘리베이터", Symptom = "엘리베이터를 부르는 순간 게임 전체가 멈춘다(CPU 한 코어 100%)")]
+    [Lab(56, "엘리베이터", "エレベーター", Symptom = "엘리베이터를 부르는 순간 게임 전체가 멈춘다(CPU 한 코어 100%)", SymptomJa = "エレベーターを呼んだ瞬間にゲーム全体が止まる (CPU 1 コア 100%)")]
     public class Lab56_Elevator : Lab
     {
         float savedCaptureDeltaTime;
@@ -97,9 +97,9 @@ namespace BugHunt.Labs.Lab56
                 yield return null;
             }
 
-            Report.ExpectTrue("승객이 도착함", passenger.Arrived);
-            Report.Expect("승객이 있는 층", destination, passenger.Floor);
-            Report.ExpectTrue(Loc.F("기다리는 동안 게임이 계속 돎 ({0}프레임)", Time.frameCount - startFrame), Time.frameCount - startFrame > 10);
+            Report.ExpectTrue(Loc.L("승객이 도착함", "乗客が到着した"), passenger.Arrived);
+            Report.Expect(Loc.L("승객이 있는 층", "乗客がいる階"), destination, passenger.Floor);
+            Report.ExpectTrue(Loc.F("기다리는 동안 게임이 계속 돎 ({0}프레임)", "待つ間もゲームが回り続けた ({0} フレーム)", Time.frameCount - startFrame), Time.frameCount - startFrame > 10);
         }
 
         void OnDestroy()

@@ -36,7 +36,7 @@ namespace BugHunt.Labs.Lab41
         }
     }
 
-    [Lab(41, "보스 대사", MakesSound = true, Symptom = "병사가 많으면 보스 대사가 안 들린다")]
+    [Lab(41, "보스 대사", "ボスのセリフ", MakesSound = true, Symptom = "병사가 많으면 보스 대사가 안 들린다", SymptomJa = "兵士が多いとボスのセリフが聞こえない")]
     public class Lab41_BossLine : Lab
     {
         public override IEnumerator Run()
@@ -58,10 +58,10 @@ namespace BugHunt.Labs.Lab41
 
             if (!boss.Voice.isPlaying)
             {
-                Report.Skip("보스 대사", "오디오 출력 장치가 없거나 오디오가 꺼져 있습니다");
+                Report.Skip(Loc.L("보스 대사", "ボスのセリフ"), Loc.L("오디오 출력 장치가 없거나 오디오가 꺼져 있습니다", "オーディオ出力デバイスがないか、オーディオがオフになっています"));
                 yield break;
             }
-            Report.ExpectTrue("보스 대사가 실제 음성으로 재생 중 (isVirtual == false)", !boss.Voice.isVirtual);
+            Report.ExpectTrue(Loc.L("보스 대사가 실제 음성으로 재생 중 (isVirtual == false)", "ボスのセリフが実音声で再生中 (isVirtual == false)"), !boss.Voice.isVirtual);
         }
     }
 }
