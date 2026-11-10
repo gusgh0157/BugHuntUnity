@@ -15,7 +15,7 @@
 経由したエンジン機能: Update は Unity が毎フレーム呼ぶ (下に自分のコードのフレームがない)。Destroy はフレームの最後に実際に破壊する
 本当の原因:        監視塔は「自分が倒したときだけ」次の標的を選ぶ。他人が標的を破壊するケースを考えていなかった。
 ```
-**修正:**
+**修正:** `Tower.Update` 全体を次のように置き換えます。
 ```csharp
 void Update()
 {
@@ -27,8 +27,25 @@ void Update()
             return;
         }
     }
+
     cooldown -= Time.deltaTime;
-    ...
+    if (cooldown > 0f)
+    {
+        return;
+    }
+    cooldown = FireInterval;
+
+    Vector3 aim = Target.transform.position - transform.position;
+    transform.rotation = Quaternion.LookRotation(aim);
+    if (Target.TakeDamage(10))
+    {
+        ++Kills;
+        Target = PickTarget();
+        if (Target == null)
+        {
+            enabled = false;   // 残りの敵がいない
+        }
+    }
 }
 ```
 **教訓:** Unity オブジェクトを持っているフィールドは **いつでも他人に破壊される可能性があります。** 使う直前に `== null` で確認するのが基本です。`MissingReferenceException` は「null だから」ではなく「破壊されたのにアクセスしたから」です。誰が破壊したかは `Destroy` の行 (または `OnDestroy`) にブレークポイントを置いてコールスタックを見ればすぐにわかります。
@@ -141,25 +158,36 @@ public class HealthBar : MonoBehaviour { ... }
 本当の原因:       GameInput.JumpDown (= Input.GetButtonDown) はそのフレームの間だけ true。FixedUpdate がそのフレームで実行されないと取りこぼし、
                  遅い PC (1 フレームに FixedUpdate 2 回) では逆に 2 回ジャンプする。
 ```
-**修正:**
+**修正:** `Jumper` クラス全体を次のように置き換えます。
 ```csharp
-bool jumpQueued;
-
-void Update()
+public class Jumper : MonoBehaviour
 {
-    if (GameInput.JumpDown)
+    public int Jumps;
+    Rigidbody body;
+    bool jumpQueued;   // Update で受け取った入力を FixedUpdate まで持っておく
+
+    void Awake()
     {
-        jumpQueued = true;
+        body = gameObject.AddComponent<Rigidbody>();
+        body.useGravity = false;
     }
-}
 
-void FixedUpdate()
-{
-    if (jumpQueued)
+    void Update()
     {
-        jumpQueued = false;
-        body.linearVelocity = Vector3.up * 5f;
-        ++Jumps;
+        if (GameInput.JumpDown)
+        {
+            jumpQueued = true;
+        }
+    }
+
+    void FixedUpdate()
+    {
+        if (jumpQueued)
+        {
+            jumpQueued = false;
+            body.linearVelocity = Vector3.up * 5f;
+            ++Jumps;
+        }
     }
 }
 ```
@@ -248,7 +276,7 @@ public class Weapon : MonoBehaviour
     }
 }
 ```
-(`WeaponData.Ammo` フィールドは削除して構いません。)
+`Weapon` クラス全体を上のコードに置き換えます。`WeaponData.Ammo` フィールドは削除しません。ラボがこの値で「アセットが変わっていないか」を確認します。
 **教訓:** ScriptableObject には **読み取り専用の設定** だけを置きます。ゲーム中に変わる状態はコンポーネント (インスタンス) が持ちます。実行時のコピーが必要なら `Instantiate(data)` を使います。ビルドではプログラムを再起動すると元の値に戻るので「エディターでだけ起きるバグ」のように見えますが、ビルドでも **同じ実行の中では** 2 人のプレイヤーが値を共有する本物のバグです。すでに値が減っているなら、エディターを再起動するかアセットを再インポート (Reimport) しましょう (`git status` で Rifle.asset が変わっていないかも確認)。
 
 ## ラボ 12 — フレームごとの移動量に deltaTime を掛けていない
@@ -270,10 +298,18 @@ transform.position += Vector3.forward * Speed * Time.deltaTime;
 ツール:           LateUpdate にトレースポイント → 残り距離がフレームごとに 0.9 倍。30fps 0.5 秒 = 15 フレーム → 0.9^15、120fps = 60 フレーム → 0.9^60
 本当の原因:       比率を固定した Lerp は「フレーム数」についてのべき乗だ。deltaTime を単純に掛けても (0.1f * dt * 60) 一次近似にすぎず合わない
 ```
-**修正:**
+**修正:** `FollowCamera` クラス全体を次のように置き換えます。`Smoothing` は `Sharpness` に変わります。
 ```csharp
-public float Sharpness = 6.32f;   // = -ln(1 - 0.1) * 60 : 60fps で 0.1 と同じ感触
-transform.position = Vector3.Lerp(transform.position, Target, 1f - Mathf.Exp(-Sharpness * Time.deltaTime));
+public class FollowCamera : MonoBehaviour
+{
+    public Vector3 Target;
+    public float Sharpness = 6.32f;   // = -ln(1 - 0.1) * 60 : 60fps で 0.1 と同じ感触
+
+    void LateUpdate()
+    {
+        transform.position = Vector3.Lerp(transform.position, Target, 1f - Mathf.Exp(-Sharpness * Time.deltaTime));
+    }
+}
 ```
 **教訓:** 「毎フレーム、残りの何 %」は指数減衰です。1 フレームの比率を `1 - e^(-k·dt)` にすれば、フレームをどう分割しても 1 秒後の結果は同じになります (`e^(-k·a) · e^(-k·b) = e^(-k·(a+b))`)。`Vector3.SmoothDamp`、`Mathf.SmoothDamp` もフレームに依存しません (カーブの形は違います)。
 
@@ -497,13 +533,18 @@ for (int i = Members.Count - 1; i >= 0; --i) { Members[i].TakeDamage(damage); } 
                  インスペクターにも 2 つのフィールドが表示されない
 本当の原因:       Instantiate と JsonUtility は Unity のシリアライズで値を移す。Dictionary とネストした List はシリアライズ対象ではないので、警告なしに抜け落ちる
 ```
-**修正:**
+**修正:** `Shop` クラス全体を次のように置き換え、そのすぐ上に `Shelf` クラスを追加します。
 ```csharp
 [System.Serializable]
-public class Shelf { public List<string> Items = new List<string>(); }
+public class Shelf
+{
+    public List<string> Items = new List<string>();
+}
 
 public class Shop : MonoBehaviour, ISerializationCallbackReceiver
 {
+    public string ShopName = "상점";   // ko-only: 직렬화 기본값. 랩은 Loc.L 로 덮어쓴다 / シリアライズの既定値 (ショップ)。ラボは Loc.L で上書きする
+    public int Gold;
     public Dictionary<string, int> Prices = new Dictionary<string, int>();
     public List<Shelf> Shelves = new List<Shelf>();
     [SerializeField] List<string> priceKeys = new List<string>();
@@ -511,18 +552,45 @@ public class Shop : MonoBehaviour, ISerializationCallbackReceiver
 
     public void OnBeforeSerialize()
     {
-        priceKeys.Clear(); priceValues.Clear();
-        foreach (var kv in Prices) { priceKeys.Add(kv.Key); priceValues.Add(kv.Value); }
+        priceKeys.Clear();
+        priceValues.Clear();
+        foreach (var kv in Prices)
+        {
+            priceKeys.Add(kv.Key);
+            priceValues.Add(kv.Value);
+        }
     }
 
     public void OnAfterDeserialize()
     {
         Prices = new Dictionary<string, int>();
-        for (int i = 0; i < priceKeys.Count; ++i) { Prices[priceKeys[i]] = priceValues[i]; }
+        for (int i = 0; i < priceKeys.Count; ++i)
+        {
+            Prices[priceKeys[i]] = priceValues[i];
+        }
     }
 
-    public void AddShelf(params string[] items) { Shelves.Add(new Shelf { Items = new List<string>(items) }); }
-    public string ItemAt(int shelf, int slot) { return Shelves[shelf].Items[slot]; }
+    public void SetPrice(string item, int price)
+    {
+        Prices[item] = price;
+    }
+
+    public int PriceOf(string item)
+    {
+        return Prices.TryGetValue(item, out int price) ? price : -1;
+    }
+
+    public void AddShelf(params string[] items)
+    {
+        Shelves.Add(new Shelf { Items = new List<string>(items) });
+    }
+
+    public int ShelfCount => Shelves.Count;
+
+    public string ItemAt(int shelf, int slot)
+    {
+        return Shelves[shelf].Items[slot];
+    }
 }
 ```
 **教訓:** インスペクターに表示されないフィールドは、プレハブ、シーンの保存、Instantiate、Undo、`JsonUtility` でも抜け落ちます。`Dictionary`、`T[,]`、`T[][]`、`List<List<T>>` は `[Serializable]` のラッパーや `ISerializationCallbackReceiver` でシリアライズ可能な形に変えます。コールバックはシリアライズ用のスレッドで呼ばれることがあるので、その中で Unity API を呼ばないでください。
@@ -560,14 +628,45 @@ return new List<Soldier>(results);
 ツール:           AttackTop にブレークポイント → ウォッチ式 top == null は true、(object)top == null は false
 本当の原因:       Destroy はネイティブオブジェクトだけを消す。Dictionary は C# オブジェクトをキーとして掴んでいるので項目とスコアがそのまま残り、スコア 1 位なので選ばれ続ける
 ```
-**修正:**
+**修正:** `Boss` クラス全体を次のように置き換えます。式形式だった `ThreatCount` は `Prune()` を呼ぶプロパティになります。
 ```csharp
-void Prune()
+public class Boss : MonoBehaviour
 {
-    foreach (Enemy dead in Threat.Keys.Where(e => e == null).ToList()) { Threat.Remove(dead); }
+    public readonly Dictionary<Enemy, float> Threat = new Dictionary<Enemy, float>();
+    public string LastTarget;
+
+    public void OnHit(Enemy attacker, float damage)
+    {
+        Threat.TryGetValue(attacker, out float threat);
+        Threat[attacker] = threat + damage;
+    }
+
+    // 破壊された敵 (Unity の == null) をリストから片付ける
+    void Prune()
+    {
+        foreach (Enemy dead in Threat.Keys.Where(e => e == null).ToList())
+        {
+            Threat.Remove(dead);
+        }
+    }
+
+    public int ThreatCount
+    {
+        get
+        {
+            Prune();
+            return Threat.Count;
+        }
+    }
+
+    public void AttackTop()
+    {
+        Prune();
+        Enemy top = Threat.OrderByDescending(kv => kv.Value).First().Key;
+        LastTarget = top.name;
+        top.transform.LookAt(transform);   // ボスの方を向かせる (攻撃の演出)
+    }
 }
-public int ThreatCount { get { Prune(); return Threat.Count; } }
-public void AttackTop() { Prune(); ... }
 ```
 (または `Enemy.OnDestroy` でイベントを発行し、`Boss` が受け取って `Threat.Remove(enemy)`)
 
@@ -580,9 +679,36 @@ public void AttackTop() { Prune(); ... }
 本当の原因:       Awake で作った view はその瞬間のメモリを指している (長さも 1 のまま固まっている)。メモリが実際に移されるのは Capacity を超える Add のときだが、
                   安全チェックは長さを変えるすべての書き込み (Add のたび) でリストのセカンダリバージョンを上げ、それより前に作った view を無効にする。AddNoResize だけは例外
 ```
-**修正:**
+**修正:** `Trail` クラス全体を次のように置き換えます。キャッシュしていた `view` フィールドと、`Awake` の `view = Points.AsArray();` の行は削除します。
 ```csharp
-public Vector3 StartPoint() { return Points[0]; }   // view をキャッシュしない。必要なら使うたびに Points.AsArray()
+public class Trail : MonoBehaviour
+{
+    public NativeList<Vector3> Points;
+
+    void Awake()
+    {
+        Points = new NativeList<Vector3>(4, Allocator.Persistent);
+        Points.Add(transform.position);   // 出発点
+    }
+
+    public void Step(Vector3 position)
+    {
+        Points.Add(position);
+    }
+
+    public Vector3 StartPoint()
+    {
+        return Points[0];   // view をキャッシュしない。ジョブに渡すときはそのたびに Points.AsArray()
+    }
+
+    void OnDestroy()
+    {
+        if (Points.IsCreated)
+        {
+            Points.Dispose();
+        }
+    }
+}
 ```
 **教訓:** `NativeList.AsArray()`、`List<T>` から得た `Span`、`NativeArray.GetSubArray` はコピーではなく **今のメモリの姿** です。長さを変える書き込みをまたいで持ち続けません (Capacity を十分に確保しても無駄です)。ジョブに渡すときはスケジュールの直前に作るか、`AsDeferredJobArray()` を使います。エディターの安全チェックが例外で知らせてくれますが、リリースビルドでは解放されたメモリを黙って読みます。
 
@@ -715,9 +841,32 @@ public static class WaveDirector
                  Debug.DrawRay でステップごとの移動距離 6m を描くと、壁を飛び越えているのが見える
 本当の原因:       デフォルトの Discrete (非連続的) はステップが終わった位置でしか重なりを見ない。300m/s × 0.02 秒 = 6m で 0.2m の壁を一度に越えた
 ```
-**修正:**
+**修正:** `Slug` クラス全体を次のように置き換えます。`Awake` に 1 行増えています。
 ```csharp
-rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+public class Slug : MonoBehaviour
+{
+    public int Hits;
+    Rigidbody rb;
+
+    void Awake()
+    {
+        rb = gameObject.AddComponent<Rigidbody>();
+        rb.useGravity = false;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;   // 速い弾だけ連続衝突検出
+    }
+
+    public void Fire(Vector3 velocity)
+    {
+        rb.linearVelocity = velocity;
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        Hits++;
+        rb.linearVelocity = Vector3.zero;   // めり込む
+        rb.isKinematic = true;
+    }
+}
 ```
 **教訓:** 「1 ステップで進む距離 > ぶつかる物の厚さ」ならトンネリングを疑います。速いものだけ Continuous 系 (連続的かつ動的など) をオンにし (高コストです)、非常に多い弾丸は Rigidbody の代わりにステップごとのレイキャストで判定します。壁を厚くしたり fixedDeltaTime を小さくしたりする方法は、速度がさらに上がるとまた問題になります。
 
@@ -728,11 +877,22 @@ rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
                  物理演算デバッガー (Physics Debugger) で Player と SpikeTrap がどちらも Static (静的) と表示される
 本当の原因:       Rigidbody のないコライダーは静的コライダーだ。静的コライダー同士は重なっても衝突・トリガーの判定をしない
 ```
-**修正:**
+**修正:** `Player` クラス全体を次のように置き換えます (`Awake` を追加)。罠は動かないのでそのままにします。
 ```csharp
-void Awake()
+public class Player : MonoBehaviour
 {
-    gameObject.AddComponent<Rigidbody>().isKinematic = true;   // コードで動かす側に Kinematic Rigidbody
+    public int Health = 100;
+    public float Speed = 4f;
+
+    void Awake()
+    {
+        gameObject.AddComponent<Rigidbody>().isKinematic = true;   // コードで動かす側に Kinematic Rigidbody
+    }
+
+    void Update()
+    {
+        transform.position += Vector3.right * Speed * Time.deltaTime;   // 自分で歩く (CharacterController なし)
+    }
 }
 ```
 **教訓:** `OnTriggerEnter`/`OnCollisionEnter` が呼ばれないなら、① どちらかに Rigidbody (または CharacterController) があるか ② レイヤーの衝突表 (Layer Collision Matrix) で 2 つのレイヤーがオンになっているか ③ トリガー同士なら片方に Rigidbody があるか ④ コライダーが無効になっていないか、を順に確認します。動くコライダーに Rigidbody を付けるのはパフォーマンスの面でも有利です (静的コライダーを動かすと物理シーンを作り直します)。
@@ -776,10 +936,16 @@ void FixedUpdate()
                  (Physics.autoSyncTransforms をオンにするとクエリごとに同期するが、2018.3 から既定でオフ。クエリごとのコストが大きいので推奨されず、
                   必要な所で Physics.SyncTransforms() を 1 回呼ぶのが定石)
 ```
-**修正:**
+**修正:** `Puzzle.ResetCrates` を次のように置き換えます。ラボ側 (`Run`) ではなく、箱を移すこの関数の最後に置きます。
 ```csharp
-for (int i = 0; i < Crates.Length; ++i) { Crates[i].position = StartPositions[i]; }
-Physics.SyncTransforms();
+public void ResetCrates()
+{
+    for (int i = 0; i < Crates.Length; ++i)
+    {
+        Crates[i].position = StartPositions[i];
+    }
+    Physics.SyncTransforms();   // 移した位置を今すぐ物理シーンに反映する
+}
 ```
 **教訓:** 瞬間移動、レベルの初期化、オブジェクトプールから取り出して配置した直後の Raycast・Overlap は古い位置を見ます。同じフレームでクエリする必要があるなら `Physics.SyncTransforms()` を一度呼ぶか、Rigidbody があるなら `rb.position` で動かします。1 フレーム待つと「勝手に直る」バグなので、再現しにくいです。
 
@@ -814,9 +980,16 @@ public void Equip(AudioClip fireClip)
 ツール:         プロファイラーのオーディオモジュール → 再生 41、実 32、仮想 9
 本当の原因:     最大実音声数 (Max Real Voices) 32 < 同時に再生しようとする音 41。優先度がすべて 128 なので、「より小さく聞こえる」ボスのセリフ (音量 0.6) が仮想に押し出された。
 ```
-**修正:**
+**修正:** `Boss.Speak` を次のように置き換えます。`Play()` の前に優先度を決めます。
 ```csharp
-Voice.priority = 0;   // 0 が最も重要
+public void Speak(AudioClip line)
+{
+    Voice = gameObject.AddComponent<AudioSource>();
+    Voice.clip = line;
+    Voice.volume = 0.6f;   // ボスの声は元の音が大きいので下げた
+    Voice.priority = 0;   // 0 が最も重要
+    Voice.Play();
+}
 ```
 (足音の側を `priority = 200` に下げても構いません。根本的には同じ音を何十個も同時に鳴らす必要はないので、足音の数を制限します。)
 **教訓:** 「音が聞こえない」の大きな原因の 1 つが **同時再生数の上限** です。仮想ボイスは位置だけ計算し続けて音は出さず、空きができると続きから鳴ります。重要な音 (セリフ、UI、警報) は priority で保護します。
@@ -983,7 +1156,10 @@ GetComponent<Animator>().cullingMode = AnimatorCullingMode.CullUpdateTransforms;
 最初にずれた所: Swing は 0.7 で抜け始め 0.8 で完全に終わる。0.9 のイベントは再生されない区間にある
 本当の原因:     アニメーションアセット。イベントがトランジションの後ろにある。
 ```
-**修正 (いずれか1つ):** アニメーターウィンドウで Swing → Idle トランジションの **終了時間を 0.95** に (イベントの後で遷移し始める)。またはアニメーションウィンドウで **Hit イベントを 0.5 秒** 付近 (刃が実際に当たる位置) に移動する。
+**修正:** コードではなくアニメーションのアセットを直します。プロジェクトウィンドウで `Assets/BugHunt/Resources/BugHunt/Animation/Swordsman.controller` をダブルクリックしてアニメーターウィンドウを開きます。Swing → Idle の矢印を選び、インスペクターの **終了時間 (Exit Time) を 0.7 から 0.95** に変えます (イベントの後で遷移し始める)。`Ctrl+S` で保存します。
+(Hit イベントを刃が実際に当たる 0.5 秒付近に前倒ししても直ります。ただし、アニメーションウィンドウでイベントを移すにはそのクリップを使う Animator のオブジェクトを選ぶ必要があり、このラボの Swordsman は実行中にしか存在しません。)
+
+注意: メニュー `BugHunt > 개발용 · 開発用 > 랩 에셋 다시 만들기 · ラボのアセットを作り直す` を押すと、アセットは最初の状態 (バグあり) に戻ります。作り直しても直した状態を保つには、`BugHuntAssetBuilder.cs` の `swingDone.exitTime = 0.7f;` を `0.95f` に変えます。
 **教訓:** トランジションの途中では 2 つのステートのクリップが一緒に再生されて両方のイベントが呼ばれますが、トランジションが **終わった後** は元のクリップはそれ以上進みません。判定用のイベントはトランジション開始前に置きます。被弾や回避のような割り込みで攻撃が中断されたときに判定が抜けるのも同じ原理で、それは意図した動作の場合もあります (企画と決めましょう)。
 
 ## ラボ 51 — アニメーションの結果を Update で読んでいる
